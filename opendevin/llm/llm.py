@@ -46,19 +46,19 @@ class LLM:
             allowed_fails=None,
             cooldown_time=self.cooldown_time
             )
-        except ValueError as e:
-            # Eat the exception and raise another without details.
-            # TODO: This is a temporary solution. We should find a better way to handle this.
-            logger.error("ValueError initializing LLM router.")
-            raise LlmInitializationException("Error initializing LLM router. Please check your credentials.")
-        except Exception as e:
-            logger.error("Error initializing LLM router.")
-            raise LlmInitializationException("Error initializing LLM router. Please check your credentials.")
-        
-        self._completion = partial(
-            self._router.completion, model=self.model_name)
 
-        completion_unwrapped = self._completion
+            self._completion = partial(
+                self._router.completion, model=self.model_name)
+
+            completion_unwrapped = self._completion
+        except ValueError as e:
+            # Eat the exception without traceback.
+            # TODO: This is a temporary solution. We should find a better way to handle this.
+            logger.error("ValueError initializing LLM router. Please check your credentials.")
+            raise LlmInitializationException("ValueError initializing LLM router. Please check your credentials.") from None
+        except Exception as e:
+            logger.error("Error initializing LLM router. Please check your credentials.")
+            raise LlmInitializationException("Error initializing LLM router. Please check your credentials.") from None
 
         def wrapper(*args, **kwargs):
             if 'messages' in kwargs:

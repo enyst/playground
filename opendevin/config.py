@@ -16,12 +16,14 @@ DEFAULT_CONFIG: dict = {
     ConfigType.SANDBOX_CONTAINER_IMAGE: 'ghcr.io/opendevin/sandbox',
     ConfigType.RUN_AS_DEVIN: 'true',
     ConfigType.LLM_EMBEDDING_MODEL: 'local',
-    ConfigType.LLM_NUM_RETRIES: 6,
-    ConfigType.LLM_COOLDOWN_TIME: 1,
+    ConfigType.LLM_NUM_RETRIES: 3,
+    ConfigType.LLM_COOLDOWN_TIME: 10,
     ConfigType.DIRECTORY_REWRITE: '',
     ConfigType.MAX_ITERATIONS: 100,
     ConfigType.AGENT: 'MonologueAgent',
 }
+
+
 
 config_str = ''
 if os.path.exists('config.toml'):

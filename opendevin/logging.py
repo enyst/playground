@@ -118,8 +118,10 @@ def get_llm_prompt_file_handler():
     Returns a file handler for LLM prompt logging.
     """
     llm_prompt_file_handler = LlmFileHandler('prompt')
-    llm_prompt_file_handler.setLevel(logging.INFO)
     llm_prompt_file_handler.setFormatter(llm_formatter)
+    llm_prompt_file_handler.setLevel(logging.INFO)
+    if os.getenv('DEBUG'):
+        llm_prompt_file_handler.setLevel(logging.DEBUG)
     return llm_prompt_file_handler
 
 
@@ -128,8 +130,10 @@ def get_llm_response_file_handler():
     Returns a file handler for LLM response logging.
     """
     llm_response_file_handler = LlmFileHandler('response')
-    llm_response_file_handler.setLevel(logging.INFO)
     llm_response_file_handler.setFormatter(llm_formatter)
+    llm_response_file_handler.setLevel(logging.INFO)
+    if os.getenv('DEBUG'):
+        llm_response_file_handler.setLevel(logging.DEBUG)
     return llm_response_file_handler
 
 
@@ -151,4 +155,25 @@ class LlmInitializationException(Exception):
             message (str): The error message.
         """
         super().__init__(message)
+
+    def __str__(self):
+        """
+        Returns a string representation of the exception.
+
+        Returns:
+            str: The string representation of the exception.
+        """
+        if self.args:
+            return self.args[0]
+        return ''
+
+    def __repr__(self):
+        """
+        Returns a string representation of the exception.
+
+        Returns:
+            str: The string representation of the exception.
+        """
+        return self.__str__()
+
 
