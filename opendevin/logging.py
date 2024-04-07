@@ -57,20 +57,18 @@ def log_uncaught_exceptions(ex_cls, ex, tb):
     Returns:
         None
     """
-    logging.error(''.join(traceback.format_tb(tb)))
-    logging.error('{0}: {1}'.format(ex_cls, ex))
-
+    opendevin_logger.error(''.join(traceback.format_tb(tb)))
+    opendevin_logger.error('{0}: {1}'.format(ex_cls, ex))
 
 sys.excepthook = log_uncaught_exceptions
 
 opendevin_logger = logging.getLogger("opendevin")
-opendevin_logger.setLevel(logging.INFO)
-opendevin_logger.addHandler(get_console_handler())
-opendevin_logger.addHandler(get_file_handler())
-opendevin_logger.propagate = False
-opendevin_logger.debug('Logging initialized')
-opendevin_logger.debug('Logging to %s', os.path.join(
-    os.getcwd(), 'logs', 'opendevin.log'))
+
+if not opendevin_logger.handlers:
+    opendevin_logger.setLevel(logging.INFO)
+    opendevin_logger.addHandler(get_console_handler())
+    opendevin_logger.addHandler(get_file_handler())
+    opendevin_logger.propagate = False
 
 # Exclude "litellm" from logging output
 logging.getLogger('LiteLLM').disabled = True
