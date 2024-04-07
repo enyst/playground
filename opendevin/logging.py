@@ -70,7 +70,7 @@ if not opendevin_logger.handlers:
     opendevin_logger.addHandler(get_file_handler())
     opendevin_logger.propagate = False
 
-# Exclude "litellm" from logging output
+# Exclude LiteLLM from logging output
 logging.getLogger('LiteLLM').disabled = True
 logging.getLogger('LiteLLM Router').disabled = True
 logging.getLogger('LiteLLM Proxy').disabled = True
@@ -140,3 +140,15 @@ llm_prompt_logger.addHandler(get_llm_prompt_file_handler())
 llm_response_logger = logging.getLogger('response')
 llm_response_logger.propagate = False
 llm_response_logger.addHandler(get_llm_response_file_handler())
+
+# LLM initialization exception, wrapping errors from LiteLLM during LLM initialization
+class LlmInitializationException(Exception):
+    def __init__(self, message):
+        """
+        Initializes an instance of LlmInitializationException.
+
+        Args:
+            message (str): The error message.
+        """
+        super().__init__(message)
+

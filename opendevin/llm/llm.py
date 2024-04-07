@@ -4,6 +4,7 @@ from litellm.router import Router
 from functools import partial
 
 from opendevin import config
+from opendevin.logging import opendevin_logger as logger, LlmInitializationException
 from opendevin.logging import llm_prompt_logger, llm_response_logger
 
 DEFAULT_API_KEY = config.get('LLM_API_KEY')
@@ -30,20 +31,30 @@ class LLM:
 
         # We use litellm's Router in order to support retries (especially rate limit backoff retries).
         # Typically you would use a whole model list, but it's unnecessary with our implementation's structure
-        self._router = Router(
-            model_list=[{
-                'model_name': self.model_name,
-                'litellm_params': {
+        try:
+            self._router = Router(
+                model_list=[{
+                    'model_name': self.model_name,
+                    'litellm_params': {
                     'model': self.model_name,
                     'api_key': self.api_key,
                     'api_base': self.base_url
                 }
             }],
             num_retries=self.num_retries,
-            # We allow all retries to fail, so they can retry instead of going into "cooldown"
-            allowed_fails=self.num_retries,
+            # Give a little time before retrying
+            allowed_fails=None,
             cooldown_time=self.cooldown_time
-        )
+            )
+        except ValueError as e:
+            # Eat the exception and raise another without details.
+            # TODO: This is a temporary solution. We should find a better way to handle this.
+            logger.error("ValueError initializing LLM router.")
+            raise LlmInitializationException("Error initializing LLM router. Please check your credentials.")
+        except Exception as e:
+            logger.error("Error initializing LLM router.")
+            raise LlmInitializationException("Error initializing LLM router. Please check your credentials.")
+        
         self._completion = partial(
             self._router.completion, model=self.model_name)
 
