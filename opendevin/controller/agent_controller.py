@@ -1,13 +1,15 @@
 import asyncio
 import inspect
 import traceback
-from typing import List, Callable, Literal, Mapping, Awaitable, Any, cast
-
-from termcolor import colored
-
+from typing import List, Callable, Awaitable, cast
 from opendevin.plan import Plan
 from opendevin.state import State
 from opendevin.agent import Agent
+from opendevin.observation import Observation, AgentErrorObservation, NullObservation
+from opendevin import config
+from opendevin.logging import opendevin_logger as logger
+from .command_manager import CommandManager
+
 from opendevin.action import (
     Action,
     NullAction,
@@ -15,56 +17,9 @@ from opendevin.action import (
     AddTaskAction,
     ModifyTaskAction,
 )
-from opendevin.observation import Observation, AgentErrorObservation, NullObservation
-from opendevin import config
-from opendevin.logging import opendevin_logger as logger
-
-from .command_manager import CommandManager
 
 
-ColorType = Literal[
-    'red',
-    'green',
-    'yellow',
-    'blue',
-    'magenta',
-    'cyan',
-    'light_grey',
-    'dark_grey',
-    'light_red',
-    'light_green',
-    'light_yellow',
-    'light_blue',
-    'light_magenta',
-    'light_cyan',
-    'white',
-]
-
-
-DISABLE_COLOR_PRINTING = (
-    config.get_or_default('DISABLE_COLOR', 'false').lower() == 'true'
-)
 MAX_ITERATIONS = config.get('MAX_ITERATIONS')
-
-
-def print_with_color(text: Any, print_type: str = 'INFO'):
-    TYPE_TO_COLOR: Mapping[str, ColorType] = {
-        'BACKGROUND LOG': 'blue',
-        'ACTION': 'green',
-        'OBSERVATION': 'yellow',
-        'INFO': 'cyan',
-        'ERROR': 'red',
-        'PLAN': 'light_magenta',
-    }
-    color = TYPE_TO_COLOR.get(print_type.upper(), TYPE_TO_COLOR['INFO'])
-    if DISABLE_COLOR_PRINTING:
-        print(f"\n{print_type.upper()}:\n{str(text)}", flush=True)
-    else:
-        print(
-            colored(f"\n{print_type.upper()}:\n", color, attrs=['bold'])
-            + colored(str(text), color),
-            flush=True,
-        )
 
 
 class AgentController:
@@ -118,15 +73,15 @@ class AgentController:
             logger.info('Exited before finishing the task.')
 
     async def step(self, i: int):
-        print('\n\n==============', flush=True)
-        print('STEP', i, flush=True)
-        print_with_color(self.state.plan.main_goal, 'PLAN')
+        logger.info('\n\n==============', extra={'msg_type': 'STEP'})
+        logger.info(f'STEP {i}', extra={'msg_type': 'STEP'})
+        logger.info(self.state.plan.main_goal, extra={'msg_type': 'PLAN'})
 
         log_obs = self.command_manager.get_background_obs()
         for obs in log_obs:
             self.add_history(NullAction(), obs)
             await self._run_callbacks(obs)
-            print_with_color(obs, 'BACKGROUND LOG')
+            logger.info(obs, extra={'msg_type': 'BACKGROUND LOG'})
 
         self.update_state_for_step(i)
         action: Action = NullAction()
@@ -135,10 +90,10 @@ class AgentController:
             action = self.agent.step(self.state)
             if action is None:
                 raise ValueError('Agent must return an action')
-            print_with_color(action, 'ACTION')
+            logger.info(action, extra={'msg_type': 'ACTION'})
         except Exception as e:
             observation = AgentErrorObservation(str(e))
-            print_with_color(observation, 'ERROR')
+            logger.info(observation, extra={'msg_type': 'ERROR'})
             traceback.print_exc()
             # TODO Change to more robust error handling
             if 'The api_key client option must be set' or 'Incorrect API key provided:' in observation.content:
@@ -149,7 +104,7 @@ class AgentController:
 
         finished = isinstance(action, AgentFinishAction)
         if finished:
-            print_with_color(action, 'INFO')
+            logger.info(action, extra={'msg_type': 'INFO'})
             return True
 
         if isinstance(action, AddTaskAction):
@@ -158,14 +113,14 @@ class AgentController:
                     action.parent, action.goal, action.subtasks)
             except Exception as e:
                 observation = AgentErrorObservation(str(e))
-                print_with_color(observation, 'ERROR')
+                logger.info(observation, extra={'msg_type': 'ERROR'})
                 traceback.print_exc()
         elif isinstance(action, ModifyTaskAction):
             try:
                 self.state.plan.set_subtask_state(action.id, action.state)
             except Exception as e:
                 observation = AgentErrorObservation(str(e))
-                print_with_color(observation, 'ERROR')
+                logger.info(observation, extra={'msg_type': 'ERROR'})
                 traceback.print_exc()
 
         if action.executable:
@@ -176,11 +131,11 @@ class AgentController:
                     observation = action.run(self)
             except Exception as e:
                 observation = AgentErrorObservation(str(e))
-                print_with_color(observation, 'ERROR')
+                logger.info(observation, extra={'msg_type': 'ERROR'})
                 traceback.print_exc()
 
         if not isinstance(observation, NullObservation):
-            print_with_color(observation, 'OBSERVATION')
+            logger.info(observation, extra={'msg_type': 'OBSERVATION'})
 
         self.add_history(action, observation)
         await self._run_callbacks(observation)

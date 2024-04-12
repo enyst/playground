@@ -3,11 +3,66 @@ import os
 import sys
 import traceback
 from datetime import datetime
+from opendevin import config
+from typing import Literal, Mapping, Any
+from termcolor import colored
 
-console_formatter = logging.Formatter(
-    '\033[92m%(asctime)s - %(name)s:%(levelname)s\033[0m: %(filename)s:%(lineno)s - %(message)s',
+DISABLE_COLOR_PRINTING = (
+    config.get_or_default('DISABLE_COLOR', 'false').lower() == 'true'
+)
+
+ColorType = Literal[
+    'red',
+    'green',
+    'yellow',
+    'blue',
+    'magenta',
+    'cyan',
+    'light_grey',
+    'dark_grey',
+    'light_red',
+    'light_green',
+    'light_yellow',
+    'light_blue',
+    'light_magenta',
+    'light_cyan',
+    'white',
+]
+
+LOG_COLORS: Mapping[str, ColorType] = {
+    'BACKGROUND LOG': 'blue',
+    'ACTION': 'green',
+    'OBSERVATION': 'yellow',
+    'INFO': 'cyan',
+    'ERROR': 'red',
+    'PLAN': 'light_magenta',
+}
+
+def print_with_color(text: Any, print_type: str = 'INFO'):
+    color = LOG_COLORS.get(print_type.upper(), LOG_COLORS['INFO'])
+    if DISABLE_COLOR_PRINTING:
+        print(f"\n{print_type.upper()}:\n{str(text)}", flush=True)
+    else:
+        print(
+            colored(f"\n{print_type.upper()}:\n", color, attrs=['bold'])
+            + colored(str(text), color),
+            flush=True,
+        )
+
+
+class ColoredFormatter(logging.Formatter):
+    def format(self, record):
+        msg_type = record.__dict__.get('msg_type', 'INFO')
+        if msg_type in LOG_COLORS and not DISABLE_COLOR_PRINTING:
+            msg_type_color = colored(msg_type, LOG_COLORS[msg_type])
+            record.msg_type = msg_type_color
+        return super().format(record)
+
+console_formatter = ColoredFormatter(
+    '\033[92m%(asctime)s - %(name)s:%(levelname)s\033[0m: %(filename)s:%(lineno)s - %(msg_type)s - %(message)s',
     datefmt='%H:%M:%S',
 )
+
 file_formatter = logging.Formatter(
     '%(asctime)s - %(name)s:%(levelname)s: %(filename)s:%(lineno)s - %(message)s',
     datefmt='%H:%M:%S',
