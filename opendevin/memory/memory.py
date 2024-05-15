@@ -1,131 +1,195 @@
-import threading
+import importlib
+import json
+import logging
+import pkgutil
+import re
+from typing import Any
 
 import chromadb
-import llama_index.embeddings.openai.base as llama_openai
-from llama_index.core import Document, VectorStoreIndex
-from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from openai._exceptions import APIConnectionError, InternalServerError, RateLimitError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_random_exponential,
-)
+import openai
+from langchain.docstore.document import Document
+from langchain.embeddings import __path__ as embeddings_path
+from langchain.schema.embeddings import Embeddings
+from langchain.vectorstores import Chroma
 
 from opendevin.core.config import config
-from opendevin.core.logger import opendevin_logger as logger
-from opendevin.core.utils import json
 
-num_retries = config.llm.num_retries
-retry_min_wait = config.llm.retry_min_wait
-retry_max_wait = config.llm.retry_max_wait
-
-# llama-index includes a retry decorator around openai.get_embeddings() function
-# it is initialized with hard-coded values and errors
-# this non-customizable behavior is creating issues when it's retrying faster than providers' rate limits
-# this block attempts to banish it and replace it with our decorator, to allow users to set their own limits
-
-if hasattr(llama_openai.get_embeddings, '__wrapped__'):
-    original_get_embeddings = llama_openai.get_embeddings.__wrapped__
-else:
-    logger.warning('Cannot set custom retry limits.')
-    num_retries = 1
-    original_get_embeddings = llama_openai.get_embeddings
+logger = logging.getLogger(__name__)
 
 
-def attempt_on_error(retry_state):
-    logger.error(
-        f'{retry_state.outcome.exception()}. Attempt #{retry_state.attempt_number} | You can customize these settings in the configuration.',
-        exc_info=False,
-    )
-    return True
-
-
-@retry(
-    reraise=True,
-    stop=stop_after_attempt(num_retries),
-    wait=wait_random_exponential(min=retry_min_wait, max=retry_max_wait),
-    retry=retry_if_exception_type(
-        (RateLimitError, APIConnectionError, InternalServerError)
-    ),
-    after=attempt_on_error,
-)
-def wrapper_get_embeddings(*args, **kwargs):
-    return original_get_embeddings(*args, **kwargs)
-
-
-llama_openai.get_embeddings = wrapper_get_embeddings
-
-
-class EmbeddingsLoader:
-    """Loader for embedding model initialization."""
+class EmbeddingLoader:
+    """
+    Class to load embedding models based on the provided module name and kwargs.
+    """
 
     @staticmethod
-    def get_embedding_model(strategy: str):
-        supported_ollama_embed_models = [
-            'llama2',
-            'mxbai-embed-large',
-            'nomic-embed-text',
-            'all-minilm',
-            'stable-code',
-        ]
-        if strategy in supported_ollama_embed_models:
-            from llama_index.embeddings.ollama import OllamaEmbedding
+    def get_embedding_model(
+        module_name: str, params: dict[str, Any] | None = None
+    ) -> Embeddings:
+        """
+        Load and return an embedding model instance based on the provided module name and params.
 
-            return OllamaEmbedding(
-                model_name=strategy,
-                base_url=config.llm.embedding_base_url,
-                ollama_additional_kwargs={'mirostat': 0},
-            )
-        elif strategy == 'openai':
-            from llama_index.embeddings.openai import OpenAIEmbedding
+        Args:
+            module_name (str): Name of the module containing the embedding model to load.
+            params [dict[str, Any]] | None: Additional parameters required for the embedding model.
 
-            return OpenAIEmbedding(
-                model='text-embedding-ada-002',
-                api_key=config.llm.api_key,
-            )
-        elif strategy == 'azureopenai':
-            from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
+        Returns:
+            Any: Instance of the embedding model.
 
-            return AzureOpenAIEmbedding(
-                model='text-embedding-ada-002',
-                deployment_name=config.llm.embedding_deployment_name,
-                api_key=config.llm.api_key,
-                azure_endpoint=config.llm.base_url,
-                api_version=config.llm.api_version,
-            )
-        elif (strategy is not None) and (strategy.lower() == 'none'):
-            # TODO: this works but is not elegant enough. The incentive is when
-            # monologue agent is not used, there is no reason we need to initialize an
-            # embedding model
-            return None
+        Raises:
+            ValueError: If an unsupported module name or parameters are provided.
+        """
+        params = params or {}
+        module_name = module_name.lower()
+
+        for loader, m, is_pkg in pkgutil.walk_packages(embeddings_path):
+            if m == module_name:
+                module_path = f'langchain.embeddings.{module_name}'
+                break
         else:
-            from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+            raise ValueError(f'Unsupported embedding module: {module_name}')
 
-            return HuggingFaceEmbedding(model_name='BAAI/bge-small-en-v1.5')
+        module = importlib.import_module(module_path)
+
+        class_name = EmbeddingLoader._get_class_name(module_path)
+        embedding_class = getattr(module, class_name)
+
+        return embedding_class(**params)
+
+    @staticmethod
+    def _get_class_name(module_path: str) -> str:
+        """
+        Determine the class name based on the module path.
+
+        #FIXME It will work for most cases, but another config parameter will be needed for cases with more than one embedding class per module.
+
+        Args:
+            module_path (str): The module path for the embedding model.
+
+        Returns:
+            str: The class name for the embedding model.
+        """
+        module_name = module_path.split('.')[-1]
+        if 'ai' in module_name.lower() or 'ml' in module_name.lower():
+            class_name = ''.join(
+                part.capitalize() for part in re.split(r'(?=[A-Z])', module_name)
+            )
+        elif '_' in module_name:
+            parts = module_name.split('_')
+            class_name = ''.join(part.capitalize() for part in parts)
+        else:
+            class_name = module_name.capitalize() + 'Embeddings'
+
+        return class_name
+
+    @staticmethod
+    def get_default_model(embedding_type):
+        # retrieve the default model for the given embedding type
+        return 'BAAI/bge-small-en-v1.5'
+
+    @staticmethod
+    def examples():
+        # Examples usage
+        embedding_type = config.llm.embedding_type
+        embedding_params = {
+            'model_name': config.llm.embedding_model
+            if config.llm.embedding_model
+            else EmbeddingLoader.get_default_model(embedding_type)
+        }
+        embedding_model = EmbeddingLoader.get_embedding_model(
+            embedding_type, embedding_params
+        )
+
+        openai_params = {'openai_api_key': 'your_openai_api_key'}
+        openai_embeddings = EmbeddingLoader.get_embedding_model('openai', openai_params)
+
+        huggingface_params = {'model_name': 'sentence-transformers/all-MiniLM-L6-v2'}
+        huggingface_embeddings = EmbeddingLoader.get_embedding_model(
+            'huggingface', huggingface_params
+        )
+
+        instruct_params = {'model_name': 'hkunlp/instructor-xl'}
+        instruct_embeddings = EmbeddingLoader.get_embedding_model(
+            'huggingface_instruct', instruct_params
+        )
+
+        sentence_transformer_params = {'model_name': 'paraphrase-MiniLM-L6-v2'}
+        sentence_transformer_embeddings = EmbeddingLoader.get_embedding_model(
+            'sentence_transformer', sentence_transformer_params
+        )
 
 
-sema = threading.Semaphore(value=config.agent.memory_max_threads)
+# WIP, so disabled for now: do nothing in the global space
 
 
 class LongTermMemory:
     """
-    Handles storing information for the agent to access later, using chromadb.
+    Handles storing information for the agent to access later, using Chroma.
     """
 
-    def __init__(self):
+    def __init__(self, embedding_model):
         """
-        Initialize the chromadb and set up ChromaVectorStore for later use.
+        Initialize Chroma with the provided embedding model.
         """
-        db = chromadb.Client(chromadb.Settings(anonymized_telemetry=False))
-        self.collection = db.get_or_create_collection(name='memories')
-        vector_store = ChromaVectorStore(chroma_collection=self.collection)
-        embedding_strategy = config.llm.embedding_model
-        embed_model = EmbeddingsLoader.get_embedding_model(embedding_strategy)
-        self.index = VectorStoreIndex.from_vector_store(vector_store, embed_model)
-        self.thought_idx = 0
-        self._add_threads = []
+        self.chroma_db = Chroma(
+            collection_name='memories',
+            persist_directory='chroma',
+            embedding_function=embedding_model,
+            client_settings=chromadb.config.Settings(telemetry_enabled=False),
+        )
+
+    def add_docs(self, docs: list[dict]):
+        """
+        Add multiple documents to the memory in a batch.
+        """
+        embeddings = self._create_embeddings(docs)
+        docs = [
+            Document(page_content=str(doc), metadata=doc, embedding=embedding)
+            for doc, embedding in zip(docs, embeddings)
+        ]
+        self.chroma_db.add_texts(docs, batched=True, batch_size=50)
+
+    def _create_embeddings(self, docs: list[dict]) -> list[list[float]]:
+        """
+        Create embeddings for the given documents using OpenAI.
+        """
+        logger.info(f'Creating embeddings for {len(docs)} documents')
+        openai.api_key = config.llm.api_key
+        texts = [str(doc) for doc in docs]
+        embeddings = openai.Embedding.create(input=texts)['data']
+        logger.info('Embeddings created successfully')
+        return [embedding['embedding'] for embedding in embeddings]
+
+    def add_doc(self, doc: dict):
+        """
+        Add a single document to the memory.
+        """
+        logger.info('Adding a single document to the index')
+        embedding = self._create_embeddings([doc])[0]
+        self.chroma_db.add_texts(
+            [Document(page_content=str(doc), metadata=doc, embedding=embedding)]
+        )
+        logger.info('Document added to the index')
+
+    def add_docs(self, docs: list[dict]):
+        """
+        Add multiple documents to the memory in a batch.
+        """
+        logger.info(f'Adding {len(docs)} documents to the index in batches')
+
+        initial_docs = [
+            {
+                'Action': 'FileReadAction',
+                'args': [{'content': 'some content', 'path': '/workspace/song.txt'}],
+            }
+        ]
+        embeddings = self._create_embeddings(docs)
+        documents = [
+            Document(page_content=str(doc), metadata=doc, embedding=embedding)
+            for doc, embedding in zip(docs, embeddings)
+        ]
+        self.chroma_db.add_texts(documents, batched=True, batch_size=50)
+        logger.info('Documents added to the index')
 
     def add_event(self, event: dict):
         """
@@ -153,28 +217,22 @@ class LongTermMemory:
         )
         self.thought_idx += 1
         logger.debug('Adding %s event to memory: %d', t, self.thought_idx)
-        thread = threading.Thread(target=self._add_doc, args=(doc,))
-        self._add_threads.append(thread)
-        thread.start()  # We add the doc concurrently so we don't have to wait ~500ms for the insert
-
-    def _add_doc(self, doc):
-        with sema:
-            self.index.insert(doc)
+        self._add_doc(doc)
 
     def search(self, query: str, k: int = 10):
         """
-        Searches through the current memory using VectorIndexRetriever
-
-        Parameters:
-        - query (str): A query to match search results to
-        - k (int): Number of top results to return
-
-        Returns:
-        - list[str]: list of top k results found in current memory
+        Search through the current memory and return the top k results.
         """
-        retriever = VectorIndexRetriever(
-            index=self.index,
-            similarity_top_k=k,
-        )
-        results = retriever.retrieve(query)
-        return [r.get_text() for r in results]
+        logger.info(f"Searching for '{query}' in the index (top {k} results)")
+        results = self.chroma_db.similarity_search(query, k=k)
+        logger.info(f'Found {len(results)} results')
+
+        # old code
+        # retriever = VectorIndexRetriever(
+        #    index=self.index,
+        #    similarity_top_k=k,
+        # )
+        # results = retriever.retrieve(query)
+        # return [r.get_text() for r in results]
+        # end old code
+        return [result.metadata for result in results]

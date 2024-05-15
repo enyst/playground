@@ -23,6 +23,7 @@ class LLMConfig(metaclass=Singleton):
     api_key: str | None = None
     base_url: str | None = None
     api_version: str | None = None
+    embedding_type: str = 'huggingface'
     embedding_model: str = 'local'
     embedding_base_url: str | None = None
     embedding_deployment_name: str | None = None
