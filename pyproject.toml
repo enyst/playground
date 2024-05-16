@@ -42,7 +42,7 @@ transformers="*"
 [tool.poetry.group.dev.dependencies]
 ruff = "0.3.7"
 mypy = "1.9.0"
-pre-commit = "3.7.0"
+pre-commit = "3.7.1"
 
 [tool.poetry.group.test.dependencies]
 pytest = "*"
@@ -52,8 +52,10 @@ pytest-asyncio = "*"
 [tool.coverage.run]
 concurrency = ["gevent"]
 
+
 [tool.poetry.group.evaluation.dependencies]
-torch = "2.2.2"
+streamlit = "*"
+whatthepatch = "*"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
