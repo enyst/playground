@@ -46,8 +46,87 @@ class ChromaEmbeddingLoader:
     def print_all_embedding_functions():
         """
         Print all the available embedding functions in chroma.
+
+        Result:
+        {
+            "AmazonBedrockEmbeddingFunction": [
+                "session",
+                "model_name",
+                "kwargs"
+            ],
+            "CohereEmbeddingFunction": [
+                "api_key",
+                "model_name"
+            ],
+            "EmbeddingFunction": [
+                "args",
+                "kwargs"
+            ],
+            "GoogleGenerativeAiEmbeddingFunction": [
+                "api_key",
+                "model_name",
+                "task_type"
+            ],
+            "GooglePalmEmbeddingFunction": [
+                "api_key",
+                "model_name"
+            ],
+            "GoogleVertexEmbeddingFunction": [
+                "api_key",
+                "model_name",
+                "project_id",
+                "region"
+            ],
+            "HuggingFaceEmbeddingFunction": [
+                "api_key",
+                "model_name"
+            ],
+            "InstructorEmbeddingFunction": [
+                "model_name",
+                "device",
+                "instruction"
+            ],
+            "JinaEmbeddingFunction": [
+                "api_key",
+                "model_name"
+            ],
+            "OllamaEmbeddingFunction": [
+                "url",
+                "model_name"
+            ],
+            "OpenAIEmbeddingFunction": [
+                "api_key",
+                "model_name",
+                "organization_id",
+                "api_base",
+                "api_type",
+                "api_version",
+                "deployment_id",
+                "default_headers"
+            ],
+            "OpenCLIPEmbeddingFunction": [
+                "model_name",
+                "checkpoint",
+                "device"
+            ],
+            "RoboflowEmbeddingFunction": [
+                "api_key",
+                "api_url"
+            ],
+            "SentenceTransformerEmbeddingFunction": [
+                "model_name",
+                "device",
+                "normalize_embeddings",
+                "kwargs"
+            ],
+            "Text2VecEmbeddingFunction": [
+                "model_name"
+            ]
+        }
         """
         embedding_kwargs_map = {}
+
+        # The default embedding function in chroma is ONNXMiniLM_L6_V2
 
         for name, obj in inspect.getmembers(embedding_functions):
             if inspect.isclass(obj) and name.endswith('EmbeddingFunction'):
