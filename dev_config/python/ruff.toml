@@ -4,11 +4,6 @@ exclude = [
 
 [lint]
 select = [
-    "E",
-    "W",
-    "F",
-    "I",
-    "Q",
     "B"
 ]
 
