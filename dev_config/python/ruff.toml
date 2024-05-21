@@ -13,6 +13,8 @@ ignore = [
     "B007",
     "B009",
     "B010",
+    "B904",
+    "B018",
 ]
 
 [lint.flake8-quotes]
