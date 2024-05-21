@@ -9,10 +9,10 @@ select = [
 
 ignore = [
     "E501",
+    "B003",
+    "B007",
     "B009",
     "B010",
-    "B003",
-    "B020"
 ]
 
 [lint.flake8-quotes]
