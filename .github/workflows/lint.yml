@@ -54,4 +54,3 @@ jobs:
           --files opendevin/ \
           --show-diff-on-failure \
           --config ./dev_config/python/.pre-commit-config.yaml
-            --config ./dev_config/python/.pre-commit-config.yaml
