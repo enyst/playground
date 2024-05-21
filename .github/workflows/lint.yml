@@ -51,6 +51,7 @@ jobs:
         run: |
           git fetch https://github.com/enyst/OpenDevin.git enyst-patch-1:enyst-patch-1 && \
           pre-commit run \
+          --all-files \
           --files opendevin/ \
           --show-diff-on-failure \
           --config ./dev_config/python/.pre-commit-config.yaml
