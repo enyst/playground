@@ -98,11 +98,11 @@ EOF
 
 def test_ssh_box_run_as_devin(temp_dir):
     # get a temporary directory
-    with patch.object(config, 'workspace_base', new=temp_dir), patch.object(
-        config, 'workspace_mount_path', new=temp_dir
-    ), patch.object(config, 'run_as_devin', new='true'), patch.object(
-        config, 'sandbox_type', new='ssh'
-    ):
+    with patch.object(config, 'persist_sandbox', new=False), patch.object(
+        config, 'workspace_base', new=temp_dir
+    ), patch.object(config, 'workspace_mount_path', new=temp_dir), patch.object(
+        config, 'run_as_devin', new='true'
+    ), patch.object(config, 'sandbox_type', new='ssh'):
         for box in [
             DockerSSHBox()
         ]:  # FIXME: permission error on mkdir test for exec box
@@ -159,11 +159,11 @@ def test_ssh_box_multi_line_cmd_run_as_devin(temp_dir):
 
 def test_ssh_box_stateful_cmd_run_as_devin(temp_dir):
     # get a temporary directory
-    with patch.object(config, 'workspace_base', new=temp_dir), patch.object(
-        config, 'workspace_mount_path', new=temp_dir
-    ), patch.object(config, 'run_as_devin', new='true'), patch.object(
-        config, 'sandbox_type', new='ssh'
-    ):
+    with patch.object(config, 'persist_sandbox', new=False), patch.object(
+        config, 'workspace_base', new=temp_dir
+    ), patch.object(config, 'workspace_mount_path', new=temp_dir), patch.object(
+        config, 'run_as_devin', new='true'
+    ), patch.object(config, 'sandbox_type', new='ssh'):
         for box in [
             DockerSSHBox()
         ]:  # FIXME: DockerExecBox() does not work with stateful commands
