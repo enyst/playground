@@ -10,7 +10,10 @@ from opendevin.core.schema import AgentState
 from opendevin.events.action import (
     MessageAction,
 )
-from opendevin.events.action.agent import AgentFinishAction
+from opendevin.events.action.agent import (
+    AgentDelegateSummaryAction,
+    AgentFinishAction,
+)
 from opendevin.memory.history import ShortTermHistory
 from opendevin.storage import get_file_store
 
@@ -39,7 +42,6 @@ class State:
     root_task: RootTask = field(default_factory=RootTask)
     iteration: int = 0
     max_iterations: int = 100
-    history: ShortTermHistory = field(default_factory=ShortTermHistory)
     inputs: dict = field(default_factory=dict)
     outputs: dict = field(default_factory=dict)
     last_error: str | None = None
@@ -53,6 +55,9 @@ class State:
     start_id: int = -1
     end_id: int = -1
     almost_stuck: int = 0
+    delegate_summaries: dict[tuple[int, int], AgentDelegateSummaryAction] = field(
+        default_factory=dict
+    )
 
     def save_to_session(self, sid: str):
         fs = get_file_store()
@@ -88,6 +93,7 @@ class State:
         # save the relevant data from recent history
         # so that we can restore it when the state is restored
         if 'history' in state:
+            state['delegate_summaries'] = state['history'].delegate_summaries
             state['start_id'] = state['history'].start_id
             state['end_id'] = state['history'].end_id
 
@@ -102,11 +108,14 @@ class State:
         if not hasattr(self, 'history'):
             self.history = ShortTermHistory()
 
-        # restore the relevant data in history from the state
+            # restore the relevant data in history from the state
+            if hasattr(self, 'delegate_summaries'):
+                self.history.delegate_summaries = self.delegate_summaries
         self.history.start_id = self.start_id
         self.history.end_id = self.end_id
 
         # remove the restored data from the state if any
+        self.delegate_summaries = {}
 
     def get_current_user_intent(self):
         """

@@ -16,6 +16,7 @@ from opendevin.events.action import (
     IPythonRunCellAction,
     MessageAction,
 )
+from opendevin.events.action.agent import AgentDelegateSummaryAction
 from opendevin.events.observation import (
     AgentDelegateObservation,
     CmdOutputObservation,
@@ -42,6 +43,11 @@ def action_to_str(action: Action) -> str:
         return f'{action.thought}\n<execute_browse>\n{action.inputs["task"]}\n</execute_browse>'
     elif isinstance(action, MessageAction):
         return action.content
+    elif isinstance(action, AgentSummarizeAction):
+        return f'You made actions like {action.summarized_actions} with the result: {action.summary}'
+    elif isinstance(action, AgentDelegateSummaryAction):
+        relevant_info_str = '\n'.join(info for info in action.relevant_info)
+        return f'You delegated to {action.agent} for task: {action.task}. \nThe result was: {action.summary}. \n{relevant_info_str}'
     return ''
 
 
@@ -51,6 +57,7 @@ def get_action_message(action: Action) -> dict[str, str] | None:
         or isinstance(action, CmdRunAction)
         or isinstance(action, IPythonRunCellAction)
         or isinstance(action, MessageAction)
+        or isinstance(action, AgentDelegateSummaryAction)
     ):
         return {
             'role': 'user' if action.source == 'user' else 'assistant',
@@ -211,7 +218,7 @@ class CodeActAgent(Agent):
             {'role': 'user', 'content': self.in_context_example},
         ]
 
-        for event in state.history.get_events():
+        for event in self.history.get_events():
             # create a regular message from an event
             message = (
                 get_action_message(event)
@@ -225,6 +232,8 @@ class CodeActAgent(Agent):
 
         # the latest user message is important:
         # we want to remind the agent of the environment constraints
+
+
         latest_user_message = next(
             (m for m in reversed(messages) if m['role'] == 'user'), None
         )
