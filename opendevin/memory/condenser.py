@@ -1,10 +1,32 @@
-from typing import Callable
-
 from opendevin.core.logger import opendevin_logger as logger
-from opendevin.core.utils import json
+from opendevin.events.action.agent import (
+    AgentDelegateSummaryAction,
+    AgentFinishAction,
+    AgentRecallAction,
+    AgentSummarizeAction,
+)
+from opendevin.events.action.browse import BrowseInteractiveAction, BrowseURLAction
+from opendevin.events.action.commands import (
+    CmdKillAction,
+    CmdRunAction,
+    IPythonRunCellAction,
+)
+from opendevin.events.action.empty import NullAction
+from opendevin.events.action.files import FileReadAction, FileWriteAction
+from opendevin.events.action.message import MessageAction
+from opendevin.events.event import Event, EventSource
+from opendevin.events.observation.observation import Observation
+from opendevin.events.serialization.event import event_to_memory
 from opendevin.llm.llm import LLM
+from opendevin.memory.history import ShortTermHistory
+from opendevin.memory.prompts import (
+    get_delegate_summarize_prompt,
+    get_summarize_prompt,
+    parse_delegate_summary_response,
+    parse_summary_response,
+)
 
-MAX_TOKEN_COUNT_PADDING = 1024
+MAX_USER_MESSAGE_CHAR_COUNT = 200  # max char count for user messages
 
 
 class MemoryCondenser:
@@ -14,144 +36,199 @@ class MemoryCondenser:
 
     def __init__(
         self,
-        action_prompt: Callable[..., str],
-        summarize_prompt: Callable[[list[dict], list[dict]], str],
+        llm: LLM,
     ):
         """
-        Initialize the MemoryCondenser with the action and summarize prompts.
+        Initialize the MemoryCondenser.
 
-        action_prompt is a callable that returns the prompt that is about to be sent to the LLM.
-        The prompt callable will be called with default events and recent events as arguments.
-        summarize_prompt, which is optional, is a callable that returns a specific prompt to tell the LLM to summarize the recent events.
-        The prompt callable will be called with default events and recent events as arguments.
+        llm is the language model to use for summarization.
+        config.max_input_tokens is an optional configuration setting specifying the maximum context limit for the LLM.
+        If not provided, the condenser will act lazily and only condense when a context window limit error occurs.
 
         Parameters:
-        - action_prompt (Callable): The function to generate an action prompt. The function should accept core events and recent events as arguments.
-        - summarize_prompt (Callable): The function to generate a summarize prompt. The function should accept core events and recent events as arguments.
+        - llm: The language model to use for summarization.
         """
-        self.action_prompt = action_prompt
-        self.summarize_prompt = summarize_prompt
+        self.llm = llm
 
     def condense(
         self,
-        llm: LLM,
-        default_events: list[dict],
-        recent_events: list[dict],
-        background_commands: list | None = None,
-    ) -> tuple[list[dict], bool]:
+        history: ShortTermHistory,
+    ) -> AgentSummarizeAction | None:
         """
-        Attempts to condense the recent events of the monologue by using the llm, if necessary. Returns the condensed recent events if successful, or False if not.
+        Condenses the given list of events using the llm. Returns the condensed list of events. It works one by one.
 
-        It includes default events in the prompt for context, but does not alter them.
-        Condenses the monologue using a summary prompt.
-        Checks if the action_prompt (including events) needs condensation based on token count, and doesn't attempt condensing if not.
-        Returns unmodified list of recent events if it is already short enough.
+        Condensation heuristics:
+        - Keep initial messages (system, user message setting task, including further tasks after AgentFinishActions)
+        - Prioritize more recent history
+        - Lazily summarize between initial instruction and most recent, starting with earliest condensable turns
+        - Split events into chunks delimited by user message actions, condense each chunk into a sentence
+        - If no more chunks of agent actions or observations, summarize individual user messages that exceeed a certain length, except likely tasks
 
         Parameters:
-        - llm (LLM): llm to be used for summarization
+        - history: short term history
 
-        Raises:
-        - Exception: the same exception as it got from the llm or processing the response
+        Returns:
+        - AgentSummarizeAction: a summary in a sentence.
         """
+        # chunk of actions, observations to summarize
+        chunk: list[Event] = []
+        chunk_start_id: int | None = None
+        last_summarizable_id: int | None = None
 
+        for event in history.get_events():
+            # user messages should be kept if possible
+            # aside from them, there are some (mostly or firstly) non-summarizable actions
+            # like AgentDelegateAction or AgentFinishAction
+            if not self._is_summarizable(event):
+                if chunk and len(chunk) > 1:
+                    # we've just gathered a chunk to summarize, more than one event
+                    summary_action = self._summarize_chunk(chunk)
+
+                    # mypy is happy with assert, and in fact it cannot/should not be None
+                    assert chunk_start_id is not None
+                    summary_action._chunk_start = chunk_start_id
+
+                    # same here, a gift for mypy during development
+                    assert last_summarizable_id is not None
+                    summary_action._chunk_end = last_summarizable_id
+
+                    # add it directly to history, so the agent only has to retry the request
+                    history.add_summary(summary_action)
+                    return summary_action
+                else:
+                    # reset the chunk if it has just one event
+                    chunk = []
+                    chunk_start_id = None
+                    last_summarizable_id = None
+            else:
+                # these are the events we want to summarize
+                if chunk_start_id is None:
+                    chunk_start_id = event.id
+                last_summarizable_id = event.id
+                chunk.append(event)
+
+        if chunk and len(chunk) > 1:
+            summary_action = self._summarize_chunk(chunk)
+
+            # keep mypy happy
+            assert chunk_start_id is not None
+            summary_action._chunk_start = chunk_start_id
+
+            # same here
+            assert last_summarizable_id is not None
+            summary_action._chunk_end = (
+                last_summarizable_id  # history.get_latest_event_id()
+            )
+            history.add_summary(summary_action)
+            return summary_action
+
+        # no more chunks of agent actions or observations
+        # then summarize individual user messages that exceeed a certain length
+        # except for the first user message after an AgentFinishAction
+        last_event_was_finish = False
+        for event in history.get_events():
+            if isinstance(event, AgentFinishAction):
+                last_event_was_finish = True
+            elif isinstance(event, MessageAction) and event.source == EventSource.USER:
+                # the message has to be large enough ish, and not a likely task
+                if (
+                    not last_event_was_finish
+                    and len(event.content) > MAX_USER_MESSAGE_CHAR_COUNT
+                ):
+                    summary_action = self._summarize_chunk([event])
+                    summary_action._chunk_start = event.id
+                    summary_action._chunk_end = event.id
+                    history.add_summary(summary_action)
+                    return summary_action
+                last_event_was_finish = False
+            else:
+                last_event_was_finish = False
+
+        return None
+
+    def _summarize_chunk(self, chunk: list[Event]) -> AgentSummarizeAction:
+        """
+        Summarizes the given chunk of events into a single sentence.
+
+        Parameters:
+        - chunk: List of events to summarize.
+
+        Returns:
+        - The summary sentence.
+        """
         try:
-            messages = [{'content': self.summarize_prompt, 'role': 'user'}]
-            resp = llm.do_completion(messages=messages)
-            summary_response = resp['choices'][0]['message']['content']
-            return summary_response
+            event_dicts = [event_to_memory(event) for event in chunk]
+            prompt = get_summarize_prompt(event_dicts)
+
+            messages = [{'role': 'user', 'content': prompt}]
+            response = self.llm.completion(messages=messages)
+
+            action_response = response['choices'][0]['message']['content']
+            action = parse_summary_response(action_response)
+            return action
         except Exception as e:
-            logger.error('Condensation failed: %s', str(e), exc_info=False)
-            return [], False
+            logger.error(f'Failed to summarize chunk: {e}')
+            raise
 
-    def _attempt_condense(
-        self,
-        llm: LLM,
-        default_events: list[dict],
-        recent_events: list[dict],
-    ) -> list[dict] | None:
+    def summarize_delegate(
+        self, delegate_events: list[Event], delegate_agent: str, delegate_task: str
+    ) -> AgentDelegateSummaryAction:
         """
-        Attempts to condense the recent events by splitting them in half and summarizing the first half.
+        Summarizes the given list of events into a concise summary.
 
         Parameters:
-        - llm (LLM): The llm to use for summarization.
-        - default_events (list[dict]): The list of default events to include in the prompt.
-        - recent_events (list[dict]): The list of recent events to include in the prompt.
+        - delegate_events: List of events of the delegate.
+        - delegate_agent: The agent that was delegated to.
+        - delegate_task: The task that was delegated.
 
         Returns:
-        - list[dict] | None: The condensed recent events if successful, None otherwise.
+        - The summary of the delegate's activities.
         """
-
-        # Split events
-        midpoint = len(recent_events) // 2
-        first_half = recent_events[:midpoint].copy()
-        second_half = recent_events[midpoint:].copy()
-
-        # attempt to condense the first half of the recent events
-        summarize_prompt = self.summarize_prompt(default_events, first_half)
-
-        # send the summarize prompt to the LLM
-        messages = [{'content': summarize_prompt, 'role': 'user'}]
-        response = llm.completion(messages=messages)
-        response_content = response['choices'][0]['message']['content']
-        parsed_summary = json.loads(response_content)
-
-        # the new list of recent events will be source events or summarize actions
-        # in the 'new_monologue' key
-        condensed_events = parsed_summary['new_monologue']
-
-        # new recent events list
-        if (
-            not condensed_events
-            or not isinstance(condensed_events, list)
-            or len(condensed_events) == 0
-        ):
-            return None
-
-        condensed_events.extend(second_half)
-        return condensed_events
-
-    def needs_condense(self, **kwargs):
-        """
-        Checks if the prompt needs to be condensed based on the token count against the limits of the llm passed in the call.
-
-        Parameters:
-        - llm (LLM): The llm to use for checking the token count.
-        - action_prompt (str, optional): The prompt to check for token count. If not provided, it will attempt to generate it using the available arguments.
-        - default_events (list[dict], optional): The list of default events to include in the prompt.
-        - recent_events (list[dict], optional): The list of recent events to include in the prompt.
-        - background_commands (list, optional): The list of background commands to include in the prompt.
-
-        Returns:
-        - bool: True if the prompt needs to be condensed, False otherwise.
-        """
-        llm = kwargs.get('llm')
-        action_prompt = kwargs.get('action_prompt')
-
-        if not llm:
-            logger.warning("Missing argument 'llm', cannot check token count.")
-            return False
-
-        if not action_prompt:
-            # Attempt to generate the action_prompt using the available arguments
-            default_events = kwargs.get('default_events', [])
-            recent_events = kwargs.get('recent_events', [])
-            background_commands = kwargs.get('background_commands', [])
-
-            action_prompt = self.action_prompt(
-                '', default_events, recent_events, background_commands
+        try:
+            event_dicts = [event_to_memory(event) for event in delegate_events]
+            prompt = get_delegate_summarize_prompt(
+                event_dicts, delegate_agent, delegate_task
             )
 
-        token_count = llm.get_token_count([{'content': action_prompt, 'role': 'user'}])
-        return token_count >= self.get_token_limit(llm)
+            messages = [{'role': 'user', 'content': prompt}]
+            response = self.llm.completion(messages=messages)
 
-    def get_token_limit(self, llm: LLM) -> int:
+            action_response: str = response['choices'][0]['message']['content']
+            action = parse_delegate_summary_response(action_response)
+            action.task = delegate_task
+            action.agent = delegate_agent
+            return action
+        except Exception as e:
+            logger.error(f'Failed to summarize delegate events: {e}')
+            raise
+
+    def _is_summarizable(self, event: Event) -> bool:
         """
-        Returns the token limit to use for the llm passed in the call.
-
-        Parameters:
-        - llm (LLM): The llm to get the token limit from.
-
-        Returns:
-        - int: The token limit of the llm.
+        Returns true for actions/observations that can be summarized.
         """
-        return llm.max_input_tokens - MAX_TOKEN_COUNT_PADDING
+        non_summarizable_events = (
+            NullAction,
+            CmdKillAction,
+            CmdRunAction,
+            IPythonRunCellAction,
+            BrowseURLAction,
+            BrowseInteractiveAction,
+            FileReadAction,
+            FileWriteAction,
+            AgentRecallAction,
+            # AgentFinishAction,
+            # AgentRejectAction,
+            # AgentDelegateAction,
+            # AddTaskAction,
+            # ModifyTaskAction,
+            # ChangeAgentStateAction,
+            MessageAction,
+            # AgentSummarizeAction, # this is actually fine but separate
+            Observation,
+        )
+
+        if isinstance(event, non_summarizable_events):
+            if isinstance(event, MessageAction) and event.source == EventSource.USER:
+                return False
+            return True
+        return False

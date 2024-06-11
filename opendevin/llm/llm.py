@@ -1,6 +1,8 @@
 import warnings
 from functools import partial
 
+from opendevin.core.exceptions import TokenLimitExceedError
+
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
     import litellm
@@ -27,6 +29,7 @@ from opendevin.core.metrics import Metrics
 __all__ = ['LLM']
 
 message_separator = '\n\n----------\n\n'
+MAX_TOKEN_COUNT_PADDING = 512  # estimation of tokens to add to the prompt for the user-configured max token count
 
 
 class LLM:
@@ -142,13 +145,6 @@ class LLM:
         except Exception:
             logger.warning(f'Could not get model info for {self.model_name}')
 
-        if self.max_input_tokens is None:
-            if self.model_info is not None and 'max_input_tokens' in self.model_info:
-                self.max_input_tokens = self.model_info['max_input_tokens']
-            else:
-                # Max input tokens for gpt3.5, so this is a safe fallback for any potentially viable model
-                self.max_input_tokens = 4096
-
         if self.max_output_tokens is None:
             if self.model_info is not None and 'max_output_tokens' in self.model_info:
                 self.max_output_tokens = self.model_info['max_output_tokens']
@@ -189,17 +185,36 @@ class LLM:
             after=attempt_on_error,
         )
         def wrapper(*args, **kwargs):
+            """
+            Wrapper for the litellm completion function. Logs the input and output of the completion function.
+            """
+
+            # some callers might just send the messages directly
             if 'messages' in kwargs:
                 messages = kwargs['messages']
             else:
                 messages = args[1]
+
+            if self.is_over_token_limit(messages):
+                raise TokenLimitExceedError(
+                    f'Token count exceeds the maximum of {self.max_input_tokens}. Attempting to condense memory.'
+                )
+
+            # log the prompt
             debug_message = ''
             for message in messages:
                 debug_message += message_separator + message['content']
             llm_prompt_logger.debug(debug_message)
+
+            # call the completion function
             resp = completion_unwrapped(*args, **kwargs)
+
+            # log the response
             message_back = resp['choices'][0]['message']['content']
             llm_response_logger.debug(message_back)
+
+            # post-process to log costs
+            self._post_completion(resp)
             return resp
 
         self._completion = wrapper  # type: ignore
@@ -211,17 +226,7 @@ class LLM:
         """
         return self._completion
 
-    def do_completion(self, *args, **kwargs):
-        """
-        Wrapper for the litellm completion function.
-
-        Check the complete documentation at https://litellm.vercel.app/docs/completion
-        """
-        resp = self._completion(*args, **kwargs)
-        self.post_completion(resp)
-        return resp
-
-    def post_completion(self, response: str) -> None:
+    def _post_completion(self, response: str) -> None:
         """
         Post-process the completion response.
         """
@@ -247,6 +252,21 @@ class LLM:
             int: The number of tokens.
         """
         return litellm.token_counter(model=self.model_name, messages=messages)
+
+    def is_over_token_limit(self, messages: list[dict]) -> int:
+        """
+        Estimates the token count of the given events using litellm tokenizer.
+
+        Parameters:
+        - messages: List of messages to estimate the token count for.
+
+        Returns:
+        - Estimated token count.
+        """
+        if self.max_input_tokens is None:
+            return False
+        token_count = self.get_token_count(messages) + MAX_TOKEN_COUNT_PADDING
+        return token_count >= self.max_input_tokens
 
     def is_local(self):
         """
