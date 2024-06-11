@@ -33,6 +33,7 @@ from opendevin.events.observation import (
 )
 from opendevin.events.serialization.event import truncate_content
 from opendevin.llm.llm import LLM
+from opendevin.memory.memory import LongTermMemory
 from opendevin.runtime.plugins import (
     AgentSkillsRequirement,
     JupyterRequirement,
@@ -161,6 +162,7 @@ class CodeActAgent(Agent):
         JupyterRequirement(),
     ]
     runtime_tools: list[RuntimeTool] = [RuntimeTool.BROWSER]
+    longterm_memory: LongTermMemory = LongTermMemory()
 
     system_message: str = get_system_message()
     in_context_example: str = f"Here is an example of how you can interact with the environment for task solving:\n{get_in_context_example()}\n\nNOW, LET'S START!"

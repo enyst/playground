@@ -4,6 +4,7 @@ import json
 import logging
 import pkgutil
 import re
+from typing import Any
 
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
@@ -13,7 +14,7 @@ from langchain.embeddings import __path__ as embeddings_path
 from langchain.schema.embeddings import Embeddings
 from langchain_community.vectorstores import Chroma
 
-from opendevin.core.config import config
+from opendevin.core.config import LLMConfig, config
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,135 @@ class ChromaEmbeddingLoader:
     """
     Class to load the embedding functions defined in chroma.
     """
+
+    def __init__(self, llm_config: LLMConfig):
+        self.type = llm_config.embedding_type or config.llm.embedding_type
+        self.model = (
+            llm_config.embedding_model
+            or config.llm.embedding_model
+            or self.get_default_model(self.type)
+        )
+        self.api_key = llm_config.embedding_api_key or config.llm.api_key
+        self.base_url = llm_config.embedding_base_url or config.llm.embedding_base_url
+        self.deployment_name = (
+            llm_config.embedding_deployment_name or config.llm.embedding_deployment_name
+        )
+
+    def load_embedding(self, **kwargs: Any) -> embedding_functions.EmbeddingFunction:
+        """
+        Load and return the embedding function from chroma.
+        """
+        self.embedding = self._load_embeddings(
+            provider=self.type,
+            model=self.model,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            deployment_name=self.deployment_name,
+            **kwargs,
+        )
+
+    def _load_embeddings(self, **kwargs: Any) -> embedding_functions.EmbeddingFunction:
+        if self.type == 'openai':
+            from langchain.embeddings.openai import OpenAIEmbeddings
+
+            return OpenAIEmbeddings(api_key=self.api_key, **kwargs)
+        elif self.type == 'azureopenai':
+            from langchain.embeddings.openai import OpenAIEmbeddings
+
+            return OpenAIEmbeddings(
+                deployment=config.llm.embedding_deployment_name,
+                model=config.llm.embedding_model,
+                api_key=self.api_key,
+                **kwargs,
+            )
+        elif self.type == 'onnx':
+            from langchain.embeddings.sagemaker_endpoint import (
+                SagemakerEndpointEmbeddings,
+            )
+
+            return SagemakerEndpointEmbeddings(**kwargs)
+        else:
+            try:
+                module_path = f'langchain.embeddings.{self.type}'
+                class_name = (
+                    ''.join(word.capitalize() for word in self.type.split('_'))
+                    + 'Embeddings'
+                )
+                module = importlib.import_module(module_path)
+                embeddings_class = getattr(module, class_name, None)
+                if embeddings_class:
+                    return embeddings_class(**kwargs)
+            except (ImportError, AttributeError):
+                pass
+
+            try:
+                module_path, class_name = self.type.rsplit('.', 1)
+                module = importlib.import_module(f'langchain.embeddings.{module_path}')
+                embeddings_class = getattr(module, class_name)
+                return embeddings_class(**kwargs)
+            except (ImportError, AttributeError):
+                pass
+
+            try:
+                module_name = self.type.split('.')[-1]
+                class_name_mapping = {
+                    'aleph_alpha': 'AlephAlphaAsymmetricSemantic',
+                    'baidu_qianfan_endpoint': 'QianfanEndpoint',
+                    'base': 'Base',
+                    'bookend': 'Bookend',
+                    'cache': 'CacheBacked',
+                    'dashscope': 'DashScope',
+                    'databricks': 'Databricks',
+                    'deepinfra': 'DeepInfra',
+                    'edenai': 'EdenAi',
+                    'fastembed': 'Fastembed',
+                    'gpt4all': 'GPT4All',
+                    'huggingface_hub': 'HuggingFaceHub',
+                    'infinity': 'Infinity',
+                    'javelin_ai_gateway': 'JavelinAIGateway',
+                    'johnsnowlabs': 'Johnsnowlabs',
+                    'llamacpp': 'LlamaCpp',
+                    'localai': 'LocalAI',
+                    'minimax': 'MiniMax',
+                    'mlflow': 'MlflowAIGateway',
+                    'mlflow_gateway': 'MlflowAIGateway',
+                    'modelscope_hub': 'ModelScope',
+                    'mosaicml': 'MosaicMLInstructor',
+                    'nlpcloud': 'NLPCloud',
+                    'octoai': 'OctoAI',
+                    'spacy': 'Spacy',
+                    'vertexai': 'VertexAI',
+                    'voyageai': 'Voyageai',
+                }
+                class_name = class_name_mapping.get(module_name) or ''
+                if class_name:
+                    class_name = class_name + 'Embeddings'
+                if class_name:
+                    module_path = f'langchain.embeddings.{module_name}'
+                    module = importlib.import_module(module_path)
+                    embeddings_class = getattr(module, class_name)
+                    return embeddings_class(**kwargs)
+            except (ImportError, AttributeError):
+                pass
+
+            raise ValueError(f'Unsupported embeddings provider: {self.type}')
+
+    @staticmethod
+    def get_default_model(embedding_type):
+        # retrieve the default model for the given embedding type
+        if embedding_type == 'openai':
+            return 'text-embedding-ada-002'
+        elif embedding_type == 'huggingface':
+            return 'sentence-transformers/all-MiniLM-L6-v2'
+        elif embedding_type == 'huggingface_instruct':
+            return 'hkunlp/instructor-xl'
+        elif embedding_type == 'sentence_transformer':
+            return 'paraphrase-MiniLM-L6-v2'
+        elif embedding_type == 'ollama':
+            return 'all-MiniLM'
+        elif embedding_type == 'azureopenai':
+            return 'text-embedding-ada-002'
+        return 'BAAI/bge-small-en-v1.5'
 
     @staticmethod
     def get_embedding_function(
@@ -131,8 +261,8 @@ class ChromaEmbeddingLoader:
         for name, obj in inspect.getmembers(embedding_functions):
             if inspect.isclass(obj) and name.endswith('EmbeddingFunction'):
                 # double check for __call__ and its signature
-                if hasattr(obj, '__call__'):
-                    call_method = getattr(obj, '__call__')
+                if callable(obj):
+                    call_method = getattr(obj, '__call__')  # noqa B004
                     if callable(call_method):
                         call_signature = inspect.signature(call_method)
                         if len(call_signature.parameters) == 2:
@@ -295,9 +425,6 @@ class EmbeddingLoader:
         logger.info(sentence_transformer_embeddings)
 
 
-# WIP, so disabled for now: do nothing in the global space
-
-
 class LongTermMemory:
     """
     Handles storing information for the agent to access later, using Chroma.
@@ -305,27 +432,17 @@ class LongTermMemory:
 
     def __init__(
         self,
-        embedding_type: str | None = None,
-        embedding_model: str | None = None,
         **kwargs,
     ):
         """
         Initializes LongTermMemory and the Chroma store.
 
         Args:
-            embedding_type (str | None): The type of embedding model to use.
-            embedding_model (str | None): The name of the embedding model to use.
             **kwargs: Keyword arguments that will be passed to initialize the embeddings,
             such as 'mirostat' for Ollama.
         """
-        if embedding_type is None:
-            embedding_type = config.llm.embedding_type
-        if embedding_model is None:
-            embedding_model = config.llm.embedding_model
 
-        embeddings = EmbeddingLoader.get_embedding_model(
-            embedding_type, embedding_model, **kwargs
-        )
+        embeddings = ChromaEmbeddingLoader.load_embedding(**kwargs)
 
         self.chroma_client = chromadb.PersistentClient(
             path='./chroma', settings=chromadb.Settings(anonymized_telemetry=False)

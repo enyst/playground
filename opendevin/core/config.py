@@ -57,6 +57,7 @@ class LLMConfig(metaclass=Singleton):
     embedding_model: str = 'local'
     embedding_base_url: str | None = None
     embedding_deployment_name: str | None = None
+    embedding_api_key: str | None = None
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
     aws_region_name: str | None = None
