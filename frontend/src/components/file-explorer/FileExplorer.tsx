@@ -5,17 +5,16 @@ import {
   IoIosRefresh,
   IoIosCloudUpload,
 } from "react-icons/io";
+import { useDispatch, useSelector } from "react-redux";
 import { IoFileTray } from "react-icons/io5";
 import { twMerge } from "tailwind-merge";
-import {
-  WorkspaceFile,
-  getWorkspace,
-  uploadFiles,
-} from "#/services/fileService";
+import AgentState from "#/types/AgentState";
+import { setRefreshID } from "#/state/codeSlice";
+import { listFiles, uploadFiles } from "#/services/fileService";
 import IconButton from "../IconButton";
 import ExplorerTree from "./ExplorerTree";
-import { removeEmptyNodes } from "./utils";
 import toast from "#/utils/toast";
+import { RootState } from "#/store";
 
 interface ExplorerActionsProps {
   onRefresh: () => void;
@@ -86,41 +85,45 @@ function ExplorerActions({
   );
 }
 
-interface FileExplorerProps {
-  onFileClick: (path: string) => void;
-}
-
-function FileExplorer({ onFileClick }: FileExplorerProps) {
-  const [workspace, setWorkspace] = React.useState<WorkspaceFile>();
+function FileExplorer() {
   const [isHidden, setIsHidden] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
-
+  const [files, setFiles] = React.useState<string[]>([]);
+  const { curAgentState } = useSelector((state: RootState) => state.agent);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const dispatch = useDispatch();
 
-  const getWorkspaceData = async () => {
-    const wsFile = await getWorkspace();
-    setWorkspace(removeEmptyNodes(wsFile));
+  const selectFileInput = () => {
+    fileInputRef.current?.click(); // Trigger the file browser
   };
 
-  const selectFileInput = async () => {
-    // Trigger the file browser
-    fileInputRef.current?.click();
+  const refreshWorkspace = async () => {
+    if (
+      curAgentState === AgentState.LOADING ||
+      curAgentState === AgentState.STOPPED
+    ) {
+      return;
+    }
+    dispatch(setRefreshID(Math.random()));
+    setFiles(await listFiles("/"));
   };
 
-  const uploadFileData = async (files: FileList) => {
+  const uploadFileData = async (toAdd: FileList) => {
     try {
-      await uploadFiles(files);
-      await getWorkspaceData(); // Refresh the workspace to show the new file
+      await uploadFiles(toAdd);
+      await refreshWorkspace();
     } catch (error) {
-      toast.stickyError("ws", "Error uploading file");
+      toast.error("ws", "Error uploading file");
     }
   };
 
   React.useEffect(() => {
     (async () => {
-      await getWorkspaceData();
+      await refreshWorkspace();
     })();
+  }, [curAgentState]);
 
+  React.useEffect(() => {
     const enableDragging = () => {
       setIsDragging(true);
     };
@@ -137,6 +140,10 @@ function FileExplorer({ onFileClick }: FileExplorerProps) {
       document.removeEventListener("drop", disableDragging);
     };
   }, []);
+
+  if (!files.length) {
+    return null;
+  }
 
   return (
     <div className="relative">
@@ -160,23 +167,19 @@ function FileExplorer({ onFileClick }: FileExplorerProps) {
           isHidden ? "min-w-[48px]" : "min-w-[228px]",
         )}
       >
-        <div className="flex p-2 items-center justify-between relative">
-          <div style={{ display: isHidden ? "none" : "block" }}>
-            {workspace && (
-              <ExplorerTree
-                root={workspace}
-                onFileClick={onFileClick}
-                defaultOpen
-              />
-            )}
+        <div className="flex flex-col p-2 relative">
+          <div className="flex items-center justify-end mb-8">
+            <ExplorerActions
+              isHidden={isHidden}
+              toggleHidden={() => setIsHidden((prev) => !prev)}
+              onRefresh={refreshWorkspace}
+              onUpload={selectFileInput}
+            />
           </div>
 
-          <ExplorerActions
-            isHidden={isHidden}
-            toggleHidden={() => setIsHidden((prev) => !prev)}
-            onRefresh={getWorkspaceData}
-            onUpload={selectFileInput}
-          />
+          <div style={{ display: isHidden ? "none" : "block" }}>
+            <ExplorerTree files={files} defaultOpen />
+          </div>
         </div>
         <input
           data-testid="file-input"

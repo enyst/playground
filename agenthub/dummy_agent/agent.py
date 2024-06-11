@@ -9,6 +9,7 @@ from opendevin.events.action import (
     AgentFinishAction,
     AgentRecallAction,
     AgentRejectAction,
+    BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
     FileReadAction,
@@ -43,6 +44,7 @@ BACKGROUND_CMD = 'echo "This is in the background" && sleep .1 && echo "This too
 
 
 class DummyAgent(Agent):
+    VERSION = '1.0'
     """
     The DummyAgent is used for e2e testing. It just sends the same set of actions deterministically,
     without making any LLM calls.
@@ -117,6 +119,14 @@ class DummyAgent(Agent):
             },
             {
                 'action': BrowseURLAction(url='https://google.com'),
+                'observations': [
+                    # BrowserOutputObservation('<html></html>', url='https://google.com', screenshot=""),
+                ],
+            },
+            {
+                'action': BrowseInteractiveAction(
+                    browser_actions='goto("https://google.com")'
+                ),
                 'observations': [
                     # BrowserOutputObservation('<html></html>', url='https://google.com', screenshot=""),
                 ],

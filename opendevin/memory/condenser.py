@@ -48,62 +48,20 @@ class MemoryCondenser:
         Returns unmodified list of recent events if it is already short enough.
 
         Parameters:
-        - llm (LLM): LLM to be used for summarization.
-        - default_events (list[dict]): List of default events that should remain unchanged.
-        - recent_events (list[dict]): List of recent events that may be condensed.
-        - background_commands (list): List of background commands to be included in the prompt.
+        - llm (LLM): llm to be used for summarization
 
-        Returns:
-        - list[dict] | bool: The condensed recent events if successful, unmodified list if unnecessary, or False if condensation failed.
+        Raises:
+        - Exception: the same exception as it got from the llm or processing the response
         """
 
-        if not background_commands:
-            background_commands = []
-
-        # generate the action prompt with the default and recent events
-        action_prompt = self.action_prompt(
-            '', default_events, recent_events, background_commands
-        )
-
-        # test prompt token length
-        if not self.needs_condense(llm=llm, action_prompt=action_prompt):
-            return recent_events, False
-
-        logger.debug('Condensing recent events')
-
         try:
-            # try 3 times to condense
-            attempt_count = 0
-            failed = False
-
-            while attempt_count < 3 and not failed:
-                # attempt to condense the recent events
-                new_recent_events = self._attempt_condense(
-                    llm, default_events, recent_events
-                )
-
-                if not new_recent_events or len(new_recent_events) == 0:
-                    logger.debug('Condensation failed: new_recent_events is empty')
-                    return [], False
-
-                # re-generate the action prompt with the condensed events
-                new_action_prompt = self.action_prompt(
-                    '', default_events, new_recent_events, background_commands
-                )
-
-                # check if the new prompt still needs to be condensed
-                if self.needs_condense(llm=llm, action_prompt=new_action_prompt):
-                    attempt_count += 1
-                    recent_events = new_recent_events.copy()
-                    continue
-
-                # the new prompt is within the token limit
-                return new_recent_events, True
-
+            messages = [{'content': self.summarize_prompt, 'role': 'user'}]
+            resp = llm.do_completion(messages=messages)
+            summary_response = resp['choices'][0]['message']['content']
+            return summary_response
         except Exception as e:
             logger.error('Condensation failed: %s', str(e), exc_info=False)
             return [], False
-        return [], False
 
     def _attempt_condense(
         self,

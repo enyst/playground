@@ -27,14 +27,15 @@
   <a href="https://join.slack.com/t/opendevin/shared_invite/zt-2i1iqdag6-bVmvamiPA9EZUu7oCO6KhA"><img src="https://img.shields.io/badge/Slack-Join%20Us-red?logo=slack&logoColor=white&style=for-the-badge" alt="Join our Slack community"></a>
   <a href="https://discord.gg/ESHStjSjD4"><img src="https://img.shields.io/badge/Discord-Join%20Us-purple?logo=discord&logoColor=white&style=for-the-badge" alt="Join our Discord community"></a>
   <br/>
-  <a href="https://xwang.dev/blog/2024/opendevin-codeact-1.0-swebench/"><img src="https://img.shields.io/badge/SWE--bench%20Lite-21.0%25-green?style=for-the-badge" alt="SWE-bench "></a>
+  <a href="https://huggingface.co/spaces/OpenDevin/evaluation"><img src="https://img.shields.io/badge/SWE--bench%20Lite-25.0%25-green?style=for-the-badge" alt="SWE-bench "></a>
+  <a href="https://codecov.io/github/opendevin/opendevin?branch=main"><img alt="CodeCov" src="https://img.shields.io/codecov/c/github/opendevin/opendevin?style=for-the-badge"></a>
 </div>
 
 <!-- PROJECT LOGO -->
 <div align="center">
   <img src="./docs/static/img/logo.png" alt="Logo" width="200" height="200">
   <h1 align="center">OpenDevin: Code Less, Make More</h1>
-  <a href="https://opendevin.github.io/OpenDevin/"><img src="https://img.shields.io/badge/Documenation-OpenDevin-blue?logo=googledocs&logoColor=white&style=for-the-badge" alt="Check out the documentation"></a>
+  <a href="https://opendevin.github.io/OpenDevin/"><img src="https://img.shields.io/badge/Documentation-OpenDevin-blue?logo=googledocs&logoColor=white&style=for-the-badge" alt="Check out the documentation"></a>
 </div>
 <hr>
 
@@ -44,25 +45,34 @@ OpenDevin agents collaborate with human developers to write code, fix bugs, and 
 
 ![App screenshot](./docs/static/img/screenshot.png)
 
-## ⚡ Quick Start
-You can run OpenDevin with Docker. It works best with the most recent
-version of Docker, `26.0.0`.
+## ⚡ Getting Started
+The easiest way to run OpenDevin is inside a Docker container. It works best with the most recent version of Docker, `26.0.0`.
+You must be using Linux, Mac OS, or WSL on Windows.
+
+To start OpenDevin in a docker container, run the following commands in your terminal:
+
+> [!WARNING]
+> When you run the following command, files in `./workspace` may be modified or deleted.
 
 ```bash
-#The directory you want OpenDevin to modify. MUST be an absolute path!
-export WORKSPACE_BASE=$(pwd)/workspace;
-
-docker run \
-    -it \
+OPENDEVIN_WORKSPACE=$(pwd)/workspace
+docker run -it \
     --pull=always \
     -e SANDBOX_USER_ID=$(id -u) \
-    -e WORKSPACE_MOUNT_PATH=$WORKSPACE_BASE \
-    -v $WORKSPACE_BASE:/opt/workspace_base \
+    -e PERSIST_SANDBOX="true" \
+    -e SSH_PASSWORD="make something up here" \
+    -e WORKSPACE_MOUNT_PATH=$OPENDEVIN_WORKSPACE \
+    -v $OPENDEVIN_WORKSPACE:/opt/workspace_base \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -p 3000:3000 \
     --add-host host.docker.internal:host-gateway \
-    ghcr.io/opendevin/opendevin:0.5
+    --name opendevin-app-$(date +%Y%m%d%H%M%S) \
+    ghcr.io/opendevin/opendevin:0.6
 ```
+
+You'll find OpenDevin running at [http://localhost:3000](http://localhost:3000) with access to `./workspace`. To have OpenDevin operate on your code, place it in `./workspace`.
+
+OpenDevin will only have access to this workspace folder. The rest of your system will not be affected as it runs in a secured docker sandbox.
 
 ## 🚀 Documentation
 
@@ -89,7 +99,7 @@ For details, please check [CONTRIBUTING.md](./CONTRIBUTING.md).
 Whether you're a developer, a researcher, or simply enthusiastic about OpenDevin, we'd love to have you in our community.
 Let's make software engineering better together!
 
-- [Slack workspace](https://join.slack.com/t/opendevin/shared_invite/zt-2ggtwn3k5-PvAA2LUmqGHVZ~XzGq~ILw) - Here we talk about research, architecture, and future development.
+- [Slack workspace](https://join.slack.com/t/opendevin/shared_invite/zt-2jsrl32uf-fTeeFjNyNYxqSZt5NPY3fA) - Here we talk about research, architecture, and future development.
 - [Discord server](https://discord.gg/ESHStjSjD4) - This is a community-run server for general discussion, questions, and feedback.
 
 ## 📈 Progress
@@ -119,3 +129,16 @@ Distributed under the MIT License. See [`LICENSE`](./LICENSE) for more informati
 [issues-url]: https://github.com/OpenDevin/OpenDevin/issues
 [license-shield]: https://img.shields.io/github/license/opendevin/opendevin?style=for-the-badge
 [license-url]: https://github.com/OpenDevin/OpenDevin/blob/main/LICENSE
+
+## 📚 Cite
+
+```
+@misc{opendevin2024,
+  author       = {{OpenDevin Team}},
+  title        = {{OpenDevin: An Open Platform for AI Software Developers as Generalist Agents}},
+  year         = {2024},
+  version      = {v1.0},
+  howpublished = {\url{https://github.com/OpenDevin/OpenDevin}},
+  note         = {Accessed: ENTER THE DATE YOU ACCESSED THE PROJECT}
+}
+```
