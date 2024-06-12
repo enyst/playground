@@ -2,77 +2,100 @@ import importlib
 import inspect
 import json
 import logging
-import pkgutil
-import re
 from typing import Any
 
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
-import openai
 from langchain.docstore.document import Document
-from langchain.embeddings import __path__ as embeddings_path
 from langchain.schema.embeddings import Embeddings
-from langchain_community.vectorstores import Chroma
 
 from opendevin.core.config import LLMConfig, config
 
 logger = logging.getLogger(__name__)
 
 
-class ChromaEmbeddingLoader:
+class LangchainEmbeddingLoader:
     """
     Class to load the embedding functions defined in chroma.
     """
 
-    def __init__(self, llm_config: LLMConfig):
-        self.type = llm_config.embedding_type or config.llm.embedding_type
+    def __init__(self, *, llm_config: LLMConfig = None):
+        # just in case, make sure llm_config is set
+        llm_config = llm_config or config.llm
+
+        # type: openai, azureopenai, onnx, or something else
+        self.type = llm_config.embedding_type
+        if not self.type and llm_config.embedding_model in [
+            'openai',
+            'azureopenai',
+            'llama2',
+            'ollama',
+        ]:
+            self.type = llm_config.embedding_model
+
+        # model: text-embedding-ada-002, all-MiniLM-L6-v2, BAAI/bge-small-en-v1.5...
+        # note that azure deployment might be set, and that's the model
         self.model = (
-            llm_config.embedding_model
-            or config.llm.embedding_model
+            llm_config.embedding_deployment_name
+            or llm_config.embedding_model
             or self.get_default_model(self.type)
         )
-        self.api_key = llm_config.embedding_api_key or config.llm.api_key
-        self.base_url = llm_config.embedding_base_url or config.llm.embedding_base_url
-        self.deployment_name = (
-            llm_config.embedding_deployment_name or config.llm.embedding_deployment_name
-        )
 
-    def load_embedding(self, **kwargs: Any) -> embedding_functions.EmbeddingFunction:
-        """
-        Load and return the embedding function from chroma.
-        """
-        self.embedding = self._load_embeddings(
-            provider=self.type,
-            model=self.model,
-            api_key=self.api_key,
-            base_url=self.base_url,
-            deployment_name=self.deployment_name,
-            **kwargs,
-        )
+        # if not set for embeddings, we can use the api_key from llm_config
+        self.api_key = llm_config.embedding_api_key or llm_config.api_key
 
-    def _load_embeddings(self, **kwargs: Any) -> embedding_functions.EmbeddingFunction:
+        # base_url: if not set for embeddings, we can use the base_url from llm_config
+        self.base_url = llm_config.embedding_base_url or llm_config.base_url
+
+    def _load_embeddings(self, **kwargs: Any) -> Embeddings:
+        # get the type and clean it up, we'll send kwargs over
+        self.type = kwargs.get('type', self.type)
+        kwargs.pop('type', None)
+
+        # figure it out: openai, azureopenai, onnx, or something else
         if self.type == 'openai':
-            from langchain.embeddings.openai import OpenAIEmbeddings
+            from langchain_openai.embeddings import OpenAIEmbeddings
 
-            return OpenAIEmbeddings(api_key=self.api_key, **kwargs)
+            kwargs = kwargs or {}
+
+            # openai api key can be passed as api_key or openai_api_key
+            kwargs['openai_api_key'] = kwargs.get(
+                'openai_api_key', kwargs.get('api_key', self.api_key)
+            )
+
+            return OpenAIEmbeddings(**kwargs)
         elif self.type == 'azureopenai':
-            from langchain.embeddings.openai import OpenAIEmbeddings
+            from langchain_openai.embeddings import AzureOpenAIEmbeddings
 
-            return OpenAIEmbeddings(
-                deployment=config.llm.embedding_deployment_name,
-                model=config.llm.embedding_model,
-                api_key=self.api_key,
+            kwargs = kwargs or {}
+
+            # openai api key can be passed as api_key or openai_api_key or azure_api_key
+            kwargs['azure_openai_api_key'] = kwargs.get(
+                'azure_openai_api_key',
+                kwargs.get('api_key', kwargs.get('openai_api_key', self.api_key)),
+            )
+
+            # openai deployment name can be passed as deployment_name or azure_deployment_name or model
+            kwargs['azure_deployment'] = kwargs.get(
+                'azure_deployment_name',
+                kwargs.get('deployment_name', kwargs.get('model'), self.model),
+            )
+
+            # azure_endpoint
+            # azure_openai_api_version
+
+            return AzureOpenAIEmbeddings(
                 **kwargs,
             )
         elif self.type == 'onnx':
-            from langchain.embeddings.sagemaker_endpoint import (
+            from langchain_community.embeddings.sagemaker_endpoint import (
                 SagemakerEndpointEmbeddings,
             )
 
             return SagemakerEndpointEmbeddings(**kwargs)
         else:
             try:
-                module_path = f'langchain.embeddings.{self.type}'
+                module_path = f'langchain_community.embeddings.{self.type}'
                 class_name = (
                     ''.join(word.capitalize() for word in self.type.split('_'))
                     + 'Embeddings'
@@ -86,7 +109,9 @@ class ChromaEmbeddingLoader:
 
             try:
                 module_path, class_name = self.type.rsplit('.', 1)
-                module = importlib.import_module(f'langchain.embeddings.{module_path}')
+                module = importlib.import_module(
+                    f'langchain_community.embeddings.{module_path}'
+                )
                 embeddings_class = getattr(module, class_name)
                 return embeddings_class(**kwargs)
             except (ImportError, AttributeError):
@@ -127,7 +152,7 @@ class ChromaEmbeddingLoader:
                 if class_name:
                     class_name = class_name + 'Embeddings'
                 if class_name:
-                    module_path = f'langchain.embeddings.{module_name}'
+                    module_path = f'langchain_community.embeddings.{module_name}'
                     module = importlib.import_module(module_path)
                     embeddings_class = getattr(module, class_name)
                     return embeddings_class(**kwargs)
@@ -154,7 +179,7 @@ class ChromaEmbeddingLoader:
         return 'BAAI/bge-small-en-v1.5'
 
     @staticmethod
-    def get_embedding_function(
+    def _get_embedding_function(
         embedding_type: str | None, **kwargs
     ) -> embedding_functions.EmbeddingFunction:  # type: ignore
         """
@@ -283,152 +308,34 @@ class ChromaEmbeddingLoader:
 
     @staticmethod
     def get_langchain_chroma_embedding_function(
-        embedding_type: str | None, **kwargs
+        **kwargs,
     ) -> embedding_functions.EmbeddingFunction:
-        pass
+        loader = LangchainEmbeddingLoader(llm_config=None)
+        langchain_embed_fn = loader._load_embeddings(**kwargs)
 
-        # from chromadb.utils.embedding_functions import create_langchain_embedding
-        # langchain_embedding_fn = OpenAIEmbeddings(**kwargs)
-        # chroma_langchain_embedding = create_langchain_embedding(langchain_embedding_fn)
+        from chromadb.utils.embedding_functions import create_langchain_embedding
 
-        # embeddings = chroma_langchain_embedding(["Hello, world!", "How are you?"])
+        chroma_langchain_embedding = create_langchain_embedding(langchain_embed_fn)
 
+        test_embedding = chroma_langchain_embedding(['Hello, world!', 'How are you?'])
+        logger.info(f'Test embedding: {test_embedding}')
 
-class EmbeddingLoader:
-    """
-    Class to load embedding models based on the provided module name and kwargs.
-    """
-
-    @staticmethod
-    def get_embedding_model(
-        embed_type: str | None, embed_model: str | None, **kwargs
-    ) -> Embeddings:
-        """
-        Load and return an embedding model instance based on the provided module name and params.
-
-        Args:
-            embed_type (str | None): Embedding type, e.g. OpenAI, Ollama.
-            embed_model (str | None): Embedding model name.
-            kwargs: Additional kwargs for the embedding model, e.g. 'mirostat' for Ollama.
-
-        Returns:
-            Any: Instance of the embedding model.
-
-        Raises:
-            ValueError: If an unsupported module name or parameters are provided.
-        """
-        if embed_type is None:
-            embed_type = config.llm.embedding_type
-        if embed_model is None:
-            embed_model = config.llm.embedding_model
-
-        embed_type = embed_type.lower()
-
-        for loader, m, is_pkg in pkgutil.walk_packages(embeddings_path):
-            if m == embed_type:
-                module_path = f'langchain.embeddings.{embed_type}'
-                break
-        else:
-            raise ValueError(f'Unsupported embedding module: {embed_type}')
-
-        module = importlib.import_module(module_path)
-
-        try:
-            class_name = EmbeddingLoader._get_class_name(module_path)
-            embedding_class = getattr(module, class_name)
-
-            return embedding_class(**kwargs)
-        except AttributeError:
-            raise ValueError(f'Unsupported embedding model: {embed_model}')
-
-    @staticmethod
-    def _get_class_name(module_path: str) -> str:
-        """
-        Determine the class name based on the module path.
-
-        #FIXME It will work for most cases, but another parameter will be needed for cases with more than one embedding class per module.
-
-        Args:
-            module_path (str): The module path for the embedding model.
-
-        Returns:
-            str: The class name for the embedding model.
-        """
-        module_name = module_path.split('.')[-1]
-        if 'ai' in module_name.lower() or 'ml' in module_name.lower():
-            class_name = ''.join(
-                part.capitalize() for part in re.split(r'(?=[A-Z])', module_name)
-            )
-        elif '_' in module_name:
-            parts = module_name.split('_')
-            class_name = ''.join(part.capitalize() for part in parts)
-        elif 'huggingface' in module_name.lower():
-            class_name = 'HuggingFaceEmbeddings'
-        else:
-            class_name = module_name.capitalize() + 'Embeddings'
-
-        return class_name
-
-    @staticmethod
-    def get_default_model(embedding_type):
-        # retrieve the default model for the given embedding type
-        if embedding_type == 'openai':
-            return 'text-embedding-ada-002'
-        elif embedding_type == 'huggingface':
-            return 'sentence-transformers/all-MiniLM-L6-v2'
-        elif embedding_type == 'huggingface_instruct':
-            return 'hkunlp/instructor-xl'
-        elif embedding_type == 'sentence_transformer':
-            return 'paraphrase-MiniLM-L6-v2'
-        elif embedding_type == 'ollama':
-            return 'all-MiniLM'
-        elif embedding_type == 'azureopenai':
-            return 'text-embedding-ada-002'
-        return 'BAAI/bge-small-en-v1.5'
-
-    @staticmethod
-    def examples():
-        # Examples usage
-        embed_type = config.llm.embedding_type
-        embedding_model = config.llm.embedding_model
-
-        embedding_model = EmbeddingLoader.get_embedding_model(
-            embed_type=embed_type, embed_model=embedding_model
-        )
-
-        openai_params = {'api_key': config.llm.api_key}
-        openai_embeddings = EmbeddingLoader.get_embedding_model(
-            'openai', None, **openai_params
-        )
-        logger.info(openai_embeddings)
-
-        huggingface_params: dict = {}
-        huggingface_embeddings = EmbeddingLoader.get_embedding_model(
-            'huggingface',
-            'sentence-transformers/all-MiniLM-L6-v2',
-            **huggingface_params,
-        )
-        logger.info(huggingface_embeddings)
-
-        instruct_params: dict = {}
-        instruct_embeddings = EmbeddingLoader.get_embedding_model(
-            'huggingface_instruct', 'hkunlp/instructor-xl', **instruct_params
-        )
-        logger.info(instruct_embeddings)
-
-        sentence_transformer_params: dict = {}
-        sentence_transformer_embeddings = EmbeddingLoader.get_embedding_model(
-            'sentence_transformer',
-            'paraphrase-MiniLM-L6-v2',
-            **sentence_transformer_params,
-        )
-        logger.info(sentence_transformer_embeddings)
+        return chroma_langchain_embedding
 
 
 class LongTermMemory:
     """
-    Handles storing information for the agent to access later, using Chroma.
+    Handles storing information for the agent to access later.
+
+    Attributes:
+    - memories: The collection of memories. Includes agent's own memories, and delegates' memories.
+    - action_library: The collection of actions that the agent can learn on the fly if requested.
     """
+
+    memories: chromadb.Collection
+    action_library: chromadb.Collection
+    chroma_client: chromadb.PersistentClient
+    embeddings: embedding_functions.EmbeddingFunction
 
     def __init__(
         self,
@@ -442,34 +349,51 @@ class LongTermMemory:
             such as 'mirostat' for Ollama.
         """
 
-        embeddings = ChromaEmbeddingLoader.load_embedding(**kwargs)
+        embeddings = LangchainEmbeddingLoader.get_langchain_chroma_embedding_function(
+            **kwargs
+        )
 
         self.chroma_client = chromadb.PersistentClient(
             path='./chroma', settings=chromadb.Settings(anonymized_telemetry=False)
         )
 
-        self.collection = self.chroma_client.get_or_create_collection(
-            name='memories',
-            metadata={'type': 'memory'},
-            # embedding_function=embeddings
+        # memories collection
+        self.memories = self.chroma_client.get_or_create_collection(
+            name='memories', metadata={'type': 'memory'}, embedding_function=embeddings
         )
 
-        langchain_vector_store = Chroma(
-            self.chroma_client, self.collection, embedding_function=embeddings
+        # initialize the memories retriever
+        # self.memories_retriever = self.chroma_client.get_retriever(collection_name='memories')
+        self.event_idx = 0
+        document = chromadb.Document(
+            page_content='test',
+            metadata={'test': 'test'},
+            embedding=[1.0, 2.0, 3.0],
         )
-        self.index = langchain_vector_store.index
+        self.memories.add([document])
 
-        # self.index = self.chroma_db.index
-        self.thought_idx = 0
+        # action library collection
+        self.action_library = self.chroma_client.get_or_create_collection(
+            name='library', metadata={'type': 'action'}, embedding_function=embeddings
+        )
+
+        # initialize the library retriever
+        # self.action_library_retriever = self.chroma_client.get_retriever(collection_name='library')
+        self.action_idx = 0
 
     def _create_embeddings(self, docs: list[dict]) -> list[list[float]]:
         """
-        Create embeddings for the given documents using OpenAI.
+        Create embeddings for the given documents using the embedding function.
         """
         logger.info(f'Creating embeddings for {len(docs)} documents')
+
+        # separate the text from the metadata
         texts = [str(doc) for doc in docs]
-        embeddings = openai.Embedding.create(input=texts)['data']
-        logger.info('Embeddings created successfully')
+
+        # compute embeddings
+        embeddings = self.embeddings.create(input=texts)['data']
+        logger.info('{embeddings[20:]}')
+
         return [embedding['embedding'] for embedding in embeddings]
 
     def add_doc(self, doc: dict):
@@ -527,15 +451,15 @@ class LongTermMemory:
             id = event['observation']
         doc = Document(
             text=json.dumps(event),
-            doc_id=str(self.thought_idx),
+            doc_id=str(self.event_idx),
             extra_info={
                 'type': t,
                 'id': id,
-                'idx': self.thought_idx,
+                'idx': self.event_idx,
             },
         )
-        self.thought_idx += 1
-        logger.debug('Adding %s event to memory: %d', t, self.thought_idx)
+        self.event_idx += 1
+        logger.debug('Adding %s event to memory: %d', t, self.event_idx)
         self.add_doc(doc)
 
     def search(self, query: str, k: int = 10):
@@ -570,4 +494,4 @@ class LongTermMemory:
 
 
 if __name__ == '__main__':
-    ChromaEmbeddingLoader.print_all_embedding_functions()
+    LangchainEmbeddingLoader.print_all_embedding_functions()
