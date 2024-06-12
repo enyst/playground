@@ -1,17 +1,16 @@
 import importlib
 import inspect
 import json
-import logging
 from typing import Any
 
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
-from langchain.docstore.document import Document
 from langchain.schema.embeddings import Embeddings
+from langchain_community.vectorstores import Chroma
+from langchain_core.documents import Document
 
 from opendevin.core.config import LLMConfig, config
-
-logger = logging.getLogger(__name__)
+from opendevin.core.logger import opendevin_logger as logger
 
 
 class LangchainEmbeddingLoader:
@@ -19,11 +18,10 @@ class LangchainEmbeddingLoader:
     Class to load the embedding functions defined in chroma.
     """
 
-    def __init__(self, *, llm_config: LLMConfig = None):
+    def __init__(self, *, llm_config: LLMConfig | None = None):
         # just in case, make sure llm_config is set
         llm_config = llm_config or config.llm
 
-        # type: openai, azureopenai, onnx, or something else
         self.type = llm_config.embedding_type
         if not self.type and llm_config.embedding_model in [
             'openai',
@@ -78,7 +76,7 @@ class LangchainEmbeddingLoader:
             # openai deployment name can be passed as deployment_name or azure_deployment_name or model
             kwargs['azure_deployment'] = kwargs.get(
                 'azure_deployment_name',
-                kwargs.get('deployment_name', kwargs.get('model'), self.model),
+                kwargs.get('deployment_name', kwargs.get('model', self.model)),
             )
 
             # azure_endpoint
@@ -318,7 +316,7 @@ class LangchainEmbeddingLoader:
         chroma_langchain_embedding = create_langchain_embedding(langchain_embed_fn)
 
         test_embedding = chroma_langchain_embedding(['Hello, world!', 'How are you?'])
-        logger.info(f'Test embedding: {test_embedding}')
+        logger.info(f'Test embedding: {test_embedding[0][0:20]}')
 
         return chroma_langchain_embedding
 
@@ -332,10 +330,12 @@ class LongTermMemory:
     - action_library: The collection of actions that the agent can learn on the fly if requested.
     """
 
-    memories: chromadb.Collection
-    action_library: chromadb.Collection
-    chroma_client: chromadb.PersistentClient
+    memories_store: Chroma
+    memories_metadata: dict
+    action_library_store: Chroma
+    action_library_metadata: dict
     embeddings: embedding_functions.EmbeddingFunction
+    chroma_settings: chromadb.Settings
 
     def __init__(
         self,
@@ -349,36 +349,46 @@ class LongTermMemory:
             such as 'mirostat' for Ollama.
         """
 
-        embeddings = LangchainEmbeddingLoader.get_langchain_chroma_embedding_function(
-            **kwargs
+        self.embeddings = (
+            LangchainEmbeddingLoader.get_langchain_chroma_embedding_function(**kwargs)
         )
 
-        self.chroma_client = chromadb.PersistentClient(
-            path='./chroma', settings=chromadb.Settings(anonymized_telemetry=False)
+        # chroma client settings
+        self.chroma_settings = chromadb.Settings(
+            persist_directory='./chroma',
+            anonymized_telemetry=False,
         )
 
         # memories collection
-        self.memories = self.chroma_client.get_or_create_collection(
-            name='memories', metadata={'type': 'memory'}, embedding_function=embeddings
+        self.memories_metadata = {
+            'type': 'memory',
+            'source': 'agent',
+        }
+
+        # memories
+        self.memories_store = Chroma(
+            collection_name='memories',
+            collection_metadata=self.memories_metadata,
+            embedding_function=self.embeddings,
+            client_settings=self.chroma_settings,
         )
 
-        # initialize the memories retriever
-        # self.memories_retriever = self.chroma_client.get_retriever(collection_name='memories')
         self.event_idx = 0
-        document = chromadb.Document(
-            page_content='test',
-            metadata={'test': 'test'},
-            embedding=[1.0, 2.0, 3.0],
-        )
-        self.memories.add([document])
 
         # action library collection
-        self.action_library = self.chroma_client.get_or_create_collection(
-            name='library', metadata={'type': 'action'}, embedding_function=embeddings
+        self.action_library_metadata = {
+            'type': 'action',
+            'source': 'agent',
+        }
+
+        # action library
+        self.action_library_store = Chroma(
+            collection_name='action_library',
+            collection_metadata=self.action_library_metadata,
+            embedding_function=self.embeddings,
+            client_settings=self.chroma_settings,
         )
 
-        # initialize the library retriever
-        # self.action_library_retriever = self.chroma_client.get_retriever(collection_name='library')
         self.action_idx = 0
 
     def _create_embeddings(self, docs: list[dict]) -> list[list[float]]:
@@ -391,84 +401,92 @@ class LongTermMemory:
         texts = [str(doc) for doc in docs]
 
         # compute embeddings
-        embeddings = self.embeddings.create(input=texts)['data']
-        logger.info('{embeddings[20:]}')
+        embeddings = self.embeddings(input=texts)
+        logger.info('{embeddings[0:20]}')
 
-        return [embedding['embedding'] for embedding in embeddings]
+        return embeddings
 
-    def add_doc(self, doc: dict):
-        """
-        Add a single document to the memory.
-        """
-        logger.info('Adding a single document to the index')
-        embedding = self._create_embeddings([doc])[0]
-        self.collection.add_texts(
-            [Document(page_content=str(doc), metadata=doc, embedding=embedding)]
-        )
-        logger.info('Document added to the index')
-
-    def add_docs(self, docs: list[dict]):
+    def add_events(self, events: list[dict], ids: list[int] | None = None):
         """
         Add multiple documents to the memory in a batch.
         """
-        logger.info(f'Adding {len(docs)} documents to the index in batches')
+        # chroma doesn't like empty lists
+        if not events or len(events) == 0:
+            return
 
-        initial_docs = [
-            {
-                'Action': 'FileReadAction',
-                'args': [{'content': 'some content', 'path': '/workspace/song.txt'}],
-            }
-        ]
-        embeddings = self._create_embeddings(initial_docs)
-        documents = [
-            Document(page_content=str(doc), metadata=doc, embedding=embedding)
-            for doc, embedding in zip(docs, embeddings)
-        ]
-        self.collection.add_texts(documents, batched=True, batch_size=50)
-        logger.info('Documents added to the index')
+        logger.info(f'Adding {len(events)} documents to the index in batches')
 
-        # collection.add(
-        #    documents=["doc1", "doc2", "doc3", ...],
-        #    embeddings=[[1.1, 2.3, 3.2], [4.5, 6.9, 4.4], [1.1, 2.3, 3.2], ...],
-        #    metadatas=[{"chapter": "3", "verse": "16"}, {"chapter": "3", "verse": "5"}, {"chapter": "29", "verse": "11"}, ...],
-        #    ids=["id1", "id2", "id3", ...]
-        # )
+        documents = []
 
-    def add_event(self, event: dict):
+        # set type and id for each document
+        for i, event in enumerate(events):
+            metadata = self.action_library_metadata
+            if 'action' in event:
+                metadata['type'] = 'action'
+                metadata['id_action'] = event['action']
+            elif 'observation' in event:
+                metadata['type'] = 'observation'
+                metadata['id_observation'] = event['observation']
+            self.event_idx += 1
+            metadata['idx'] = self.event_idx
+            # metadatas[ids[i]] = metadata
+
+            # create document
+            documents.append(
+                Document(page_content=json.dumps(event), metadata=metadata)
+            )
+
+        # add documents to the index
+        ids = self.memories_store.add_documents(documents, batched=True, batch_size=50)
+        logger.info('Documents added to the index: %s', len(ids) if ids else 0)
+
+    def add_event(self, event: dict, id: int | None = None):
         """
         Adds a new event to the long term memory with a unique id.
 
         Parameters:
         - event (dict): The new event to be added to memory
         """
-        id = ''
+        action_id = ''
+        observation_id = ''
         t = ''
         if 'action' in event:
             t = 'action'
-            id = event['action']
+            action_id = event['action']
+            doc = Document(
+                page_content=json.dumps(event),
+                id=str(self.event_idx),
+                metadata={
+                    'type': t,
+                    'id': action_id,
+                    'idx': self.event_idx,
+                },
+            )
         elif 'observation' in event:
             t = 'observation'
-            id = event['observation']
-        doc = Document(
-            text=json.dumps(event),
-            doc_id=str(self.event_idx),
-            extra_info={
-                'type': t,
-                'id': id,
-                'idx': self.event_idx,
-            },
-        )
+            observation_id = event['observation']
+            doc = Document(
+                page_content=json.dumps(event),
+                id=str(self.event_idx),
+                metadata={
+                    'type': t,
+                    'id': observation_id,
+                    'idx': self.event_idx,
+                },
+            )
+
         self.event_idx += 1
+
         logger.debug('Adding %s event to memory: %d', t, self.event_idx)
-        self.add_doc(doc)
+        self.memories_store.add_documents([doc])
 
     def search(self, query: str, k: int = 10):
         """
         Search through the current memory and return the top k results.
         """
         logger.info(f"Searching for '{query}' in the index (top {k} results)")
-        results = self.collection.similarity_search(query, k=k)
-        logger.info(f'Found {len(results)} results')
+        # results = self.collection.similarity_search(query, k=k)
+        # logger.info(f'Found {len(results)} results')
 
         # old code
         # retriever = VectorIndexRetriever(
@@ -487,10 +505,11 @@ class LongTermMemory:
         #    where_document={"$contains":"search_string"}
         # )
 
-        retriever = self.chroma_client.get_retriever(self.collection)
-        results = retriever.retrieve(query, k=k)
+        # retriever = self.chroma_client.get_retriever(self.collection)
+        # results = retriever.retrieve(query, k=k)
 
-        return [result.metadata for result in results]
+        # return [result.metadata for result in results]
+        return []
 
 
 if __name__ == '__main__':

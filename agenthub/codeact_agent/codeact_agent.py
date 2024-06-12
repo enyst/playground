@@ -25,6 +25,7 @@ from opendevin.events.action import (
     MessageAction,
 )
 from opendevin.events.action.agent import AgentDelegateSummaryAction
+from opendevin.events.event import Event
 from opendevin.events.observation import (
     AgentDelegateObservation,
     BrowserOutputObservation,
@@ -77,9 +78,9 @@ def get_action_message(action: Action) -> dict[str, str] | None:
     return None
 
 
-def get_observation_message(obs) -> dict[str, str] | None:
+def get_observation_message(obs: Event, truncate: bool = True) -> dict[str, str] | None:
     if isinstance(obs, CmdOutputObservation):
-        content = 'OBSERVATION:\n' + truncate_content(obs.content)
+        content = 'OBSERVATION:\n' + (truncate_content(obs.content) if truncate else '')
         content += (
             f'\n[Command {obs.command_id} finished with exit code {obs.exit_code}]]'
         )
@@ -94,13 +95,15 @@ def get_observation_message(obs) -> dict[str, str] | None:
                     '![image](data:image/png;base64, ...) already displayed to user'
                 )
         content = '\n'.join(splitted)
-        content = truncate_content(content)
+        content = truncate_content(content) if truncate else content
         return {'role': 'user', 'content': content}
     elif isinstance(obs, BrowserOutputObservation):
-        content = 'OBSERVATION:\n' + truncate_content(obs.content)
+        content = 'OBSERVATION:\n' + (truncate_content(obs.content) if truncate else '')
         return {'role': 'user', 'content': content}
     elif isinstance(obs, AgentDelegateObservation):
-        content = 'OBSERVATION:\n' + truncate_content(str(obs.outputs))
+        content = 'OBSERVATION:\n' + (
+            truncate_content(str(obs.outputs)) if truncate else ''
+        )
         return {'role': 'user', 'content': content}
     return None
 
@@ -207,6 +210,21 @@ class CodeActAgent(Agent):
         latest_user_message = state.history.get_latest_user_message()
         if latest_user_message and latest_user_message.strip() == '/exit':
             return AgentFinishAction()
+
+        # add the last messages to long term memory
+        if self.longterm_memory is not None:
+            last_action = state.history.get_last_action()
+            last_observation = state.history.get_last_observation()
+
+            if last_action and (message := get_action_message(last_action)):
+                self.longterm_memory.add_event(message, id=last_action.id)
+            if last_observation and (
+                message := get_observation_message(last_observation)
+            ):
+                self.longterm_memory.add_event(
+                    message,
+                    id=last_observation.id,
+                )
 
         # prepare what we want to send to the LLM
         messages: list[dict[str, str]] = self._get_messages(state)

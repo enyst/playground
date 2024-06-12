@@ -44,7 +44,8 @@ class MonologueAgent(Agent):
 
     _initialized = False
     initial_thoughts: list[dict[str, str]]
-    memory: 'LongTermMemory | None'
+    initial_thoughts_ids: list[int]
+    longterm_memory: 'LongTermMemory | None'
     memory_condenser: MemoryCondenser | None
     runtime_tools: list[RuntimeTool] = [RuntimeTool.BROWSER]
 
@@ -56,7 +57,7 @@ class MonologueAgent(Agent):
         - llm (LLM): The llm to be used by this agent
         """
         super().__init__(llm)
-        self.memory = None
+        self.longterm_memory = None
         self.memory_condenser = None
 
     def _initialize(self, task: str):
@@ -80,10 +81,11 @@ class MonologueAgent(Agent):
             raise AgentNoInstructionError()
 
         self.initial_thoughts = []
+        self.initial_thoughts_ids = []
         if config.agent.memory_enabled:
-            self.memory = LongTermMemory()
+            self.longterm_memory = LongTermMemory()
         else:
-            self.memory = None
+            self.longterm_memory = None
 
         # self.memory_condenser = MemoryCondenser(action_prompt=prompts.get_action_prompt)
 
@@ -109,6 +111,7 @@ class MonologueAgent(Agent):
                         content=thought, url='', screenshot=''
                     )
                 self.initial_thoughts.append(event_to_memory(observation))
+                self.initial_thoughts_ids.append(observation.id)
                 previous_action = ''
             else:
                 action: Action = NullAction()
@@ -136,6 +139,11 @@ class MonologueAgent(Agent):
                 else:
                     action = MessageAction(thought)
                 self.initial_thoughts.append(event_to_memory(action))
+                self.initial_thoughts_ids.append(action.id)
+        if self.longterm_memory is not None:
+            self.longterm_memory.add_events(
+                events=self.initial_thoughts, ids=self.initial_thoughts_ids
+            )
 
     def step(self, state: State) -> Action:
         """
@@ -157,15 +165,19 @@ class MonologueAgent(Agent):
         for event in state.history.get_events():
             recent_events.append(event_to_memory(event))
 
-        # add the last messages to long term memory
-        if self.memory is not None:
+        # add the last events to long term memory
+        if self.longterm_memory is not None:
             last_action = state.history.get_last_action()
             last_observation = state.history.get_last_observation()
 
             if last_action:
-                self.memory.add_event(event_to_memory(last_action))
+                self.longterm_memory.add_event(
+                    event_to_memory(last_action), id=last_action.id
+                )
             if last_observation:
-                self.memory.add_event(event_to_memory(last_observation))
+                self.longterm_memory.add_event(
+                    event_to_memory(last_observation), id=last_observation.id
+                )
 
         # the action prompt with initial thoughts and recent events
         prompt = prompts.get_action_prompt(
@@ -203,9 +215,9 @@ class MonologueAgent(Agent):
         Returns:
         - A list of top 10 text results that matched the query
         """
-        if self.memory is None:
+        if self.longterm_memory is None:
             return []
-        return self.memory.search(query)
+        return self.longterm_memory.search(query)
 
     def reset(self) -> None:
         super().reset()
