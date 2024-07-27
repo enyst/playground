@@ -21,8 +21,7 @@ from opendevin.llm.llm import LLM
 
 
 class ShortTermHistory(list[Event]):
-    """
-    A list of events that represents the short-term memory of the agent.
+    """A list of events that represents the short-term memory of the agent.
 
     This class provides methods to retrieve and filter the events in the history of the running agent from the event stream.
     """
@@ -54,15 +53,11 @@ class ShortTermHistory(list[Event]):
         self.memory_condenser = MemoryCondenser(llm)
 
     def get_events_as_list(self) -> list[Event]:
-        """
-        Return the history as a list of Event objects.
-        """
+        """Return the history as a list of Event objects."""
         return list(self.get_events())
 
     def get_events(self, reverse: bool = False) -> Iterable[Event]:
-        """
-        Return the events as a stream of Event objects.
-        """
+        """Return the events as a stream of Event objects."""
         # TODO handle AgentRejectAction, if it's not part of a chunk ending with an AgentDelegateObservation
         # or even if it is, because currently we don't add it to the summary
 
@@ -80,15 +75,7 @@ class ShortTermHistory(list[Event]):
             reverse=reverse,
             filter_out_type=self.filter_out,
         ):
-            if event.id in [chunk_start for chunk_start, _ in self.summaries.keys()]:
-                chunk_start, chunk_end = next(
-                    (chunk_start, chunk_end)
-                    for chunk_start, chunk_end in self.summaries.keys()
-                    if chunk_start == event.id
-                )
-                summary_action = self.summaries[(chunk_start, chunk_end)]
-                yield summary_action
-            elif event.id in [
+            if event.id in [
                 delegate_start for delegate_start, _ in self.delegate_summaries.keys()
             ]:
                 delegate_start, delegate_end = next(
@@ -101,10 +88,6 @@ class ShortTermHistory(list[Event]):
                 ]
                 yield delegate_summary_action
             elif not any(
-                # we will yeild only events that are not part of a summary
-                chunk_start <= event.id <= chunk_end
-                for chunk_start, chunk_end in self.summaries.keys()
-            ) and not any(
                 # nor part of delegate events
                 # except for the delegate action and observation themselves
                 delegate_start <= event.id <= delegate_end
@@ -113,9 +96,7 @@ class ShortTermHistory(list[Event]):
                 yield event
 
     def get_last_action(self, end_id: int = -1) -> Action | None:
-        """
-        Return the last action from the event stream, filtered to exclude unwanted events.
-        """
+        """Return the last action from the event stream, filtered to exclude unwanted events."""
         # from end_id in reverse, find the first action
         end_id = self._event_stream.get_latest_event_id() if end_id == -1 else end_id
 
@@ -133,9 +114,7 @@ class ShortTermHistory(list[Event]):
         return last_action
 
     def get_last_observation(self, end_id: int = -1) -> Observation | None:
-        """
-        Return the last observation from the event stream, filtered to exclude unwanted events.
-        """
+        """Return the last observation from the event stream, filtered to exclude unwanted events."""
         # from end_id in reverse, find the first observation
         end_id = self._event_stream.get_latest_event_id() if end_id == -1 else end_id
 
@@ -153,10 +132,7 @@ class ShortTermHistory(list[Event]):
         return last_observation
 
     def get_last_user_message(self) -> str:
-        """
-        Return the latest user message from the event stream.
-        """
-
+        """Return the content of the last user message from the event stream."""
         last_user_message = next(
             (
                 event.content
@@ -168,10 +144,22 @@ class ShortTermHistory(list[Event]):
 
         return last_user_message if last_user_message is not None else ''
 
+    def get_last_agent_message(self) -> str:
+        """Return the content of the last agent message from the event stream."""
+        last_agent_message = next(
+            (
+                event.content
+                for event in self._event_stream.get_events(reverse=True)
+                if isinstance(event, MessageAction)
+                and event.source == EventSource.AGENT
+            ),
+            None,
+        )
+
+        return last_agent_message if last_agent_message is not None else ''
+
     def get_last_events(self, n: int) -> list[Event]:
-        """
-        Return the last n events from the event stream.
-        """
+        """Return the last n events from the event stream."""
         # dummy agent is using this
         # it should work, but it's not great to store temporary lists now just for a test
         end_id = self._event_stream.get_latest_event_id()
@@ -185,6 +173,12 @@ class ShortTermHistory(list[Event]):
                 filter_out_type=self.filter_out,
             )
         )
+
+    def has_delegation(self) -> bool:
+        for event in self._event_stream.get_events():
+            if isinstance(event, AgentDelegateObservation):
+                return True
+        return False
 
     def on_event(self, event: Event):
         if not isinstance(event, AgentDelegateObservation):
@@ -246,9 +240,7 @@ class ShortTermHistory(list[Event]):
         return history_pairs
 
     def get_pairs(self) -> list[tuple[Action, Observation]]:
-        """
-        Return the history as a list of tuples (action, observation).
-        """
+        """Return the history as a list of tuples (action, observation)."""
         tuples: list[tuple[Action, Observation]] = []
         action_map: dict[int, Action] = {}
         observation_map: dict[int, Observation] = {}

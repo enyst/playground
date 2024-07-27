@@ -1,6 +1,9 @@
-from opendevin.core.config import config
+from typing import Any, Optional
+
+from opendevin.core.config import AppConfig
+from opendevin.core.exceptions import BrowserInitException
+from opendevin.core.logger import opendevin_logger as logger
 from opendevin.events.action import (
-    AgentRecallAction,
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
@@ -12,33 +15,106 @@ from opendevin.events.observation import (
     CmdOutputObservation,
     ErrorObservation,
     IPythonRunCellObservation,
-    NullObservation,
     Observation,
 )
 from opendevin.events.stream import EventStream
-from opendevin.runtime import Sandbox
+from opendevin.runtime import (
+    DockerSSHBox,
+    E2BBox,
+    LocalBox,
+    Sandbox,
+)
+from opendevin.runtime.browser.browser_env import BrowserEnv
+from opendevin.runtime.plugins import PluginRequirement
 from opendevin.runtime.runtime import Runtime
+from opendevin.runtime.tools import RuntimeTool
 from opendevin.storage.local import LocalFileStore
 
-from .browse import browse
+from ..browser import browse
 from .files import read_file, write_file
 
 
 class ServerRuntime(Runtime):
     def __init__(
         self,
+        config: AppConfig,
         event_stream: EventStream,
         sid: str = 'default',
         sandbox: Sandbox | None = None,
     ):
-        super().__init__(event_stream, sid, sandbox)
+        super().__init__(config, event_stream, sid)
         self.file_store = LocalFileStore(config.workspace_base)
+        if sandbox is None:
+            self.sandbox = self.create_sandbox(sid, config.sandbox.box_type)
+            self._is_external_sandbox = False
+        else:
+            self.sandbox = sandbox
+            self._is_external_sandbox = True
+        self.browser: BrowserEnv | None = None
+
+    def create_sandbox(self, sid: str = 'default', box_type: str = 'ssh') -> Sandbox:
+        if box_type == 'local':
+            return LocalBox(
+                config=self.config.sandbox, workspace_base=self.config.workspace_base
+            )
+        elif box_type == 'ssh':
+            return DockerSSHBox(
+                config=self.config.sandbox,
+                persist_sandbox=self.config.persist_sandbox,
+                workspace_mount_path=self.config.workspace_mount_path,
+                sandbox_workspace_dir=self.config.workspace_mount_path_in_sandbox,
+                cache_dir=self.config.cache_dir,
+                run_as_devin=self.config.run_as_devin,
+                ssh_hostname=self.config.ssh_hostname,
+                ssh_password=self.config.ssh_password,
+                ssh_port=self.config.ssh_port,
+                sid=sid,
+            )
+        elif box_type == 'e2b':
+            return E2BBox(
+                config=self.config.sandbox,
+                e2b_api_key=self.config.e2b_api_key,
+            )
+        else:
+            raise ValueError(f'Invalid sandbox type: {box_type}')
+
+    async def ainit(self, env_vars: dict[str, str] | None = None):
+        # MUST call super().ainit() to initialize both default env vars
+        # AND the ones in env vars!
+        await super().ainit(env_vars)
+
+    async def close(self):
+        if hasattr(self, '_is_external_sandbox') and not self._is_external_sandbox:
+            self.sandbox.close()
+        if hasattr(self, 'browser') and self.browser is not None:
+            self.browser.close()
+
+    def init_sandbox_plugins(self, plugins: list[PluginRequirement]) -> None:
+        self.sandbox.init_plugins(plugins)
+
+    def init_runtime_tools(
+        self,
+        runtime_tools: list[RuntimeTool],
+        runtime_tools_config: Optional[dict[RuntimeTool, Any]] = None,
+        is_async: bool = True,
+    ) -> None:
+        # if browser in runtime_tools, init it
+        if RuntimeTool.BROWSER in runtime_tools:
+            if runtime_tools_config is None:
+                runtime_tools_config = {}
+            browser_env_config = runtime_tools_config.get(RuntimeTool.BROWSER, {})
+            try:
+                self.browser = BrowserEnv(is_async=is_async, **browser_env_config)
+            except BrowserInitException:
+                logger.warn(
+                    'Failed to start browser environment, web browsing functionality will not work'
+                )
 
     async def run(self, action: CmdRunAction) -> Observation:
         return self._run_command(action.command)
 
     async def run_ipython(self, action: IPythonRunCellAction) -> Observation:
-        obs = self._run_command(
+        self._run_command(
             ("cat > /tmp/opendevin_jupyter_temp.py <<'EOL'\n" f'{action.code}\n' 'EOL'),
         )
 
@@ -79,7 +155,7 @@ class ServerRuntime(Runtime):
 
                     # re-init the kernel after restart
                     if action.kernel_init_code:
-                        obs = self._run_command(
+                        self._run_command(
                             (
                                 f"cat > /tmp/opendevin_jupyter_init.py <<'EOL'\n"
                                 f'{action.kernel_init_code}\n'
@@ -99,13 +175,26 @@ class ServerRuntime(Runtime):
     async def read(self, action: FileReadAction) -> Observation:
         # TODO: use self.file_store
         working_dir = self.sandbox.get_working_directory()
-        return await read_file(action.path, working_dir, action.start, action.end)
+        return await read_file(
+            action.path,
+            working_dir,
+            self.config.workspace_base,
+            self.config.workspace_mount_path_in_sandbox,
+            action.start,
+            action.end,
+        )
 
     async def write(self, action: FileWriteAction) -> Observation:
         # TODO: use self.file_store
         working_dir = self.sandbox.get_working_directory()
         return await write_file(
-            action.path, working_dir, action.content, action.start, action.end
+            action.path,
+            working_dir,
+            self.config.workspace_base,
+            self.config.workspace_mount_path_in_sandbox,
+            action.content,
+            action.start,
+            action.end,
         )
 
     async def browse(self, action: BrowseURLAction) -> Observation:
@@ -113,9 +202,6 @@ class ServerRuntime(Runtime):
 
     async def browse_interactive(self, action: BrowseInteractiveAction) -> Observation:
         return await browse(action, self.browser)
-
-    async def recall(self, action: AgentRecallAction) -> Observation:
-        return NullObservation('')
 
     def _run_command(self, command: str) -> Observation:
         try:

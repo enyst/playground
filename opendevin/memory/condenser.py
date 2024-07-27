@@ -11,12 +11,15 @@ from opendevin.memory.prompts import (
 )
 
 MAX_USER_MESSAGE_CHAR_COUNT = 200  # max char count for user messages
+MAX_MESSAGE_CHARS = 10000  # FIXME
 
 
 class MemoryCondenser:
-    def condense(self, summarize_prompt: str, llm: LLM):
-        """
-        Attempts to condense the monologue by using the llm
+    def __init__(self, llm: LLM):
+        self.llm = llm
+
+    def condense(self, summarize_prompt: str):
+        """Attempts to condense the memory by using the llm
 
         Parameters:
         - llm (LLM): llm to be used for summarization
@@ -24,16 +27,15 @@ class MemoryCondenser:
         Raises:
         - Exception: the same exception as it got from the llm or processing the response
         """
-
         try:
             messages = [{'content': summarize_prompt, 'role': 'user'}]
-            resp = llm.completion(messages=messages)
+            resp = self.llm.completion(messages=messages)
             summary_response = resp['choices'][0]['message']['content']
             return summary_response
         except Exception as e:
             logger.error('Error condensing thoughts: %s', str(e), exc_info=False)
 
-            # TODO If the llm fails with ContextWindowExceededError, we can try to condense the monologue chunk by chunk
+            # TODO If the llm fails with ContextWindowExceededError, we can try to condense the memory chunk by chunk
             raise
 
     def summarize_delegate(
@@ -51,7 +53,10 @@ class MemoryCondenser:
         - The summary of the delegate's activities.
         """
         try:
-            event_dicts = [event_to_memory(event) for event in delegate_events]
+            event_dicts = [
+                event_to_memory(event, max_message_chars=MAX_MESSAGE_CHARS)
+                for event in delegate_events
+            ]
             prompt = get_delegate_summarize_prompt(
                 event_dicts, delegate_agent, delegate_task
             )

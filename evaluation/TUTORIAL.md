@@ -33,13 +33,15 @@ workspace_mount_path = "/path/to/your/workspace"
 
 ssh_hostname = "localhost"
 
+run_as_devin = false
+
+[sandbox]
 # SWEBench eval specific - but you can tweak it to your needs
 use_host_network = false
-run_as_devin = false
 # linting python after editing helps LLM fix indentations
 enable_auto_lint = true
 
-[sandbox]
+
 box_type = "ssh"
 timeout = 120
 
@@ -53,14 +55,14 @@ api_key = "sk-XXX"
 
 In this section, for the purpose of building an evaluation task, we don't use the standard OpenDevin web-based GUI, but rather run OpenDevin backend from CLI.
 
-For example, you can run the following, which performs the specified task `-t`, with a particular model `-m` and agent `-c`, for a maximum number of iterations `-i`:
+For example, you can run the following, which performs the specified task `-t`, with a particular model config `-l` and agent `-c`, for a maximum number of iterations `-i`:
 
 ```bash
 poetry run python ./opendevin/core/main.py \
         -i 10 \
         -t "Write me a bash script that print hello world." \
         -c CodeActAgent \
-        -m gpt-4o-2024-05-13
+        -l llm
 ```
 
 After running the script, you will observe the following:
