@@ -25,8 +25,9 @@ from litellm.exceptions import (
     ServiceUnavailableError,
 )
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
+from litellm.utils import create_pretrained_tokenizer
 
-from openhands.core.exceptions import CloudFlareBlockageError
+from openhands.core.exceptions import CloudFlareBlockageError, TokenLimitExceededError
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import Message
 from openhands.llm.debug_mixin import DebugMixin
