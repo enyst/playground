@@ -1,11 +1,11 @@
 import os
 from itertools import islice
+from typing import Any
 
 from jinja2 import Template
 
 from openhands.controller.state.state import State
 from openhands.core.message import Message, TextContent
-from openhands.memory.conversation_memory import ConversationMemory
 from openhands.utils.microagent import MicroAgent
 
 
@@ -111,13 +111,15 @@ class PromptManager:
             latest_user_message.content.append(TextContent(text=reminder_text))
 
     @property
-    def conversation_memory(self) -> ConversationMemory:
-        return self._conversation_memory
-    
-    @conversation_memory.setter
-    def conversation_memory(self, conversation_memory: ConversationMemory) -> None:
-        self._conversation_memory = conversation_memory
+    def conversation_history(self) -> list[dict[str, Any]]:
+        return self._conversation_history
+
+    @conversation_history.setter
+    def conversation_history(self, conversation_history: list[dict[str, Any]]) -> None:
+        self._conversation_history = conversation_history
 
     def get_summarize_prompt(self) -> str:
         # render the template with the conversation memory
-        return self.summarize_template.render(conversation_memory=self.conversation_memory).strip()
+        return self.summarize_template.render(
+            conversation_history=self.conversation_history
+        ).strip()

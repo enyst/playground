@@ -120,7 +120,7 @@ class MemoryCondenser:
         self.prompt_manager.conversation_history = self.llm.format_messages_for_llm(
             message_sequence_to_summarize
         )
-        summarize_prompt = self.prompt_manager.summarize_message
+        summarize_prompt = self.prompt_manager.get_summarize_prompt()
         message = Message(role='system', content=[TextContent(text=summarize_prompt)])
         serialized_message = message.model_dump()
 
