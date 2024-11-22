@@ -116,6 +116,13 @@ class FunctionCallValidationError(Exception):
         super().__init__(message)
 
 
+class FunctionCallNotExistsError(Exception):
+    """Exception raised when an LLM call a tool that is not registered."""
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
 class TokenLimitExceededError(Exception):
     def __init__(self, message):
         super().__init__(message)

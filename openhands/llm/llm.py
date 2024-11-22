@@ -25,9 +25,8 @@ from litellm.exceptions import (
     ServiceUnavailableError,
 )
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
-from litellm.utils import create_pretrained_tokenizer
 
-from openhands.core.exceptions import CloudFlareBlockageError, TokenLimitExceededError
+from openhands.core.exceptions import CloudFlareBlockageError
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import Message
 from openhands.llm.debug_mixin import DebugMixin
@@ -110,41 +109,8 @@ class LLM(RetryMixin, DebugMixin):
                 )
             os.makedirs(self.config.log_completions_folder, exist_ok=True)
 
-        self._completion = partial(
-            litellm_completion,
-            model=self.config.model,
-            api_key=self.config.api_key,
-            base_url=self.config.base_url,
-            api_version=self.config.api_version,
-            custom_llm_provider=self.config.custom_llm_provider,
-            max_tokens=self.config.max_output_tokens,
-            timeout=self.config.timeout,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            drop_params=self.config.drop_params,
-        )
-
-        if self.vision_is_active():
-            logger.debug('LLM: model has vision enabled')
-        if self.is_caching_prompt_active():
-            logger.debug('LLM: caching prompt enabled')
-        if self.is_function_calling_active():
-            logger.debug('LLM: model supports function calling')
-
-        self._completion = partial(
-            litellm_completion,
-            model=self.config.model,
-            api_key=self.config.api_key,
-            base_url=self.config.base_url,
-            api_version=self.config.api_version,
-            custom_llm_provider=self.config.custom_llm_provider,
-            max_tokens=self.config.max_output_tokens,
-            timeout=self.config.timeout,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            drop_params=self.config.drop_params,
-        )
-
+        # call init_model_info to initialize config.max_output_tokens
+        # which is used in partial function
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             self.init_model_info()
@@ -154,6 +120,20 @@ class LLM(RetryMixin, DebugMixin):
             logger.debug('LLM: caching prompt enabled')
         if self.is_function_calling_active():
             logger.debug('LLM: model supports function calling')
+
+        self._completion = partial(
+            litellm_completion,
+            model=self.config.model,
+            api_key=self.config.api_key,
+            base_url=self.config.base_url,
+            api_version=self.config.api_version,
+            custom_llm_provider=self.config.custom_llm_provider,
+            max_tokens=self.config.max_output_tokens,
+            timeout=self.config.timeout,
+            temperature=self.config.temperature,
+            top_p=self.config.top_p,
+            drop_params=self.config.drop_params,
+        )
 
         self._completion_unwrapped = self._completion
 
@@ -166,7 +146,6 @@ class LLM(RetryMixin, DebugMixin):
         )
         def wrapper(*args, **kwargs):
             """Wrapper for the litellm completion function. Logs the input and output of the completion function."""
-
             from openhands.core.utils import json
 
             messages: list[dict[str, Any]] | dict[str, Any] = []
@@ -345,6 +324,13 @@ class LLM(RetryMixin, DebugMixin):
                 pass
         logger.debug(f'Model info: {self.model_info}')
 
+        if self.config.model.startswith('huggingface'):
+            # HF doesn't support the OpenAI default value for top_p (1)
+            logger.debug(
+                f'Setting top_p to 0.9 for Hugging Face model: {self.config.model}'
+            )
+            self.config.top_p = 0.9 if self.config.top_p == 1 else self.config.top_p
+
         # Set the max tokens in an LM-specific way if not set
         if self.config.max_input_tokens is None:
             if (
@@ -372,16 +358,16 @@ class LLM(RetryMixin, DebugMixin):
                 ):
                     self.config.max_output_tokens = self.model_info['max_tokens']
 
-    def vision_is_active(self):
+    def vision_is_active(self) -> bool:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             return not self.config.disable_vision and self._supports_vision()
 
-    def _supports_vision(self):
+    def _supports_vision(self) -> bool:
         """Acquire from litellm if model is vision capable.
 
         Returns:
-            bool: True if model is vision capable. If model is not supported by litellm, it will return False.
+            bool: True if model is vision capable. Return False if model not supported by litellm.
         """
         # litellm.supports_vision currently returns False for 'openai/gpt-...' or 'anthropic/claude-...' (with prefixes)
         # but model_info will have the correct value for some reason.
@@ -479,7 +465,7 @@ class LLM(RetryMixin, DebugMixin):
         if stats:
             logger.debug(stats)
 
-    def get_token_count(self, messages):
+    def get_token_count(self, messages) -> int:
         """Get the number of tokens in a list of messages.
 
         Args:
@@ -494,7 +480,7 @@ class LLM(RetryMixin, DebugMixin):
             # TODO: this is to limit logspam in case token count is not supported
             return 0
 
-    def _is_local(self):
+    def _is_local(self) -> bool:
         """Determines if the system is using a locally running LLM.
 
         Returns:
@@ -509,7 +495,7 @@ class LLM(RetryMixin, DebugMixin):
                 return True
         return False
 
-    def _completion_cost(self, response):
+    def _completion_cost(self, response) -> float:
         """Calculate the cost of a completion response based on the model.  Local models are treated as free.
         Add the current cost into total cost in metrics.
 
@@ -547,7 +533,7 @@ class LLM(RetryMixin, DebugMixin):
             self.cost_metric_supported = False
             logger.debug('Cost calculation not supported for this model.')
         return 0.0
-    
+
     def search(self, query: str, history: list[Event], top_k: int = 5) -> list[Event]:
         raise NotImplementedError('Search is not implemented.')
 
@@ -561,7 +547,7 @@ class LLM(RetryMixin, DebugMixin):
     def __repr__(self):
         return str(self)
 
-    def reset(self):
+    def reset(self) -> None:
         self.metrics.reset()
 
     def format_messages_for_llm(self, messages: Message | list[Message]) -> list[dict]:
@@ -572,6 +558,7 @@ class LLM(RetryMixin, DebugMixin):
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
+            message.function_calling_enabled = self.is_function_calling_active()
 
         # let pydantic handle the serialization
         return [message.model_dump() for message in messages]
