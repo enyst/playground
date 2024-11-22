@@ -8,6 +8,7 @@ from typing import Any
 import requests
 
 from openhands.core.config import LLMConfig
+from openhands.events.event import Event
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
@@ -545,6 +546,9 @@ class LLM(RetryMixin, DebugMixin):
             self.cost_metric_supported = False
             logger.debug('Cost calculation not supported for this model.')
         return 0.0
+    
+    def search(self, query: str, history: list[Event], top_k: int = 5) -> list[Event]:
+        raise NotImplementedError('Search is not implemented.')
 
     def __str__(self):
         if self.config.api_version:

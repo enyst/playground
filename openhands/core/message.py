@@ -55,6 +55,7 @@ class Message(BaseModel):
     content: list[TextContent | ImageContent] = Field(default_factory=list)
     cache_enabled: bool = False
     vision_enabled: bool = False
+    condensable: bool = True
     # function calling
     # - tool calls (from LLM)
     tool_calls: list[ChatCompletionMessageToolCall] | None = None

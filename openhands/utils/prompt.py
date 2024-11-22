@@ -5,6 +5,7 @@ from jinja2 import Template
 
 from openhands.controller.state.state import State
 from openhands.core.message import Message, TextContent
+from openhands.memory.conversation_memory import ConversationMemory
 from openhands.utils.microagent import MicroAgent
 
 
@@ -32,6 +33,7 @@ class PromptManager:
 
         self.system_template: Template = self._load_template('system_prompt')
         self.user_template: Template = self._load_template('user_prompt')
+        self.summarize_template: Template = self._load_template('summarize_prompt')
         self.microagents: dict = {}
 
         microagent_files = []
@@ -107,3 +109,15 @@ class PromptManager:
         if latest_user_message:
             reminder_text = f'\n\nENVIRONMENT REMINDER: You have {state.max_iterations - state.iteration} turns left to complete the task. When finished reply with <finish></finish>.'
             latest_user_message.content.append(TextContent(text=reminder_text))
+
+    @property
+    def conversation_memory(self) -> ConversationMemory:
+        return self._conversation_memory
+    
+    @conversation_memory.setter
+    def conversation_memory(self, conversation_memory: ConversationMemory) -> None:
+        self._conversation_memory = conversation_memory
+
+    def get_summarize_prompt(self) -> str:
+        # render the template with the conversation memory
+        return self.summarize_template.render(conversation_memory=self.conversation_memory).strip()
