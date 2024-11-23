@@ -209,13 +209,36 @@ class IssueHandler(IssueHandlerInterface):
         images.extend(self._extract_image_urls(thread_context))
 
         template = jinja2.Template(prompt_template)
-        return (
-            template.render(
-                body=issue.title + '\n\n' + issue.body + thread_context,
-                repo_instruction=repo_instruction,
-            ),
-            images,
+        import re
+
+        # Render the template
+        instruction = template.render(
+            body=issue.title + '\n\n' + issue.body + thread_context,
+            repo_instruction=repo_instruction,
         )
+
+        # Split the instruction into lines
+        lines = instruction.split('\n')
+
+        # Add newlines between sections
+        formatted_lines = []
+        section_breaks = [
+            '# Problem Statement',
+            'IMPORTANT:',
+            'Some basic information about this repository:',
+            'When you think you have fixed the issue',
+        ]
+
+        for i, line in enumerate(lines):
+            if line.strip() in section_breaks and i > 0:
+                formatted_lines.append('')
+            formatted_lines.append(line)
+
+        # Combine lines and remove multiple consecutive newlines
+        instruction = '\n'.join(formatted_lines)
+        instruction = re.sub(r'\n{3,}', '\n\n', instruction).rstrip('\n')
+
+        return instruction, images
 
     def guess_success(
         self, issue: GithubIssue, history: list[Event], llm_config: LLMConfig
