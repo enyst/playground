@@ -4144,6 +4144,21 @@ llama-index-core = ">=0.12.0,<0.13.0"
 openai = ">=1.1.0"
 
 [[package]]
+name = "llama-index-embeddings-voyageai"
+version = "0.3.0"
+description = "llama-index embeddings voyageai integration"
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "llama_index_embeddings_voyageai-0.3.0-py3-none-any.whl", hash = "sha256:79069c233d1da012c9d4dc496c67183b77cf739be26122b77f2bc2f688741130"},
+    {file = "llama_index_embeddings_voyageai-0.3.0.tar.gz", hash = "sha256:23836f806569f5fc2f2219dc3e4e081bc2725a646bed16b9cf58c14272ea2e8d"},
+]
+
+[package.dependencies]
+llama-index-core = ">=0.12.0,<0.13.0"
+voyageai = ">=0.2.1,<0.3.0"
+
+[[package]]
 name = "llama-index-indices-managed-llama-cloud"
 version = "0.6.2"
 description = "llama-index indices llama-cloud integration"
@@ -9546,6 +9561,24 @@ docs = ["furo (>=2023.7.26)", "proselint (>=0.13)", "sphinx (>=7.1.2,!=7.3)", "s
 test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess (>=1)", "flaky (>=3.7)", "packaging (>=23.1)", "pytest (>=7.4)", "pytest-env (>=0.8.2)", "pytest-freezer (>=0.4.8)", "pytest-mock (>=3.11.1)", "pytest-randomly (>=3.12)", "pytest-timeout (>=2.1)", "setuptools (>=68)", "time-machine (>=2.10)"]
 
 [[package]]
+name = "voyageai"
+version = "0.2.4"
+description = ""
+optional = false
+python-versions = "<4.0.0,>=3.7.1"
+files = [
+    {file = "voyageai-0.2.4-py3-none-any.whl", hash = "sha256:e3070e5c78dec89adae43231334b4637aa88933dad99b1c33d3219fdfc94dfa4"},
+    {file = "voyageai-0.2.4.tar.gz", hash = "sha256:b9911d8629e8a4e363291c133482fead49a3536afdf1e735f3ab3aaccd8d250d"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.5,<4.0"
+aiolimiter = ">=1.1.0,<2.0.0"
+numpy = ">=1.11"
+requests = ">=2.20,<3.0"
+tenacity = ">=8.0.1"
+
+[[package]]
 name = "watchdog"
 version = "6.0.0"
 description = "Filesystem events monitoring"
@@ -10249,4 +10282,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "9031e73b8930c9031acd554c2c225be41d673e275c4626dbe432c79eeb783065"
+content-hash = "dd35dc5f7a591f8327029fe025bd265debe2198493821e611a9cc1ce4b48c239"
