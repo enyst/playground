@@ -156,19 +156,18 @@ jobs:
               [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]]); then
             echo "LLM_MODEL=anthropic/claude-opus-3-20240229" >> $GITHUB_ENV
             echo "LLM_API_KEY=${{ secrets.OPUS_API_KEY }}" >> $GITHUB_ENV
-          else
-            echo "LLM_MODEL=${{ secrets.LLM_MODEL }}" >> $GITHUB_ENV
-            echo "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" >> $GITHUB_ENV
-          fi
-
-          # Set installation method based on label or macro
-          if [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
+            echo "USE_CURRENT_BRANCH=true" >> $GITHUB_ENV
+          elif [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
              ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
               [[ "${{ github.event.comment.body }}" == *"@openhands-agent-exp"* ]]) ||
              ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
               [[ "${{ github.event.review.body }}" == *"@openhands-agent-exp"* ]]); then
+            echo "LLM_MODEL=${{ secrets.LLM_MODEL }}" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" >> $GITHUB_ENV
             echo "USE_CURRENT_BRANCH=true" >> $GITHUB_ENV
           else
+            echo "LLM_MODEL=${{ secrets.LLM_MODEL }}" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" >> $GITHUB_ENV
             echo "USE_CURRENT_BRANCH=false" >> $GITHUB_ENV
           fi
 
@@ -187,8 +186,12 @@ jobs:
 
       - name: Install Poetry
         if: env.USE_CURRENT_BRANCH == 'true'
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
 
       - name: Install OpenHands
         run: |
