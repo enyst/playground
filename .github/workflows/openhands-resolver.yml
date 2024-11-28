@@ -21,12 +21,14 @@ on:
         required: true
       LLM_API_KEY:
         required: true
+      OPUS_API_KEY:
+        required: true
       LLM_BASE_URL:
         required: false
       PAT_TOKEN:
         required: true
-      OPUS_API_KEY:
-        required: false
+      PAT_USERNAME:
+        required: true
 
   issues:
     types: [labeled]
@@ -54,14 +56,12 @@ jobs:
 
       (
         ((github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-        contains(github.event.comment.body, inputs.macro || '@openhands-agent') ||
-        contains(github.event.comment.body, '@lil-opus') &&
+        (contains(github.event.comment.body, inputs.macro || '@openhands-agent') || contains(github.event.comment.body, '@lil-opus')) &&
         (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'COLLABORATOR' || github.event.comment.author_association == 'MEMBER')
         ) ||
 
         (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, inputs.macro || '@openhands-agent') ||
-        contains(github.event.review.body, '@lil-opus') &&
+        (contains(github.event.review.body, inputs.macro || '@openhands-agent') || contains(github.event.review.body, '@lil-opus')) &&
         (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'COLLABORATOR' || github.event.review.author_association == 'MEMBER')
         )
       )
@@ -69,6 +69,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -88,11 +90,11 @@ jobs:
             github.event.label.name == 'fix-me-experimental' ||
             (
               (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-              (contains(github.event.comment.body, '@openhands-agent-exp') || contains(github.event.comment.body, '@lil-opus'))
+              contains(github.event.comment.body, '@openhands-agent-exp')
             ) ||
             (
               github.event_name == 'pull_request_review' &&
-              (contains(github.event.review.body, '@openhands-agent-exp') || contains(github.event.review.body, '@lil-opus'))
+              contains(github.event.review.body, '@openhands-agent-exp')
             )
           )
         uses: actions/cache@v3
@@ -146,6 +148,29 @@ jobs:
           # Set branch variables
           echo "TARGET_BRANCH=${{ inputs.target_branch }}" >> $GITHUB_ENV
 
+          # Set model and API key based on label or macro
+          if [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] ||
+             ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
+              [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]]) ||
+             ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
+              [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]]); then
+            echo "LLM_MODEL=anthropic/claude-opus-3-20240229" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.OPUS_API_KEY }}" >> $GITHUB_ENV
+            echo "USE_CURRENT_BRANCH=true" >> $GITHUB_ENV
+          elif [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
+             ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
+              [[ "${{ github.event.comment.body }}" == *"@openhands-agent-exp"* ]]) ||
+             ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
+              [[ "${{ github.event.review.body }}" == *"@openhands-agent-exp"* ]]); then
+            echo "LLM_MODEL=${{ secrets.LLM_MODEL }}" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" >> $GITHUB_ENV
+            echo "USE_CURRENT_BRANCH=true" >> $GITHUB_ENV
+          else
+            echo "LLM_MODEL=${{ secrets.LLM_MODEL }}" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" >> $GITHUB_ENV
+            echo "USE_CURRENT_BRANCH=false" >> $GITHUB_ENV
+          fi
+
       - name: Comment on issue with start message
         uses: actions/github-script@v7
         with:
@@ -159,15 +184,25 @@ jobs:
               body: `[OpenHands](https://github.com/All-Hands-AI/OpenHands) started fixing the ${issueType}! You can monitor the progress [here](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`
             });
 
+      - name: Install Poetry
+        if: |
+          env.USE_CURRENT_BRANCH == 'true' ||
+          github.event.label.name == 'fix-me-opus' ||
+          (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@lil-opus')) ||
+          (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@lil-opus'))
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
       - name: Install OpenHands
         run: |
-          if [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
-             ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
-              ([[ "${{ github.event.comment.body }}" == "@openhands-agent-exp"* ]] || [[ "${{ github.event.comment.body }}" == "@lil-opus"* ]])) ||
-             ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
-              ([[ "${{ github.event.review.body }}" == "@openhands-agent-exp"* ]] || [[ "${{ github.event.review.body }}" == "@lil-opus"* ]])); then
+          if [[ "${{ env.USE_CURRENT_BRANCH }}" == "true" ]] || [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] || ([[ "${{ github.event_name }}" == "issue_comment" ]] && [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]]) || ([[ "${{ github.event_name }}" == "pull_request_review" ]] && [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]]); then
+            poetry install --without evaluation,llama-index
             python -m pip install --upgrade pip
-            pip install git+https://github.com/all-hands-ai/openhands.git
+            pip install git+https://github.com/${{ github.repository }}.git@${{ github.head_ref }}
           else
             python -m pip install --upgrade -r requirements.txt
           fi
@@ -176,22 +211,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ secrets.PAT_USERNAME }}
-          LLM_MODEL: ${{
-            (github.event.label.name == 'fix-me-opus' ||
-             contains(github.event.comment.body, '@lil-opus') ||
-             contains(github.event.review.body, '@lil-opus'))
-            && secrets.OPUS_API_KEY
-            && 'anthropic/claude-opus-3-20240229'
-            || secrets.LLM_MODEL
-          }}
-          LLM_API_KEY: ${{
-            (github.event.label.name == 'fix-me-opus' ||
-             contains(github.event.comment.body, '@lil-opus') ||
-             contains(github.event.review.body, '@lil-opus'))
-            && secrets.OPUS_API_KEY
-            && secrets.OPUS_API_KEY
-            || secrets.LLM_API_KEY
-          }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           PYTHONPATH: ""
         run: |
@@ -200,7 +221,7 @@ jobs:
             --issue-number ${{ env.ISSUE_NUMBER }} \
             --issue-type ${{ env.ISSUE_TYPE }} \
             --max-iterations ${{ env.MAX_ITERATIONS }} \
-            --comment-id ${{ env.COMMENT_ID }}
+            --comment-id ${{ env.COMMENT_ID }} \
 
       - name: Check resolution result
         id: check_result
@@ -224,22 +245,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_USERNAME: ${{ secrets.PAT_USERNAME }}
-          LLM_MODEL: ${{
-            (github.event.label.name == 'fix-me-opus' ||
-             contains(github.event.comment.body, '@lil-opus') ||
-             contains(github.event.review.body, '@lil-opus'))
-            && secrets.OPUS_API_KEY
-            && 'anthropic/claude-opus-3-20240229'
-            || secrets.LLM_MODEL
-          }}
-          LLM_API_KEY: ${{
-            (github.event.label.name == 'fix-me-opus' ||
-             contains(github.event.comment.body, '@lil-opus') ||
-             contains(github.event.review.body, '@lil-opus'))
-            && secrets.OPUS_API_KEY
-            && secrets.OPUS_API_KEY
-            || secrets.LLM_API_KEY
-          }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           PYTHONPATH: ""
         run: |
@@ -269,6 +276,7 @@ jobs:
             let prNumber = '';
             let branchName = '';
             let logContent = '';
+            let outputContent = '';
             const noChangesMessage = `No changes to commit for issue #${issueNumber}. Skipping commit.`;
 
             try {
@@ -291,6 +299,14 @@ jobs:
               console.error('Error reading file:', error);
             }
 
+            try {
+              const outputLines = fs.readFileSync('/tmp/output/output.jsonl', 'utf8').trim().split('\n');
+              const lastOutput = JSON.parse(outputLines[outputLines.length - 1]);
+              outputContent = lastOutput.success_explanation || '';
+            } catch (error) {
+              console.error('Error reading output.jsonl:', error);
+            }
+
             if (logContent.includes(noChangesMessage)) {
               github.rest.issues.createComment({
                 issue_number: issueNumber,
@@ -303,20 +319,20 @@ jobs:
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `A potential fix has been generated and a draft PR #${prNumber} has been created. Please review the changes.`
+                body: `A potential fix has been generated and a draft PR #${prNumber} has been created. Please review the changes.\n\n${outputContent}`
               });
             } else if (!success && branchName) {
               github.rest.issues.createComment({
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `An attempt was made to automatically fix this issue, but it was unsuccessful. A branch named '${branchName}' has been created with the attempted changes. You can view the branch [here](https://github.com/${context.repo.owner}/${context.repo.repo}/tree/${branchName}). Manual intervention may be required.`
+                body: `An attempt was made to automatically fix this issue, but it was unsuccessful. A branch named '${branchName}' has been created with the attempted changes. You can view the branch [here](https://github.com/${context.repo.owner}/${context.repo.repo}/tree/${branchName}). Manual intervention may be required.\n\n${outputContent}`
               });
             } else {
               github.rest.issues.createComment({
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `The workflow to fix this issue encountered an error. Please check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for more information.`
+                body: `The workflow to fix this issue encountered an error. Please check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for more information.\n\n${outputContent}`
               });
             }

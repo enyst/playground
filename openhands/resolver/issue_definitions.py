@@ -175,6 +175,33 @@ class IssueHandler(IssueHandlerInterface):
             thread_comments = self._get_issue_comments(
                 issue['number'], comment_id=comment_id
             )
+
+            # Get referenced issues
+            referenced_issues = []
+            referenced_issue_numbers = self._extract_issue_references(issue['body'])
+            if thread_comments:
+                for comment in thread_comments:
+                    referenced_issue_numbers.extend(self._extract_issue_references(comment))
+
+            # Get content of referenced issues
+            for ref_issue_num in referenced_issue_numbers:
+                ref_issue_comments = self._get_issue_comments(ref_issue_num)
+                ref_issue_url = f'https://api.github.com/repos/{self.owner}/{self.repo}/issues/{ref_issue_num}'
+                headers = {
+                    'Authorization': f'token {self.token}',
+                    'Accept': 'application/vnd.github.v3+json',
+                }
+                try:
+                    response = requests.get(ref_issue_url, headers=headers)
+                    response.raise_for_status()
+                    ref_issue = response.json()
+                    ref_issue_content = f"Referenced Issue #{ref_issue_num}:\n{ref_issue['title']}\n\n{ref_issue['body']}"
+                    if ref_issue_comments:
+                        ref_issue_content += '\n\nComments:\n' + '\n---\n'.join(ref_issue_comments)
+                    referenced_issues.append(ref_issue_content)
+                except requests.RequestException as e:
+                    logger.warning(f'Failed to fetch referenced issue {ref_issue_num}: {e}')
+
             # Convert empty lists to None for optional fields
             issue_details = GithubIssue(
                 owner=self.owner,
@@ -184,6 +211,7 @@ class IssueHandler(IssueHandlerInterface):
                 body=issue['body'],
                 thread_comments=thread_comments,
                 review_comments=None,  # Initialize review comments as None for regular issues
+                closing_issues=referenced_issues if referenced_issues else None,
             )
 
             converted_issues.append(issue_details)
@@ -204,14 +232,22 @@ class IssueHandler(IssueHandlerInterface):
                 issue.thread_comments
             )
 
+        # Format closing issues if they exist
+        closing_issues_context = ''
+        if issue.closing_issues:
+            closing_issues_context = '\n\nLinked Issues:\n' + '\n---\n'.join(
+                issue.closing_issues
+            )
+
         images = []
         images.extend(self._extract_image_urls(issue.body))
         images.extend(self._extract_image_urls(thread_context))
+        images.extend(self._extract_image_urls(closing_issues_context))
 
         template = jinja2.Template(prompt_template)
         return (
             template.render(
-                body=issue.title + '\n\n' + issue.body + thread_context,
+                body=issue.title + '\n\n' + issue.body + thread_context + closing_issues_context,
                 repo_instruction=repo_instruction,
             ),
             images,
@@ -485,6 +521,7 @@ class PRHandler(IssueHandler):
 
         for issue_number in unique_issue_references:
             try:
+                # Get issue content
                 url = f'https://api.github.com/repos/{self.owner}/{self.repo}/issues/{issue_number}'
                 headers = {
                     'Authorization': f'Bearer {self.token}',
@@ -494,8 +531,18 @@ class PRHandler(IssueHandler):
                 response.raise_for_status()
                 issue_data = response.json()
                 issue_body = issue_data.get('body', '')
-                if issue_body:
-                    closing_issues.append(issue_body)
+                issue_title = issue_data.get('title', '')
+
+                # Get issue comments
+                issue_comments = self._get_issue_comments(issue_number)
+                
+                # Format issue content with title, body and comments
+                issue_content = f"Referenced Issue #{issue_number}:\n{issue_title}\n\n{issue_body}"
+                if issue_comments:
+                    issue_content += '\n\nComments:\n' + '\n---\n'.join(issue_comments)
+
+                if issue_content.strip():
+                    closing_issues.append(issue_content)
             except requests.exceptions.RequestException as e:
                 logger.warning(f'Failed to fetch issue {issue_number}: {str(e)}')
 
