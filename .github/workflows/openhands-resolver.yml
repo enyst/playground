@@ -185,7 +185,11 @@ jobs:
             });
 
       - name: Install Poetry
-        if: env.USE_CURRENT_BRANCH == 'true'
+        if: |
+          env.USE_CURRENT_BRANCH == 'true' ||
+          github.event.label.name == 'fix-me-opus' ||
+          (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@lil-opus')) ||
+          (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@lil-opus'))
         uses: snok/install-poetry@v1
         with:
           version: 1.7.1
@@ -195,7 +199,7 @@ jobs:
 
       - name: Install OpenHands
         run: |
-          if [[ "${{ env.USE_CURRENT_BRANCH }}" == "true" ]]; then
+          if [[ "${{ env.USE_CURRENT_BRANCH }}" == "true" ]] || [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] || ([[ "${{ github.event_name }}" == "issue_comment" ]] && [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]]) || ([[ "${{ github.event_name }}" == "pull_request_review" ]] && [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]]); then
             poetry install --without evaluation,llama-index
             python -m pip install --upgrade pip
             pip install git+https://github.com/${{ github.repository }}.git@${{ github.head_ref }}
@@ -272,6 +276,7 @@ jobs:
             let prNumber = '';
             let branchName = '';
             let logContent = '';
+            let outputContent = '';
             const noChangesMessage = `No changes to commit for issue #${issueNumber}. Skipping commit.`;
 
             try {
@@ -294,6 +299,14 @@ jobs:
               console.error('Error reading file:', error);
             }
 
+            try {
+              const outputLines = fs.readFileSync('/tmp/output/output.jsonl', 'utf8').trim().split('\n');
+              const lastOutput = JSON.parse(outputLines[outputLines.length - 1]);
+              outputContent = lastOutput.success_explanation || '';
+            } catch (error) {
+              console.error('Error reading output.jsonl:', error);
+            }
+
             if (logContent.includes(noChangesMessage)) {
               github.rest.issues.createComment({
                 issue_number: issueNumber,
@@ -306,20 +319,20 @@ jobs:
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `A potential fix has been generated and a draft PR #${prNumber} has been created. Please review the changes.`
+                body: `A potential fix has been generated and a draft PR #${prNumber} has been created. Please review the changes.\n\n${outputContent}`
               });
             } else if (!success && branchName) {
               github.rest.issues.createComment({
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `An attempt was made to automatically fix this issue, but it was unsuccessful. A branch named '${branchName}' has been created with the attempted changes. You can view the branch [here](https://github.com/${context.repo.owner}/${context.repo.repo}/tree/${branchName}). Manual intervention may be required.`
+                body: `An attempt was made to automatically fix this issue, but it was unsuccessful. A branch named '${branchName}' has been created with the attempted changes. You can view the branch [here](https://github.com/${context.repo.owner}/${context.repo.repo}/tree/${branchName}). Manual intervention may be required.\n\n${outputContent}`
               });
             } else {
               github.rest.issues.createComment({
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `The workflow to fix this issue encountered an error. Please check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for more information.`
+                body: `The workflow to fix this issue encountered an error. Please check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for more information.\n\n${outputContent}`
               });
             }
