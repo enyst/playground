@@ -88,14 +88,13 @@ jobs:
         if: |
           !(
             github.event.label.name == 'fix-me-experimental' ||
-            github.event.label.name == 'fix-me-opus' ||
             (
               (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-              (contains(github.event.comment.body, '@openhands-agent-exp') || contains(github.event.comment.body, '@lil-opus'))
+              contains(github.event.comment.body, '@openhands-agent-exp')
             ) ||
             (
               github.event_name == 'pull_request_review' &&
-              (contains(github.event.review.body, '@openhands-agent-exp') || contains(github.event.review.body, '@lil-opus'))
+              contains(github.event.review.body, '@openhands-agent-exp')
             )
           )
         uses: actions/cache@v3
@@ -164,11 +163,10 @@ jobs:
 
           # Set installation method based on label or macro
           if [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
-             [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] ||
              ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
-              ([[ "${{ github.event.comment.body }}" == *"@openhands-agent-exp"* ]] || [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]])) ||
+              [[ "${{ github.event.comment.body }}" == *"@openhands-agent-exp"* ]]) ||
              ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
-              ([[ "${{ github.event.review.body }}" == *"@openhands-agent-exp"* ]] || [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]])); then
+              [[ "${{ github.event.review.body }}" == *"@openhands-agent-exp"* ]]); then
             echo "USE_CURRENT_BRANCH=true" >> $GITHUB_ENV
           else
             echo "USE_CURRENT_BRANCH=false" >> $GITHUB_ENV
