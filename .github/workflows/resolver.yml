@@ -1,0 +1,78 @@
+name: OpenHands Resolver
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  auto-fix:
+    if: |
+      (github.event_name == 'issues' && (contains(github.event.issue.labels.*.name, 'fix-me') || contains(github.event.issue.labels.*.name, 'fix-me-experimental') || contains(github.event.issue.labels.*.name, 'fix-me-opus'))) ||
+      (github.event_name == 'issue_comment' && (contains(github.event.comment.body, '@openhands-agent') || contains(github.event.comment.body, '@openhands-agent-exp') || contains(github.event.comment.body, '@lil-opus')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "OpenHands"
+          git config --global user.email "openhands@all-hands.dev"
+
+      - name: Set environment variables
+        env:
+          DEFAULT_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPUS_API_KEY: ${{ secrets.OPUS_API_KEY }}
+        run: |
+          if [[ "${{ github.event_name }}" == "issues" && "${{ contains(github.event.issue.labels.*.name, 'fix-me-opus') }}" == "true" ]]; then
+            echo "LLM_MODEL=anthropic/claude-opus-3-20240229" >> $GITHUB_ENV
+            echo "API_KEY=$OPUS_API_KEY" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "issue_comment" && "${{ contains(github.event.comment.body, '@lil-opus') }}" == "true" ]]; then
+            echo "LLM_MODEL=anthropic/claude-opus-3-20240229" >> $GITHUB_ENV
+            echo "API_KEY=$OPUS_API_KEY" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "issues" && "${{ contains(github.event.issue.labels.*.name, 'fix-me-experimental') }}" == "true" ]]; then
+            echo "LLM_MODEL=anthropic/claude-3-sonnet-20240229" >> $GITHUB_ENV
+            echo "API_KEY=$DEFAULT_API_KEY" >> $GITHUB_ENV
+          else
+            echo "LLM_MODEL=anthropic/claude-3-haiku-20240307" >> $GITHUB_ENV
+            echo "API_KEY=$DEFAULT_API_KEY" >> $GITHUB_ENV
+          fi
+
+      - name: Run resolver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ env.API_KEY }}
+          LLM_MODEL: ${{ env.LLM_MODEL }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO_NAME: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            if [[ "${{ contains(github.event.comment.body, '@lil-opus') }}" == "true" ]]; then
+              poetry run python -m openhands.resolver --issue-number $ISSUE_NUMBER --repo $REPO_NAME --comment-id $COMMENT_ID --gather-all
+            elif [[ "${{ contains(github.event.comment.body, '@openhands-agent') }}" == "true" || "${{ contains(github.event.comment.body, '@openhands-agent-exp') }}" == "true" ]]; then
+              poetry run python -m openhands.resolver --issue-number $ISSUE_NUMBER --repo $REPO_NAME --comment-id $COMMENT_ID
+            fi
+          else
+            poetry run python -m openhands.resolver --issue-number $ISSUE_NUMBER --repo $REPO_NAME --gather-all
+          fi
