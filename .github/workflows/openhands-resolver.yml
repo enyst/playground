@@ -88,13 +88,14 @@ jobs:
         if: |
           !(
             github.event.label.name == 'fix-me-experimental' ||
+            github.event.label.name == 'fix-me-opus' ||
             (
               (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-              contains(github.event.comment.body, '@openhands-agent-exp')
+              (contains(github.event.comment.body, '@openhands-agent-exp') || contains(github.event.comment.body, '@lil-opus'))
             ) ||
             (
               github.event_name == 'pull_request_review' &&
-              contains(github.event.review.body, '@openhands-agent-exp')
+              (contains(github.event.review.body, '@openhands-agent-exp') || contains(github.event.review.body, '@lil-opus'))
             )
           )
         uses: actions/cache@v3
@@ -177,10 +178,11 @@ jobs:
       - name: Install OpenHands
         run: |
           if [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
+             [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] ||
              ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
-              [[ "${{ github.event.comment.body }}" == "@openhands-agent-exp"* ]]) ||
+              ([[ "${{ github.event.comment.body }}" == "@openhands-agent-exp"* ]] || [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]])) ||
              ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
-              [[ "${{ github.event.review.body }}" == "@openhands-agent-exp"* ]]); then
+              ([[ "${{ github.event.review.body }}" == "@openhands-agent-exp"* ]] || [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]])); then
             poetry install --without evaluation,llama-index
             python -m pip install --upgrade pip
             pip install git+https://github.com/${{ github.repository }}.git@${{ github.head_ref }}
