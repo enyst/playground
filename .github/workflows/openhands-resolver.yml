@@ -21,6 +21,8 @@ on:
         required: true
       LLM_API_KEY:
         required: true
+      OPUS_API_KEY:
+        required: true
       LLM_BASE_URL:
         required: false
       PAT_TOKEN:
@@ -50,15 +52,16 @@ jobs:
       github.event_name == 'workflow_call' ||
       github.event.label.name == 'fix-me' ||
       github.event.label.name == 'fix-me-experimental' ||
+      github.event.label.name == 'fix-me-opus' ||
 
       (
         ((github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-        contains(github.event.comment.body, inputs.macro || '@openhands-agent') &&
+        (contains(github.event.comment.body, inputs.macro || '@openhands-agent') || contains(github.event.comment.body, '@lil-opus')) &&
         (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'COLLABORATOR' || github.event.comment.author_association == 'MEMBER')
         ) ||
 
         (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, inputs.macro || '@openhands-agent') &&
+        (contains(github.event.review.body, inputs.macro || '@openhands-agent') || contains(github.event.review.body, '@lil-opus')) &&
         (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'COLLABORATOR' || github.event.review.author_association == 'MEMBER')
         )
       )
@@ -66,6 +69,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -83,13 +88,14 @@ jobs:
         if: |
           !(
             github.event.label.name == 'fix-me-experimental' ||
+            github.event.label.name == 'fix-me-opus' ||
             (
               (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-              contains(github.event.comment.body, '@openhands-agent-exp')
+              (contains(github.event.comment.body, '@openhands-agent-exp') || contains(github.event.comment.body, '@lil-opus'))
             ) ||
             (
               github.event_name == 'pull_request_review' &&
-              contains(github.event.review.body, '@openhands-agent-exp')
+              (contains(github.event.review.body, '@openhands-agent-exp') || contains(github.event.review.body, '@lil-opus'))
             )
           )
         uses: actions/cache@v3
@@ -143,6 +149,31 @@ jobs:
           # Set branch variables
           echo "TARGET_BRANCH=${{ inputs.target_branch }}" >> $GITHUB_ENV
 
+          # Set model and API key based on label or macro
+          if [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] ||
+             ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
+              [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]]) ||
+             ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
+              [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]]); then
+            echo "LLM_MODEL=anthropic/claude-opus-3-20240229" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.OPUS_API_KEY }}" >> $GITHUB_ENV
+          else
+            echo "LLM_MODEL=${{ secrets.LLM_MODEL }}" >> $GITHUB_ENV
+            echo "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" >> $GITHUB_ENV
+          fi
+
+          # Set installation method based on label or macro
+          if [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
+             [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] ||
+             ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
+              ([[ "${{ github.event.comment.body }}" == *"@openhands-agent-exp"* ]] || [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]])) ||
+             ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
+              ([[ "${{ github.event.review.body }}" == *"@openhands-agent-exp"* ]] || [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]])); then
+            echo "USE_CURRENT_BRANCH=true" >> $GITHUB_ENV
+          else
+            echo "USE_CURRENT_BRANCH=false" >> $GITHUB_ENV
+          fi
+
       - name: Comment on issue with start message
         uses: actions/github-script@v7
         with:
@@ -156,15 +187,17 @@ jobs:
               body: `[OpenHands](https://github.com/All-Hands-AI/OpenHands) started fixing the ${issueType}! You can monitor the progress [here](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`
             });
 
+      - name: Install Poetry
+        if: env.USE_CURRENT_BRANCH == 'true'
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
       - name: Install OpenHands
         run: |
-          if [[ "${{ github.event.label.name }}" == "fix-me-experimental" ]] ||
-             ([[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]] &&
-              [[ "${{ github.event.comment.body }}" == "@openhands-agent-exp"* ]]) ||
-             ([[ "${{ github.event_name }}" == "pull_request_review" ]] &&
-              [[ "${{ github.event.review.body }}" == "@openhands-agent-exp"* ]]); then
+          if [[ "${{ env.USE_CURRENT_BRANCH }}" == "true" ]]; then
+            poetry install --without evaluation,llama-index
             python -m pip install --upgrade pip
-            pip install git+https://github.com/all-hands-ai/openhands.git
+            pip install git+https://github.com/${{ github.repository }}.git@${{ github.head_ref }}
           else
             python -m pip install --upgrade -r requirements.txt
           fi
