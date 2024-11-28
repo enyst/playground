@@ -254,15 +254,11 @@ async def process_issue(
 
         if issue_handler.issue_type == 'pr' and comment_success:
             success_log = 'I have updated the PR and resolved some of the issues that were cited in the pull request review. Specifically, I identified the following revision requests, and all the ones that I think I successfully resolved are checked off. All the unchecked ones I was not able to resolve, so manual intervention may be required:\n'
-            try:
-                # First try to parse as JSON
-                explanations = json.loads(success_explanation)
-            except json.JSONDecodeError:
-                # If not JSON, split by newlines and filter out empty lines
-                explanations = [line.strip() for line in success_explanation.split('\n') if line.strip()]
-                if not explanations:
-                    # If no valid lines found, use the entire string as one explanation
-                    explanations = [success_explanation]
+            # Split by newlines and filter out empty lines
+            explanations = [line.strip() for line in success_explanation.split('\n') if line.strip()]
+            if not explanations:
+                # If no valid lines found, use the entire string as one explanation
+                explanations = [success_explanation]
 
             for success_indicator, explanation in zip(comment_success, explanations):
                 status = (
