@@ -123,8 +123,12 @@ class IssueHandler(IssueHandlerInterface):
                 break
 
             # Validate that comments is a list of dictionaries
-            if not isinstance(comments, list) or any(not isinstance(comment, dict) for comment in comments):
-                logger.warning(f'Unexpected response format from GitHub API for issue {issue_number}')
+            if not isinstance(comments, list) or any(
+                not isinstance(comment, dict) for comment in comments
+            ):
+                logger.warning(
+                    f'Unexpected response format from GitHub API for issue {issue_number}'
+                )
                 break
 
             if comment_id:
@@ -139,7 +143,9 @@ class IssueHandler(IssueHandlerInterface):
                 if matching_comment:
                     return [matching_comment]
             else:
-                all_comments.extend([comment['body'] for comment in comments if 'body' in comment])
+                all_comments.extend(
+                    [comment['body'] for comment in comments if 'body' in comment]
+                )
 
             params['page'] += 1
 
@@ -186,7 +192,9 @@ class IssueHandler(IssueHandlerInterface):
             referenced_issue_numbers = self._extract_issue_references(issue['body'])
             if thread_comments:
                 for comment in thread_comments:
-                    referenced_issue_numbers.extend(self._extract_issue_references(comment))
+                    referenced_issue_numbers.extend(
+                        self._extract_issue_references(comment)
+                    )
 
             # Get content of referenced issues
             for ref_issue_num in referenced_issue_numbers:
@@ -202,10 +210,14 @@ class IssueHandler(IssueHandlerInterface):
                     ref_issue = response.json()
                     ref_issue_content = f"Referenced Issue #{ref_issue_num}:\n{ref_issue['title']}\n\n{ref_issue['body']}"
                     if ref_issue_comments:
-                        ref_issue_content += '\n\nComments:\n' + '\n---\n'.join(ref_issue_comments)
+                        ref_issue_content += '\n\nComments:\n' + '\n---\n'.join(
+                            ref_issue_comments
+                        )
                     referenced_issues.append(ref_issue_content)
                 except requests.RequestException as e:
-                    logger.warning(f'Failed to fetch referenced issue {ref_issue_num}: {e}')
+                    logger.warning(
+                        f'Failed to fetch referenced issue {ref_issue_num}: {e}'
+                    )
 
             # Convert empty lists to None for optional fields
             issue_details = GithubIssue(
@@ -252,7 +264,11 @@ class IssueHandler(IssueHandlerInterface):
         template = jinja2.Template(prompt_template)
         return (
             template.render(
-                body=issue.title + '\n\n' + issue.body + thread_context + closing_issues_context,
+                body=issue.title
+                + '\n\n'
+                + issue.body
+                + thread_context
+                + closing_issues_context,
                 repo_instruction=repo_instruction,
             ),
             images,
@@ -493,12 +509,16 @@ class PRHandler(IssueHandler):
         self,
         closing_issues: list[str],
         closing_issue_numbers: list[int],
+        issue_title: str,
         issue_body: str,
         review_comments: list[str],
         review_threads: list[ReviewThread],
         thread_comments: list[str] | None,
     ):
         new_issue_references = []
+
+        if issue_title:
+            new_issue_references.extend(self._extract_issue_references(issue_title))
 
         if issue_body:
             new_issue_references.extend(self._extract_issue_references(issue_body))
@@ -519,10 +539,13 @@ class PRHandler(IssueHandler):
                     self._extract_issue_references(thread_comment)
                 )
 
-        non_duplicate_references = set(new_issue_references)
-        unique_issue_references = non_duplicate_references.difference(
-            closing_issue_numbers
-        )
+        # Deduplicate while preserving order
+        seen = set()
+        unique_issue_references = []
+        for ref in new_issue_references:
+            if ref not in seen and ref not in closing_issue_numbers:
+                seen.add(ref)
+                unique_issue_references.append(ref)
 
         for issue_number in unique_issue_references:
             try:
@@ -536,13 +559,12 @@ class PRHandler(IssueHandler):
                 response.raise_for_status()
                 issue_data = response.json()
                 issue_body = issue_data.get('body', '')
-                issue_title = issue_data.get('title', '')
 
                 # Get issue comments
                 issue_comments = self._get_issue_comments(issue_number)
-                
+
                 # Format issue content with title, body and comments
-                issue_content = f"Referenced Issue #{issue_number}:\n\n{issue_body}"
+                issue_content = f'Referenced Issue #{issue_number}:\n\n{issue_body}'
                 if issue_comments:
                     issue_content += '\n\nComments:\n' + '\n---\n'.join(issue_comments)
 
@@ -589,6 +611,7 @@ class PRHandler(IssueHandler):
             closing_issues = self.__get_context_from_external_issues_references(
                 closing_issues,
                 closing_issues_numbers,
+                issue['title'],
                 body,
                 review_comments,
                 review_threads,

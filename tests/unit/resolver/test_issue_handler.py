@@ -616,7 +616,7 @@ def test_pr_handler_get_converted_issues_with_specific_comment_and_issue_refs():
             assert prs[0].closing_issues == [
                 'Referenced Issue #3:\n\nExternal context #1.\n\nComments:\nFirst comment\n---\nSecond comment',
                 'Referenced Issue #6:\n\nExternal context #2.\n\nComments:\nFirst comment\n---\nSecond comment',
-                'Referenced Issue #7:\n\nExternal context #2.\n\nComments:\nFirst comment\n---\nSecond comment'
+                'Referenced Issue #7:\n\nExternal context #2.\n\nComments:\nFirst comment\n---\nSecond comment',
             ]  # Only includes references inside comment ID and body PR
 
             # Verify other fields are set correctly
@@ -721,5 +721,5 @@ def test_pr_handler_get_converted_issues_with_duplicate_issue_refs():
             assert prs[0].head_branch == 'test-branch'
             assert prs[0].closing_issues == [
                 'Referenced Issue #1:\n\nExternal context #1.\n\nComments:\nFirst comment addressing #1\n---\nSecond comment addressing #2',
-                'Referenced Issue #2:\n\nExternal context #2.\n\nComments:\nFirst comment addressing #1\n---\nSecond comment addressing #2'
+                'Referenced Issue #2:\n\nExternal context #2.\n\nComments:\nFirst comment addressing #1\n---\nSecond comment addressing #2',
             ]
