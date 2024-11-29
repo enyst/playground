@@ -19,6 +19,7 @@ def test_handle_nonexistent_issue_reference():
         result = handler._PRHandler__get_context_from_external_issues_references(
             closing_issues=[],
             closing_issue_numbers=[],
+            issue_title='Test Issue',
             issue_body='This references #999999',  # Non-existent issue
             review_comments=[],
             review_threads=[],
@@ -43,6 +44,7 @@ def test_handle_rate_limit_error():
         result = handler._PRHandler__get_context_from_external_issues_references(
             closing_issues=[],
             closing_issue_numbers=[],
+            issue_title='Test Issue',
             issue_body='This references #123',
             review_comments=[],
             review_threads=[],
@@ -64,6 +66,7 @@ def test_handle_network_error():
         result = handler._PRHandler__get_context_from_external_issues_references(
             closing_issues=[],
             closing_issue_numbers=[],
+            issue_title='Test Issue',
             issue_body='This references #123',
             review_comments=[],
             review_threads=[],
@@ -87,6 +90,7 @@ def test_successful_issue_reference():
         result = handler._PRHandler__get_context_from_external_issues_references(
             closing_issues=[],
             closing_issue_numbers=[],
+            issue_title='Test Issue',
             issue_body='This references #123',
             review_comments=[],
             review_threads=[],
@@ -94,4 +98,4 @@ def test_successful_issue_reference():
         )
 
         # The method should return a list with the referenced issue body
-        assert result == ['This is the referenced issue body']
+        assert result == ['Referenced Issue #123:\n\nThis is the referenced issue body']
