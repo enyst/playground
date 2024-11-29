@@ -122,19 +122,24 @@ class IssueHandler(IssueHandlerInterface):
             if not comments:
                 break
 
+            # Validate that comments is a list of dictionaries
+            if not isinstance(comments, list) or any(not isinstance(comment, dict) for comment in comments):
+                logger.warning(f'Unexpected response format from GitHub API for issue {issue_number}')
+                break
+
             if comment_id:
                 matching_comment = next(
                     (
                         comment['body']
                         for comment in comments
-                        if comment['id'] == comment_id
+                        if comment.get('id') == comment_id and 'body' in comment
                     ),
                     None,
                 )
                 if matching_comment:
                     return [matching_comment]
             else:
-                all_comments.extend([comment['body'] for comment in comments])
+                all_comments.extend([comment['body'] for comment in comments if 'body' in comment])
 
             params['page'] += 1
 
@@ -537,7 +542,7 @@ class PRHandler(IssueHandler):
                 issue_comments = self._get_issue_comments(issue_number)
                 
                 # Format issue content with title, body and comments
-                issue_content = f"Referenced Issue #{issue_number}:\n{issue_title}\n\n{issue_body}"
+                issue_content = f"Referenced Issue #{issue_number}:\n\n{issue_body}"
                 if issue_comments:
                     issue_content += '\n\nComments:\n' + '\n---\n'.join(issue_comments)
 

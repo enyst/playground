@@ -94,4 +94,4 @@ def test_successful_issue_reference():
         )
 
         # The method should return a list with the referenced issue body
-        assert result == ['This is the referenced issue body']
+        assert result == ['Referenced Issue #123:\n\nThis is the referenced issue body']
