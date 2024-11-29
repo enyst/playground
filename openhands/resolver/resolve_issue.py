@@ -243,6 +243,8 @@ async def process_issue(
         comment_success = None
         success_explanation = 'Agent failed to run'
         last_error = 'Agent failed to run or crashed'
+        # Include error message in success_explanation for visibility
+        success_explanation = f"{success_explanation}\nError: {last_error}"
     else:
         histories = [dataclasses.asdict(event) for event in state.history]
         metrics = state.metrics.get() if state.metrics else None
@@ -250,6 +252,9 @@ async def process_issue(
         success, comment_success, success_explanation = issue_handler.guess_success(
             issue, state.history, llm_config
         )
+        # If there was an error during execution, append it to the explanation
+        if state.last_error:
+            success_explanation = f"{success_explanation}\nError: {state.last_error}"
 
         if issue_handler.issue_type == 'pr' and comment_success:
             success_log = 'I have updated the PR and resolved some of the issues that were cited in the pull request review. Specifically, I identified the following revision requests, and all the ones that I think I successfully resolved are checked off. All the unchecked ones I was not able to resolve, so manual intervention may be required:\n'
