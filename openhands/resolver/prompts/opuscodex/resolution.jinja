@@ -1,0 +1,21 @@
+🥁 Drumroll, please... 🥁 The Pet Sonnet has finished weaving its magic! Let's see what it conjured up.
+
+{% if success %}
+🎉 Great news! The Pet Sonnet was able to find a solution. Here's what it came up with:
+
+{{ resolution_summary }}
+
+I've gone ahead and created a pull request with the proposed changes. You can review it here: {{ pull_request_url }}
+
+Feel free to take a look and merge it if you're happy with the solution. If you have any questions or need further assistance, just let me know!
+{% else %}
+😕 Well, this is a bit embarrassing. Even the Pet Sonnet's magic has its limits. It tried its best but couldn't find a complete solution. Here's what it managed to conjure up:
+
+{{ resolution_summary }}
+
+I've created a branch with the partial changes, which you can find here: {{ branch_url }}
+
+It's not a complete fix, but it might give you a starting point to work from. If you have any ideas on how to proceed, I'm all ears! We can keep iterating until we find a solution that works.
+{% endif %}
+
+Thanks for trusting me with this issue, and remember: every challenge is an opportunity to learn and grow! 🌱 Keep up the great work!
