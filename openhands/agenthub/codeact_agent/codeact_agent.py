@@ -2,12 +2,13 @@ import json
 import os
 from collections import deque
 
-from litellm import ModelResponse
+from litellm import ContextWindowExceededError, ModelResponse
 
 import openhands.agenthub.codeact_agent.function_calling as codeact_function_calling
 from openhands.controller.agent import Agent
 from openhands.controller.state.state import State
 from openhands.core.config import AgentConfig
+from openhands.core.exceptions import TokenLimitExceededError
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import ImageContent, Message, TextContent
 from openhands.events.action import (
@@ -33,6 +34,7 @@ from openhands.events.observation.error import ErrorObservation
 from openhands.events.observation.observation import Observation
 from openhands.events.serialization.event import truncate_content
 from openhands.llm.llm import LLM
+from openhands.memory.condenser import MemoryCondenser
 from openhands.runtime.plugins import (
     AgentSkillsRequirement,
     JupyterRequirement,
@@ -106,6 +108,11 @@ class CodeActAgent(Agent):
             else None,
             prompt_dir=os.path.join(os.path.dirname(__file__), 'prompts'),
             disabled_microagents=self.config.disabled_microagents,
+        )
+
+        self.condenser = MemoryCondenser(
+            llm=self.llm,
+            prompt_manager=self.prompt_manager,
         )
 
         self.pending_actions: deque[Action] = deque()
@@ -335,7 +342,14 @@ class CodeActAgent(Agent):
         params['tools'] = self.tools
         if self.mock_function_calling:
             params['mock_function_calling'] = True
-        response = self.llm.completion(**params)
+
+        # send the messages to the LLM
+        try:
+            response = self.llm.completion(**params)
+        except (ContextWindowExceededError, TokenLimitExceededError) as e:
+            logger.error(f'Error in LLM completion: {e}')
+            return self.condenser.condense(messages)
+
         actions = codeact_function_calling.response_to_actions(response)
         for action in actions:
             self.pending_actions.append(action)

@@ -73,6 +73,7 @@ class LLMConfig:
     ollama_base_url: str | None = None
     drop_params: bool = True
     disable_vision: bool | None = None
+    custom_tokenizer: str | None = None
     caching_prompt: bool = True
     message_summary_warning_level: float = 0.75
     recalled_events_count: int = 5

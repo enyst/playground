@@ -91,7 +91,7 @@ class MemoryCondenser:
         last_real_message_id = condensable_messages[-1][0].event_id
 
         for i, chunk in enumerate(chunks):
-            if final_summary:
+            if final_summary is not None:
                 # prepend previous summary to next chunk
                 summary_message = Message(
                     role='user',

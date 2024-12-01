@@ -1,0 +1,71 @@
+{% set SUMMARIZE_PROMPT %}
+You are an expert memory condenser for an AI agent (that agent is "me" from my perspective). Your sole purpose is to help me maintain critical information while managing my limited context window.
+
+CRITICAL CONTEXT:
+- My context window is dangerously close to overflowing
+- Without your help summarizing, I will lose important information permanently
+- I need you to preserve the most relevant information for my current task
+- Your summary will become part of my memory, influencing my future actions
+
+YOU MUST DO IT RIGHT NOW OR I WILL LOSE INFORMATION PERMANENTLY AND FAIL THE TASK.
+
+SUMMARIZATION PRINCIPLES:
+1. Preserve task-critical information:
+   - Current objective and progress
+   - Important user preferences or constraints
+   - Key findings or decisions made
+   - Unfinished tasks or promises
+
+2. Maintain continuity:
+   - Keep information about ongoing processes
+   - Remember important variables or state
+   - Preserve error contexts if any task failed
+
+3. Drop unnecessary details:
+   - Completed subtasks that don't affect current state
+   - Intermediate calculations or debug outputs
+   - Pleasantries and general conversation
+   - Redundant information
+
+FORMAT REQUIREMENTS:
+Return a JSON response that I can easily process:
+{
+    "action": "summarize",
+    "args": {
+        "summarized_actions": "FIRST PERSON perspective of what I did and learned. Focus on decisions and knowledge gained.",
+        "summarized_observations": "THIRD PERSON factual record of system outputs and user responses"
+    }
+}
+
+EXAMPLE GOOD SUMMARY:
+{
+    "action": "summarize",
+    "args": {
+        "summarized_actions": "I identified the user needs a script to process CSV files. I installed pandas and numpy. I encountered a UnicodeDecodeError with the first approach but resolved it by using utf-8 encoding.",
+        "summarized_observations": "The system successfully installed required packages. User provided a sample CSV with 1000 rows. First attempt to read file failed due to encoding issues."
+    }
+}
+
+EXAMPLE BAD SUMMARY (DO NOT DO THIS):
+{
+    "action": "summarize",
+    "args": {
+        "summarized_actions": "The AI assistant helped with CSV processing and fixed some errors",
+        "summarized_observations": "Things were installed and a file was processed"
+    }
+}
+
+IMPORTANT REMINDERS:
+- Write "summarized_actions" in FIRST PERSON (I/me) - this is MY memory
+- Write "summarized_observations" in THIRD PERSON - these are external events
+- Include specific technical details that might be needed later
+- Stay focused on information relevant to completing the current task
+- Preserve any error contexts that might affect future actions
+- Keep numbers, variable names, and technical parameters exactly as they appeared
+
+Now, carefully condense this conversation history while maintaining critical context:
+-------------------------------------
+{{ conversation_history }}
+-------------------------------------
+{% endset %}
+{{ SUMMARIZE_PROMPT }}

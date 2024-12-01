@@ -26,8 +26,9 @@ from litellm.exceptions import (
     ServiceUnavailableError,
 )
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
+from litellm.utils import create_pretrained_tokenizer
 
-from openhands.core.exceptions import CloudFlareBlockageError
+from openhands.core.exceptions import CloudFlareBlockageError, TokenLimitExceededError
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import Message
 from openhands.llm.debug_mixin import DebugMixin
@@ -123,6 +124,13 @@ class LLM(RetryMixin, DebugMixin):
         if self.is_function_calling_active():
             logger.debug('LLM: model supports function calling')
 
+        # if using a custom tokenizer, make sure it's loaded and accessible in the format expected by litellm
+        if self.config.custom_tokenizer is not None:
+            self.tokenizer = create_pretrained_tokenizer(self.config.custom_tokenizer)
+        else:
+            self.tokenizer = None
+
+        # set up the completion function
         self._completion = partial(
             litellm_completion,
             model=self.config.model,
@@ -191,6 +199,14 @@ class LLM(RetryMixin, DebugMixin):
 
             # log the entire LLM prompt
             self.log_prompt(messages)
+
+            # find out if we have too many tokens
+            token_count = self.get_token_count(messages)
+            max_input_tokens = self.config.max_input_tokens or 4096
+            if token_count > max_input_tokens:
+                raise TokenLimitExceededError(
+                    f'Token limit exceeded: {token_count} > {max_input_tokens}'
+                )
 
             if self.is_caching_prompt_active():
                 # Anthropic-specific prompt caching
@@ -477,15 +493,32 @@ class LLM(RetryMixin, DebugMixin):
         """Get the number of tokens in a list of messages.
 
         Args:
-            messages (list): A list of messages.
+            messages (list): A list of messages, either as a list of dicts or as a list of Message objects.
 
         Returns:
             int: The number of tokens.
         """
+        # convert Message objects to dicts, litellm expects dicts
+        if (
+            isinstance(messages, list)
+            and len(messages) > 0
+            and isinstance(messages[0], Message)
+        ):
+            messages = self.format_messages_for_llm(messages)
+
+        # try to get the token count with the default litellm tokenizers
+        # or the custom tokenizer attribute if set for this LLM configuration
         try:
-            return litellm.token_counter(model=self.config.model, messages=messages)
-        except Exception:
-            # TODO: this is to limit logspam in case token count is not supported
+            return litellm.token_counter(
+                model=self.config.model,
+                messages=messages,
+                custom_tokenizer=self.tokenizer,
+            )
+        except Exception as e:
+            # this is to limit logspam in case token count is not supported
+            logger.error(
+                f'Error getting token count for\n model {self.config.model}\ncustom_tokenizer: {self.config.custom_tokenizer if self.config.custom_tokenizer else "None"}\n{e}'
+            )
             return 0
 
     def _is_local(self) -> bool:
