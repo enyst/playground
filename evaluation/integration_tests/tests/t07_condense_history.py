@@ -64,7 +64,7 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
     Args:
         file_path (str | None): The path to the log file to process. If None, the latest file is used.
     """
-    log_dir = Path('./logs/deepseek-24sept')
+    log_dir = Path('./logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint')
     log_dir.mkdir(parents=True, exist_ok=True)
 
     if file_path:
@@ -77,7 +77,7 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
 
         if not log_files:
             print(
-                'No instance_*_*.json files found in the ./logs/deepseek-24sept directory.'
+                'No instance_*_*.json files found in the ./logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint directory.'
             )
             return
 
@@ -167,6 +167,14 @@ if __name__ == '__main__':
 
     if args.file is not None and args.file == '':
         args.file = None
+
+    if not args.file:
+        print(
+            'No file provided, using latest file in ./logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint'
+        )
+        args.file = (
+            './logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint/output.jsonl'
+        )
 
     # Call the main method with the specified file path if provided
     main(condenser, file_path=args.file)
