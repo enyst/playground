@@ -4,10 +4,15 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+
+import openhands
+import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
 from openhands.core import logger
 from openhands.core.config.utils import get_llm_config_arg, load_app_config
 from openhands.core.message import Message, TextContent
 from openhands.events.action.agent import AgentSummarizeAction
+from openhands.events.serialization.event import event_from_dict
 from openhands.llm.llm import LLM
 from openhands.memory.condenser import MemoryCondenser
 from openhands.utils.prompt import PromptManager
@@ -64,7 +69,28 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
     Args:
         file_path (str | None): The path to the log file to process. If None, the latest file is used.
     """
-    log_dir = Path('./logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint')
+    if file_path is None:
+        print('No file provided')
+        return
+
+    # Load the SWE-bench output file
+    df = load_swebench_output(file_path)
+    print(f'Loaded {len(df)} instances from {file_path}')
+
+    # Process each instance's history
+    for _, row in df.iterrows():
+        if 'history' in row:
+            process_instance_history(row['history'], row['instance_id'])
+        else:
+            print(f"No history found for instance {row['instance_id']}")
+
+    # use openhands's __file__ to get the project root directory
+    log_dir = Path(
+        os.path.dirname(openhands.__file__),
+        '..',
+        'logs',
+        'claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint',
+    )
     log_dir.mkdir(parents=True, exist_ok=True)
 
     if file_path:
@@ -127,44 +153,88 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
         return
 
 
+def load_swebench_output(file_path: str) -> pd.DataFrame:
+    """
+    Loads a SWE-bench output.jsonl file into a DataFrame.
+
+    Args:
+        file_path: Path to the output.jsonl file
+    Returns:
+        DataFrame containing the parsed instances
+    """
+    try:
+        df = pd.read_json(file_path, lines=True)
+        logger.info(f'Loaded {len(df)} instances from {file_path}')
+        return df
+    except Exception as e:
+        logger.error(f'Failed to load output file: {e}')
+        raise
+
+
+def process_instance_history(history: list, instance_id: str) -> None:
+    """
+    Processes the history of events for a single instance.
+
+    Args:
+        history: List of events from the instance history
+        instance_id: ID of the instance being processed
+    """
+    logger.info(f'\nProcessing history for instance {instance_id}')
+    logger.info('=' * 80)
+
+    for i, event in enumerate(history):
+        # Events can be either:
+        # 1. A single event dict
+        # 2. A list of [action, observation] pairs (legacy format)
+        if isinstance(event, list):
+            # Legacy format with action/observation pairs
+            action = event_from_dict(event[0])
+            observation = event_from_dict(event[1])
+            logger.info(f'\nEvent {i+1}:')
+            logger.info(f'Action: {action.__class__.__name__}')
+            logger.info(f'{action}')
+            logger.info(f'Observation: {observation.__class__.__name__}')
+            logger.info(f'{observation}')
+        else:
+            # Single event
+            event_obj = event_from_dict(event)
+            logger.info(f'\nEvent {i+1}: {event_obj.__class__.__name__}')
+            logger.info(f'{event_obj}')
+
+
 if __name__ == '__main__':
     # load or simulate dependencies as needed for testing
     app_config = load_app_config()
-    llm_config = get_llm_config_arg('deepseek')
-    if llm_config is not None:
-        llm = LLM(config=llm_config)
-    else:
-        llm = LLM(app_config.get_llm_config('llm'))
 
     prompt_dir = os.path.join(
-        os.path.dirname(__file__),
-        '..',
-        '..',
-        'openhands',
+        os.path.dirname(openhands.__file__),
         'agenthub',
-        'memcodeact_agent',
+        'codeact_agent',
         'prompts',
     )
-    prompt_manager = PromptManager(
-        prompt_dir=prompt_dir,
-        agent_skills_docs='',
-    )
-
-    condenser = MemoryCondenser(llm=llm, prompt_manager=prompt_manager)
-
-    # attach on fly the save_messages_for_debugging method to the condenser
-    condenser.save_messages_for_debugging = save_messages_for_debugging
+    print(f'prompt_dir: {prompt_dir}')
+    prompt_manager = PromptManager(prompt_dir=prompt_dir)
 
     # Setup argument parser for optional file parameter
-    parser = argparse.ArgumentParser(description='Run MemoryCondenser on a .json file.')
+    parser = argparse.ArgumentParser(
+        description='Run MemoryCondenser on a .jsonl file.'
+    )
     parser.add_argument(
         '--file',
         type=str,
         default=None,
         help='Path to the specific file to process. If not provided, the latest file is used.',
     )
+    parser.add_argument(
+        '-l',
+        '--llm_config',
+        type=str,
+        default=None,
+        help='LLM config to use, as defined in the config.toml file. If not provided, the fallback is used.',
+    )
     args = parser.parse_args()
 
+    # .jsonl file to work on
     if args.file is not None and args.file == '':
         args.file = None
 
@@ -176,5 +246,16 @@ if __name__ == '__main__':
             './logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint/output.jsonl'
         )
 
-    # Call the main method with the specified file path if provided
+    llm_config = get_llm_config_arg(args.llm_config)
+    if llm_config is not None:
+        llm = LLM(config=llm_config)
+    else:
+        llm = LLM(app_config.get_llm_config('llm'))
+
+    condenser = MemoryCondenser(llm=llm, prompt_manager=prompt_manager)
+
+    # attach on fly the save_messages_for_debugging method to the condenser
+    condenser.save_messages_for_debugging = save_messages_for_debugging
+
+    # Call the main method with the specified file path
     main(condenser, file_path=args.file)
