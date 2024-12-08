@@ -4,7 +4,6 @@ from openhands.controller.state.state import State
 from openhands.core.config.llm_config import LLMConfig
 from openhands.events.event import Event
 from openhands.events.serialization.event import event_to_dict
-from openhands.llm.llm import LLM
 from openhands.memory.base_memory import Memory
 
 
@@ -84,32 +83,36 @@ class ConversationMemory(Memory):
     def __str__(self) -> str:
         return f'ConversationMemory with {len(self.memory)} total events'
 
-    def search(self, llm: LLM, query: str, top_k: int = 5) -> list:
-        """Searches the conversation memory for relevant messages."""
-        if not self.memory or not query:
-            return []
-
-        if self.storage_type == StorageType.IN_MEMORY:
-            # use the llm.py search to find relevant messages
-            recalled_events = llm.search(query=query, history=self.memory, top_k=top_k)
-        else:
-            raise ValueError(f'Unsupported storage type: {self.storage_type}')
-
-        return recalled_events
-
-    def recall_memory(
-        self, llm: LLM, state: State, query: str, top_k: int = 5
-    ) -> list[Event]:
-        """
-        Get the most similar events based on the query.
-
-        Args:
-            query: The query string for semantic search.
-            top_k: Number of top results to retrieve.
-
-        Returns:
-            A list of semantically similar events.
-        """
-        # get the most similar events based on the query
-        # for testing recall with litellm
-        return llm.search(query, state.history, top_k)
+    # def search(self, llm: LLM, query: str, top_k: int = 5) -> list:
+    #     """Searches the conversation memory for relevant messages."""
+    #     # If memory or query is empty, return empty list
+    #     if not self.memory or not query:
+    #         return []
+    #
+    #     # For in-memory storage, use llm.py search to find relevant messages
+    #     if self.storage_type == StorageType.IN_MEMORY:
+    #         # use the llm.py search to find relevant messages
+    #         recalled_events = llm.search(query=query, history=self.memory, top_k=top_k)
+    #     else:
+    #         # Raise error for unsupported storage types
+    #         raise ValueError(f'Unsupported storage type: {self.storage_type}')
+    #
+    #     return recalled_events
+    #
+    # def recall_memory(
+    #     self, llm: LLM, state: State, query: str, top_k: int = 5
+    # ) -> list[Event]:
+    #     """
+    #     Get the most similar events based on the query.
+    #
+    #     Args:
+    #         query: The query string for semantic search.
+    #         top_k: Number of top results to retrieve.
+    #
+    #     Returns:
+    #         A list of semantically similar events.
+    #     """
+    #     # Get the most similar events based on the query
+    #     # For testing recall with litellm
+    #     # Use llm.search to find relevant messages in state history
+    #     return llm.search(query, state.history, top_k)
