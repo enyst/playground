@@ -353,22 +353,19 @@ def load_swebench_output(file_path: str) -> pd.DataFrame:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f'File not found: {file_path}')
 
-        # Read the file line by line to handle potential JSON parsing errors
-        records = []
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f, 1):
-                try:
-                    if line.strip():  # Skip empty lines
-                        record = json.loads(line)
-                        records.append(record)
-                except json.JSONDecodeError as e:
-                    logger.warning(f'Failed to parse line {line_num}: {e}')
-                    continue
+        # Load the JSONL file
+        df = pd.read_json(file_path, lines=True)
 
-        if not records:
-            raise ValueError('No valid records found in file')
+        # Print duplicate instance IDs
+        duplicates = df['instance_id'].value_counts()
+        if any(count > 1 for count in duplicates):
+            print('\nWarning: Found duplicate instance IDs:')
+            print(duplicates[duplicates > 1])
 
-        df = pd.DataFrame.from_records(records)
+            # Keep only the first occurrence of each instance_id
+            df = df.drop_duplicates(subset=['instance_id'], keep='first')
+            print(f'\nKept first occurrence only. Remaining instances: {len(df)}')
+
         logger.info(f'Loaded {len(df)} instances from {file_path}')
 
         return df
@@ -436,7 +433,7 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
     )
 
     # Find the message with max tokens
-    max_msg = max(token_data['messages'], key=lambda x: x['token_count'])
+    max_msg = max(message_details, key=lambda x: x['token_count'])
 
     # Create token data with stats
     token_data = {
@@ -469,16 +466,7 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
     print('\nToken Count Analysis:')
     print(f"Total messages: {token_data['stats']['total_messages']}")
     print(f"Total tokens: {token_data['stats']['total_tokens']:,}")
-    print(f"Max tokens in a message: {token_data['stats']['max_tokens']:,}")
-    print(f"Average tokens per message: {token_data['stats']['avg_tokens']:.1f}")
-
-    # Find and print info about the largest message
-    max_msg_stats = token_data['stats']['max_token_message']
-    print('\nLargest message:')
-    print(f"Event ID: {max_msg_stats['event_id']}")
-    print(f"Role: {max_msg_stats['role']}")
-    print(f"Tokens: {max_msg_stats['token_count']:,}")
-    print(f"Content preview: {max_msg_stats['content_preview']}")
+    print(f"Max tokens in a message: {token_data['stats']['max_token_count']:,}")
 
     return messages
 
@@ -595,10 +583,9 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
 
     # Process each instance's history
     for _, row in df.iterrows():
-        if 'history' in row:
-            process_instance_history(row['history'], row['instance_id'])
-        else:
+        if 'history' not in row:
             print(f"No history found for instance {row['instance_id']}")
+            continue
 
         # Convert events to messages
         messages = process_instance_history(row['history'], row['instance_id'])
