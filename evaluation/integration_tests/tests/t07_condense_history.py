@@ -50,29 +50,81 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
     # First deserialize the event into its proper type
     event = event_from_dict(event_dict)
 
-    # Handle Actions
+    # Handle actions
     if isinstance(event, MessageAction):
-        return [Message(role='assistant', content=[TextContent(text=event.content)])]
-    elif isinstance(event, CmdRunAction):
         role = 'user' if event.source == EventSource.USER else 'assistant'
+        return [Message(role=role, content=[TextContent(text=event.content)])]
+    elif isinstance(event, CmdRunAction):
+        if event.source == EventSource.USER:
+            return [
+                Message(
+                    role='user',
+                    content=[TextContent(text=f'User executed: $ {event.command}')],
+                )
+            ]
+        # For agent commands, get the original LLM response with reasoning
+        if event.tool_call_metadata and event.tool_call_metadata.model_response:
+            assistant_msg = event.tool_call_metadata.model_response.choices[0].message
+            return [
+                Message(
+                    role='assistant',
+                    content=[TextContent(text=assistant_msg.content or '')],
+                    tool_calls=assistant_msg.tool_calls,
+                )
+            ]
+        # Fallback if no tool metadata
         return [
             Message(
-                role=role,
+                role='assistant',
                 content=[TextContent(text=f'$ {event.command}')],
             )
         ]
     elif isinstance(event, IPythonRunCellAction):
-        role = 'user' if event.source == EventSource.USER else 'assistant'
+        if event.source == EventSource.USER:
+            return [
+                Message(
+                    role='user',
+                    content=[TextContent(text=f'```python\n{event.code}\n```')],
+                )
+            ]
+        # For agent Python code, get original LLM response
+        if event.tool_call_metadata and event.tool_call_metadata.model_response:
+            assistant_msg = event.tool_call_metadata.model_response.choices[0].message
+            return [
+                Message(
+                    role='assistant',
+                    content=[TextContent(text=assistant_msg.content or '')],
+                    tool_calls=assistant_msg.tool_calls,
+                )
+            ]
         return [
             Message(
-                role=role,
+                role='assistant',
                 content=[TextContent(text=f'```python\n{event.code}\n```')],
             )
         ]
     elif isinstance(event, FileEditAction):
+        if event.tool_call_metadata and event.tool_call_metadata.model_response:
+            assistant_msg = event.tool_call_metadata.model_response.choices[0].message
+            return [
+                Message(
+                    role='assistant',
+                    content=[TextContent(text=assistant_msg.content or '')],
+                    tool_calls=assistant_msg.tool_calls,
+                )
+            ]
         content = f'Edit file {event.file_path}\n```\n{event.content}\n```'
         return [Message(role='assistant', content=[TextContent(text=content)])]
     elif isinstance(event, (BrowseInteractiveAction, BrowseURLAction)):
+        if event.tool_call_metadata and event.tool_call_metadata.model_response:
+            assistant_msg = event.tool_call_metadata.model_response.choices[0].message
+            return [
+                Message(
+                    role='assistant',
+                    content=[TextContent(text=assistant_msg.content or '')],
+                    tool_calls=assistant_msg.tool_calls,
+                )
+            ]
         return [
             Message(
                 role='assistant',
@@ -80,6 +132,15 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             )
         ]
     elif isinstance(event, AgentDelegateAction):
+        if event.tool_call_metadata and event.tool_call_metadata.model_response:
+            assistant_msg = event.tool_call_metadata.model_response.choices[0].message
+            return [
+                Message(
+                    role='assistant',
+                    content=[TextContent(text=assistant_msg.content or '')],
+                    tool_calls=assistant_msg.tool_calls,
+                )
+            ]
         return [
             Message(
                 role='assistant',
@@ -89,9 +150,19 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
     elif isinstance(event, AgentFinishAction):
         role = 'user' if event.source == EventSource.USER else 'assistant'
         return [Message(role=role, content=[TextContent(text=event.content)])]
-    # Handle Observations
-    elif isinstance(event, CmdOutputObservation):
+
+    # Handle observations (tool results)
+    if isinstance(event, CmdOutputObservation):
         content = f'Command output (exit code {event.exit_code}):\n{event.output}'
+        if event.tool_call_metadata:
+            return [
+                Message(
+                    role='tool',
+                    content=[TextContent(text=content)],
+                    tool_call_id=event.tool_call_metadata.tool_call_id,
+                    name=event.tool_call_metadata.function_name,
+                )
+            ]
         return [Message(role='user', content=[TextContent(text=content)])]
     elif isinstance(event, IPythonRunCellObservation):
         content = []
@@ -101,8 +172,26 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             content.append(TextContent(text=f'Error:\n{event.error}'))
         if event.images:
             content.append(ImageContent(image_urls=event.images))
+        if event.tool_call_metadata:
+            return [
+                Message(
+                    role='tool',
+                    content=content,
+                    tool_call_id=event.tool_call_metadata.tool_call_id,
+                    name=event.tool_call_metadata.function_name,
+                )
+            ]
         return [Message(role='user', content=content)]
     elif isinstance(event, FileEditObservation):
+        if event.tool_call_metadata:
+            return [
+                Message(
+                    role='tool',
+                    content=[TextContent(text=f'File edited: {event.file_path}')],
+                    tool_call_id=event.tool_call_metadata.tool_call_id,
+                    name=event.tool_call_metadata.function_name,
+                )
+            ]
         return [
             Message(
                 role='user',
@@ -113,6 +202,15 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         content = event.content
         if isinstance(content, dict):
             content = json.dumps(content, indent=2)
+        if event.tool_call_metadata:
+            return [
+                Message(
+                    role='tool',
+                    content=[TextContent(text=f'Browser output:\n{content}')],
+                    tool_call_id=event.tool_call_metadata.tool_call_id,
+                    name=event.tool_call_metadata.function_name,
+                )
+            ]
         return [
             Message(
                 role='user',
@@ -120,6 +218,15 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             )
         ]
     elif isinstance(event, AgentDelegateObservation):
+        if event.tool_call_metadata:
+            return [
+                Message(
+                    role='tool',
+                    content=[TextContent(text=f'Delegate result: {event.content}')],
+                    tool_call_id=event.tool_call_metadata.tool_call_id,
+                    name=event.tool_call_metadata.function_name,
+                )
+            ]
         return [
             Message(
                 role='user',
@@ -127,6 +234,15 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             )
         ]
     elif isinstance(event, ErrorObservation):
+        if event.tool_call_metadata:
+            return [
+                Message(
+                    role='tool',
+                    content=[TextContent(text=f'Error: {event.error}')],
+                    tool_call_id=event.tool_call_metadata.tool_call_id,
+                    name=event.tool_call_metadata.function_name,
+                )
+            ]
         return [
             Message(
                 role='user',
@@ -286,7 +402,7 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
     messages: list[Message] = []
 
     for event in history:
-        # Events can be either a single event dict or a list of [action, observation] pairs
+        # Events can be either a single event dict or a (legacy) list of [action, observation] pairs
         if isinstance(event, list):
             # Handle action/observation pairs
             for item in event:
