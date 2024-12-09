@@ -389,6 +389,11 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
         list[Message]: Processed messages ready for condensing
     """
     messages: list[Message] = []
+    message_details: list[dict] = []
+
+    logger.debug(
+        f'Converting {len(history)} events into messages for instance {instance_id}'
+    )
 
     first_user_message = True
     for event in history:
@@ -399,21 +404,82 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
                 messages.extend(convert_event_to_messages(item))
         else:
             # Handle single events
-            message = convert_event_to_messages(event)
+            new_messages = convert_event_to_messages(event)
 
-            # first user message is not condensable
-            for msg in message:
+            # token counting analysis
+            for msg in new_messages:
+                msg_dict = msg.model_dump()
+                token_count = llm.get_token_count([msg_dict])
+                message_details.append(
+                    {
+                        'event_id': msg.event_id,
+                        'role': msg.role,
+                        'token_count': token_count,
+                        'content_preview': str(msg.content[0].text)[:50] + '...'
+                        if msg.content
+                        else 'EMPTY',
+                    }
+                )
+
+            # prepare for condensing:first user message is not condensable
+            for msg in new_messages:
                 if msg.role == 'user' and first_user_message:
                     msg.condensable = False
                     first_user_message = False
                     break
 
             # add the message to the list
-            messages.extend(message)
+            messages.extend(new_messages)
 
     logger.debug(
         f'Converted {len(history)} events into {len(messages)} messages for instance {instance_id}'
     )
+
+    # Find the message with max tokens
+    max_msg = max(token_data['messages'], key=lambda x: x['token_count'])
+
+    # Create token data with stats
+    token_data = {
+        'instance_id': instance_id,
+        'stats': {
+            'max_token_count': max_msg['token_count'],
+            'max_token_message': {
+                'event_id': max_msg['event_id'],
+                'role': max_msg['role'],
+                'content_preview': max_msg['content_preview'],
+            },
+            'total_messages': len(messages),
+            'total_tokens': sum(m['token_count'] for m in message_details),
+            'avg_tokens': sum(m['token_count'] for m in message_details)
+            / len(message_details),
+        },
+        'messages': message_details,
+    }
+
+    # Save token analysis data
+    analysis_path = Path('logs/token_analysis')
+    analysis_path.mkdir(parents=True, exist_ok=True)
+    analysis_file = analysis_path / 'token_analysis.jsonl'
+
+    # Append the data as a new line in the JSONL file
+    with open(analysis_file, 'a') as f:
+        f.write(json.dumps(token_data) + '\n')
+
+    # Print summary stats
+    print('\nToken Count Analysis:')
+    print(f"Total messages: {token_data['stats']['total_messages']}")
+    print(f"Total tokens: {token_data['stats']['total_tokens']:,}")
+    print(f"Max tokens in a message: {token_data['stats']['max_tokens']:,}")
+    print(f"Average tokens per message: {token_data['stats']['avg_tokens']:.1f}")
+
+    # Find and print info about the largest message
+    max_msg_stats = token_data['stats']['max_token_message']
+    print('\nLargest message:')
+    print(f"Event ID: {max_msg_stats['event_id']}")
+    print(f"Role: {max_msg_stats['role']}")
+    print(f"Tokens: {max_msg_stats['token_count']:,}")
+    print(f"Content preview: {max_msg_stats['content_preview']}")
+
     return messages
 
 
@@ -542,19 +608,19 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
             continue
 
         # Condense the messages
-        try:
-            summary_action = condenser.condense(messages)
-            logger.info(f"Summary for instance {row['instance_id']}:")
-            logger.info(f'{summary_action}')
+        # try:
+        #    summary_action = condenser.condense(messages)
+        #    logger.info(f"Summary for instance {row['instance_id']}:")
+        #    logger.info(f'{summary_action}')
 
-            # Save messages and summary for debugging if needed
-            if hasattr(condenser, 'save_messages_for_debugging'):
-                condenser.save_messages_for_debugging(messages, summary_action)
+        #    # Save messages and summary for debugging if needed
+        #    if hasattr(condenser, 'save_messages_for_debugging'):
+        #        condenser.save_messages_for_debugging(messages, summary_action)
 
-        except Exception as e:
-            logger.error(
-                f"Failed to condense messages for instance {row['instance_id']}: {e}"
-            )
+        # except Exception as e:
+        #    logger.error(
+        #        f"Failed to condense messages for instance {row['instance_id']}: {e}"
+        #    )
 
 
 if __name__ == '__main__':
@@ -615,7 +681,9 @@ if __name__ == '__main__':
     condenser.save_messages_for_debugging = save_messages_for_debugging
 
     # attach the llm_anthropic_token_counter method to the LLM class
-    llm.get_token_count = llm_anthropic_token_counter
+    from functools import partial
+
+    llm.get_token_count = partial(llm_anthropic_token_counter, llm)
 
     # Call the main method with the specified file path
-    main_with_one_instance(condenser, file_path=args.file)
+    main(condenser, file_path=args.file)
