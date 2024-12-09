@@ -281,7 +281,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=f'Error: {event.error}')],
+                content=[TextContent(text=f'Error: {event.content}')],
                 event_id=event.id,
             )
         ]
