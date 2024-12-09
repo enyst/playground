@@ -10,7 +10,7 @@ import openhands
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
 from openhands.core.config.utils import get_llm_config_arg, load_app_config
 from openhands.core.logger import openhands_logger as logger
-from openhands.core.message import ImageContent, Message, TextContent
+from openhands.core.message import Message, TextContent
 from openhands.events.action import (
     AgentDelegateAction,
     AgentFinishAction,
@@ -53,13 +53,20 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
     # Handle actions
     if isinstance(event, MessageAction):
         role = 'user' if event.source == EventSource.USER else 'assistant'
-        return [Message(role=role, content=[TextContent(text=event.content)])]
+        return [
+            Message(
+                role=role,
+                content=[TextContent(text=event.content)],
+                event_id=event.id,
+            )
+        ]
     elif isinstance(event, CmdRunAction):
         if event.source == EventSource.USER:
             return [
                 Message(
                     role='user',
                     content=[TextContent(text=f'User executed: $ {event.command}')],
+                    event_id=event.id,
                 )
             ]
         # For agent commands, get the original LLM response with reasoning
@@ -70,6 +77,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     role='assistant',
                     content=[TextContent(text=assistant_msg.content or '')],
                     tool_calls=assistant_msg.tool_calls,
+                    event_id=event.id,
                 )
             ]
         # Fallback if no tool metadata
@@ -77,6 +85,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             Message(
                 role='assistant',
                 content=[TextContent(text=f'$ {event.command}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, IPythonRunCellAction):
@@ -85,6 +94,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                 Message(
                     role='user',
                     content=[TextContent(text=f'```python\n{event.code}\n```')],
+                    event_id=event.id,
                 )
             ]
         # For agent Python code, get original LLM response
@@ -95,12 +105,14 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     role='assistant',
                     content=[TextContent(text=assistant_msg.content or '')],
                     tool_calls=assistant_msg.tool_calls,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='assistant',
                 content=[TextContent(text=f'```python\n{event.code}\n```')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, FileEditAction):
@@ -111,10 +123,15 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     role='assistant',
                     content=[TextContent(text=assistant_msg.content or '')],
                     tool_calls=assistant_msg.tool_calls,
+                    event_id=event.id,
                 )
             ]
         content = f'Edit file {event.file_path}\n```\n{event.content}\n```'
-        return [Message(role='assistant', content=[TextContent(text=content)])]
+        return [
+            Message(
+                role='assistant', content=[TextContent(text=content)], event_id=event.id
+            )
+        ]
     elif isinstance(event, (BrowseInteractiveAction, BrowseURLAction)):
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
@@ -123,12 +140,14 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     role='assistant',
                     content=[TextContent(text=assistant_msg.content or '')],
                     tool_calls=assistant_msg.tool_calls,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='assistant',
                 content=[TextContent(text=f'Browse: {event.url}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, AgentDelegateAction):
@@ -139,21 +158,29 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     role='assistant',
                     content=[TextContent(text=assistant_msg.content or '')],
                     tool_calls=assistant_msg.tool_calls,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='assistant',
                 content=[TextContent(text=f'Delegate to agent: {event.agent}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, AgentFinishAction):
         role = 'user' if event.source == EventSource.USER else 'assistant'
-        return [Message(role=role, content=[TextContent(text=event.content)])]
+        return [
+            Message(
+                role=role,
+                content=[TextContent(text=event.thought)],
+                event_id=event.id,
+            )
+        ]
 
     # Handle observations (tool results)
     if isinstance(event, CmdOutputObservation):
-        content = f'Command output (exit code {event.exit_code}):\n{event.output}'
+        content = f'Command output (exit code {event.exit_code}):\n{event.content}'
         if event.tool_call_metadata:
             return [
                 Message(
@@ -161,17 +188,16 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     content=[TextContent(text=content)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
+                    event_id=event.id,
                 )
             ]
         return [Message(role='user', content=[TextContent(text=content)])]
     elif isinstance(event, IPythonRunCellObservation):
         content = []
-        if event.output:
-            content.append(TextContent(text=f'Output:\n{event.output}'))
+        if event.content:
+            content.append(TextContent(text=f'Output:\n{event.content}'))
         if event.error:
             content.append(TextContent(text=f'Error:\n{event.error}'))
-        if event.images:
-            content.append(ImageContent(image_urls=event.images))
         if event.tool_call_metadata:
             return [
                 Message(
@@ -179,6 +205,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     content=content,
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
+                    event_id=event.id,
                 )
             ]
         return [Message(role='user', content=content)]
@@ -190,12 +217,14 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     content=[TextContent(text=f'File edited: {event.file_path}')],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='user',
                 content=[TextContent(text=f'File edited: {event.file_path}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, BrowserOutputObservation):
@@ -209,12 +238,14 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     content=[TextContent(text=f'Browser output:\n{content}')],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='user',
                 content=[TextContent(text=f'Browser output:\n{content}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, AgentDelegateObservation):
@@ -225,12 +256,14 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     content=[TextContent(text=f'Delegate result: {event.content}')],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='user',
                 content=[TextContent(text=f'Delegate result: {event.content}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, ErrorObservation):
@@ -238,15 +271,17 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=f'Error: {event.error}')],
+                    content=[TextContent(text=f'Error: {event.content}')],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
+                    event_id=event.id,
                 )
             ]
         return [
             Message(
                 role='user',
                 content=[TextContent(text=f'Error: {event.error}')],
+                event_id=event.id,
             )
         ]
     elif isinstance(event, UserRejectObservation):
@@ -254,6 +289,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             Message(
                 role='user',
                 content=[TextContent(text=event.content)],
+                event_id=event.id,
             )
         ]
 
@@ -300,54 +336,6 @@ def save_messages_for_debugging(
         logger.debug(f'Messages successfully saved to {file_path}')
     except Exception as e:
         logger.error(f'Failed to save messages for debugging: {e}')
-
-
-def main(condenser: MemoryCondenser, file_path: str | None = None):
-    """
-    Main method for quick testing and debugging.
-    Reads a specified debug summary JSON file from the ./logs/deepseek-24sept directory,
-    deserializes the messages, and prints them.
-    If no file is specified, it falls back to the latest file based on timestamp.
-
-    Args:
-        file_path (str | None): The path to the log file to process. If None, the latest file is used.
-    """
-    if file_path is None:
-        print('No file provided')
-        return
-
-    # Load the SWE-bench output file
-    df = load_swebench_output(file_path)
-    print(f'Loaded {len(df)} instances from {file_path}')
-
-    # Process each instance's history
-    for _, row in df.iterrows():
-        if 'history' in row:
-            process_instance_history(row['history'], row['instance_id'])
-        else:
-            print(f"No history found for instance {row['instance_id']}")
-
-        # Convert events to messages
-        messages = process_instance_history(row['history'], row['instance_id'])
-
-        if not messages:
-            logger.warning(f"No messages generated for instance {row['instance_id']}")
-            continue
-
-        # Condense the messages
-        try:
-            summary_action = condenser.condense(messages)
-            logger.info(f"Summary for instance {row['instance_id']}:")
-            logger.info(f'{summary_action}')
-
-            # Save messages and summary for debugging if needed
-            if hasattr(condenser, 'save_messages_for_debugging'):
-                condenser.save_messages_for_debugging(messages, summary_action)
-
-        except Exception as e:
-            logger.error(
-                f"Failed to condense messages for instance {row['instance_id']}: {e}"
-            )
 
 
 def load_swebench_output(file_path: str) -> pd.DataFrame:
@@ -417,6 +405,96 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
     return messages
 
 
+def main_with_one_instance(condenser: MemoryCondenser, file_path: str | None = None):
+    """Temporary debug version focusing on one instance"""
+    if file_path is None:
+        print('No file provided')
+        return
+
+    # Load the SWE-bench output file
+    df = load_swebench_output(file_path)
+    print(f'Loaded {len(df)} instances from {file_path}')
+
+    # Find and process only django__django-13158
+    target_instance = df[df['instance_id'] == 'django__django-13158'].iloc[0]
+    print(f"\nProcessing instance: {target_instance['instance_id']}")
+
+    # Convert events to messages
+    messages = process_instance_history(
+        target_instance['history'], target_instance['instance_id']
+    )
+
+    if not messages:
+        logger.warning(
+            f"No messages generated for instance {target_instance['instance_id']}"
+        )
+        return
+
+    # Condense the messages and print the full summary
+    try:
+        summary_action = condenser.condense(messages)
+        print('\nFull summary action:')
+        print(f'{summary_action}')
+
+        # Save messages and summary for debugging
+        if hasattr(condenser, 'save_messages_for_debugging'):
+            condenser.save_messages_for_debugging(messages, summary_action)
+
+    except Exception as e:
+        logger.error(
+            f"Failed to condense messages for instance {target_instance['instance_id']}: {e}"
+        )
+        raise  # Re-raise to see full traceback
+
+
+def main(condenser: MemoryCondenser, file_path: str | None = None):
+    """
+    Main method for quick testing and debugging.
+    Reads a specified debug summary JSON file from the ./logs/deepseek-24sept directory,
+    deserializes the messages, and prints them.
+    If no file is specified, it falls back to the latest file based on timestamp.
+
+    Args:
+        file_path (str | None): The path to the log file to process. If None, the latest file is used.
+    """
+    if file_path is None:
+        print('No file provided')
+        return
+
+    # Load the SWE-bench output file
+    df = load_swebench_output(file_path)
+    print(f'Loaded {len(df)} instances from {file_path}')
+
+    # Process each instance's history
+    for _, row in df.iterrows():
+        if 'history' in row:
+            process_instance_history(row['history'], row['instance_id'])
+        else:
+            print(f"No history found for instance {row['instance_id']}")
+
+        # Convert events to messages
+        messages = process_instance_history(row['history'], row['instance_id'])
+
+        if not messages:
+            logger.warning(f"No messages generated for instance {row['instance_id']}")
+            continue
+
+        # Condense the messages
+        try:
+            summary_action = condenser.condense(messages)
+            logger.info(f"Summary for instance {row['instance_id']}:")
+            logger.info(f'{summary_action}')
+
+            # Save messages and summary for debugging if needed
+            if hasattr(condenser, 'save_messages_for_debugging'):
+                condenser.save_messages_for_debugging(messages, summary_action)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to condense messages for instance {row['instance_id']}: {e}"
+            )
+
+
 if __name__ == '__main__':
     # load or simulate dependencies as needed for testing
     app_config = load_app_config()
@@ -461,11 +539,13 @@ if __name__ == '__main__':
             './logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint/output.jsonl'
         )
 
-    llm_config = get_llm_config_arg(args.llm_config)
-    if llm_config is not None:
-        llm = LLM(config=llm_config)
+    # load the LLM config
+    if args.llm_config is not None:
+        llm_config = get_llm_config_arg(args.llm_config)
     else:
-        llm = LLM(app_config.get_llm_config('llm'))
+        llm_config = app_config.get_llm_config('llm')
+
+    llm = LLM(config=llm_config)
 
     condenser = MemoryCondenser(llm=llm, prompt_manager=prompt_manager)
 
@@ -473,4 +553,4 @@ if __name__ == '__main__':
     condenser.save_messages_for_debugging = save_messages_for_debugging
 
     # Call the main method with the specified file path
-    main(condenser, file_path=args.file)
+    main_with_one_instance(condenser, file_path=args.file)
