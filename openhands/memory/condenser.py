@@ -1,3 +1,5 @@
+import json
+
 from litellm.types.utils import ModelResponse
 
 from openhands.core.exceptions import SummarizeError
@@ -47,9 +49,12 @@ class MemoryCondenser:
             self.context_window * self.llm.config.message_summary_warning_level
         )
 
-        # collect condensable messages with their IDs and token counts
-        condensable_messages: list[tuple[Message, int]] = [
-            (msg, self.llm.get_token_count([msg.model_dump()]))
+        # collect condensable messages with their token counts
+        condensable_messages: list[dict[Message, int]] = [
+            {
+                'message': msg,
+                'token_count': self.llm.get_token_count([msg.model_dump()]),
+            }
             for msg in messages
             if msg.condensable
         ]
@@ -61,19 +66,22 @@ class MemoryCondenser:
             )
 
         # track the very first message's id - this will be our start_id
-        first_message_id = condensable_messages[0][0].event_id
+        first_message_id = condensable_messages[0]['message'].event_id
 
         # create chunks that fit within safe_token_limit
         chunks: list[list[Message]] = []
         current_chunk: list[Message] = []
         current_chunk_tokens = 0
 
-        for msg, token_count in condensable_messages:
+        for message in condensable_messages:
+            msg = message['message']
+            token_count = message['token_count']
             if current_chunk_tokens + token_count > safe_token_limit:
                 if current_chunk:  # save current chunk if not empty, it's done
                     chunks.append(current_chunk)
+                    print(f'appending chunk with tokens: {current_chunk_tokens}')
 
-                # start a new chunk
+                # start a new chunk with the current message
                 current_chunk = [msg]
                 current_chunk_tokens = token_count
             else:
@@ -85,10 +93,12 @@ class MemoryCondenser:
         if current_chunk:
             chunks.append(current_chunk)
 
+        print(f'chunks: {len(chunks)}')
+
         # process chunks
         final_summary = None
         # track the last real message id (note: not summary actions)
-        last_real_message_id = condensable_messages[-1][0].event_id
+        last_real_message_id = condensable_messages[-1]['message'].event_id
 
         for i, chunk in enumerate(chunks):
             if final_summary is not None:
@@ -102,8 +112,15 @@ class MemoryCondenser:
                 )
                 chunk.insert(0, summary_message)
 
+            print(f'summarizing chunk {i} with length: {len(chunk)}')
             action_response = self._summarize_messages(chunk)
             summary_action = parse_summary_response(action_response)
+
+            print('--------------------------------')
+            print(f'summary action: {summary_action}')
+            print(f'summary action summary: {summary_action.summary}')
+            print('--------------------------------')
+
             final_summary = summary_action.summary
 
         # create final summary action
@@ -116,16 +133,33 @@ class MemoryCondenser:
 
     def _summarize_messages(self, message_sequence_to_summarize: list[Message]) -> str:
         """Summarize a message sequence using LLM"""
-        # build the message to send
-        self.prompt_manager.conversation_history = self.llm.format_messages_for_llm(
+        # Format the conversation history for the user message
+        conversation_text = self.llm.format_messages_for_llm(
             message_sequence_to_summarize
         )
+        conversation_text = json.dumps(conversation_text, indent=2)
+
+        # Get the template as system message
         summarize_prompt = self.prompt_manager.get_summarize_prompt()
-        message = Message(role='system', content=[TextContent(text=summarize_prompt)])
-        serialized_message = message.model_dump()
+        system_message = Message(
+            role='system', content=[TextContent(text=summarize_prompt)]
+        )
+
+        # Create user message with the conversation history
+        user_message = Message(
+            role='user',
+            content=[
+                TextContent(
+                    text=f'----- Conversation History: ------\n{conversation_text}'
+                )
+            ],
+        )
+
+        # Send both messages to LLM
+        messages = [system_message.model_dump(), user_message.model_dump()]
 
         response = self.llm.completion(
-            messages=[serialized_message],
+            messages=messages,
             temperature=0.2,
         )
 

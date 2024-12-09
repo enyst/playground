@@ -126,5 +126,5 @@ class PromptManager:
     def get_summarize_prompt(self) -> str:
         # render the template with the conversation memory
         return self.summarize_template.render(
-            conversation_history=self.conversation_history
+            # conversation_history=self.conversation_history
         ).strip()
