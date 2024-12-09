@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from litellm.types.utils import ModelResponse
 
@@ -50,7 +51,7 @@ class MemoryCondenser:
         )
 
         # collect condensable messages with their token counts
-        condensable_messages: list[dict[Message, int]] = [
+        condensable_messages: list[dict[str, Any]] = [
             {
                 'message': msg,
                 'token_count': self.llm.get_token_count([msg.model_dump()]),
@@ -134,10 +135,10 @@ class MemoryCondenser:
     def _summarize_messages(self, message_sequence_to_summarize: list[Message]) -> str:
         """Summarize a message sequence using LLM"""
         # Format the conversation history for the user message
-        conversation_text = self.llm.format_messages_for_llm(
+        conversation_dicts = self.llm.format_messages_for_llm(
             message_sequence_to_summarize
         )
-        conversation_text = json.dumps(conversation_text, indent=2)
+        conversation_text = json.dumps(conversation_dicts, indent=2)
 
         # Get the template as system message
         summarize_prompt = self.prompt_manager.get_summarize_prompt()

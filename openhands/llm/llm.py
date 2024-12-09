@@ -199,7 +199,7 @@ class LLM(RetryMixin, DebugMixin):
             # log the entire LLM prompt
             self.log_prompt(messages)
 
-            # find out if we have too many tokens
+            # only send messages if they are below the token limit
             token_count = self.get_token_count(messages)
             max_input_tokens = self.config.max_input_tokens or 4096
             if token_count > max_input_tokens:

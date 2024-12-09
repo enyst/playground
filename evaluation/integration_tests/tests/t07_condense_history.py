@@ -8,6 +8,7 @@ import pandas as pd
 
 import openhands
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
+from evaluation.integration_tests.utils import llm_anthropic_token_counter
 from openhands.core.config.utils import get_llm_config_arg, load_app_config
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import Message, TextContent
@@ -389,6 +390,7 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
     """
     messages: list[Message] = []
 
+    first_user_message = True
     for event in history:
         # Events can be either a single event dict or a (legacy) list of [action, observation] pairs
         if isinstance(event, list):
@@ -397,12 +399,46 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
                 messages.extend(convert_event_to_messages(item))
         else:
             # Handle single events
-            messages.extend(convert_event_to_messages(event))
+            message = convert_event_to_messages(event)
+
+            # first user message is not condensable
+            for msg in message:
+                if msg.role == 'user' and first_user_message:
+                    msg.condensable = False
+                    first_user_message = False
+                    break
+
+            # add the message to the list
+            messages.extend(message)
 
     logger.debug(
         f'Converted {len(history)} events into {len(messages)} messages for instance {instance_id}'
     )
     return messages
+
+
+def save_instance_for_debugging(instance_data: dict, instance_id: str) -> None:
+    """Save the complete instance data to a JSON file for debugging.
+
+    Args:
+        instance_data: The complete instance data dictionary
+        instance_id: The ID of the instance being saved
+    """
+    # Ensure the logs directory exists
+    log_dir = Path('./logs/debug_instances')
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate a filename with timestamp and instance_id
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'debug_instance_{instance_id}_{timestamp}.json'
+    file_path = log_dir / filename
+
+    try:
+        with file_path.open('w', encoding='utf-8') as f:
+            json.dump(instance_data, f, ensure_ascii=False, indent=4)
+        logger.debug(f'Instance data saved to {file_path}')
+    except Exception as e:
+        logger.error(f'Failed to save instance data: {e}')
 
 
 def main_with_one_instance(condenser: MemoryCondenser, file_path: str | None = None):
@@ -415,9 +451,14 @@ def main_with_one_instance(condenser: MemoryCondenser, file_path: str | None = N
     df = load_swebench_output(file_path)
     print(f'Loaded {len(df)} instances from {file_path}')
 
-    # Find and process only django__django-13158
-    target_instance = df[df['instance_id'] == 'django__django-13158'].iloc[0]
+    # Find and process only django__django-12983
+    target_instance = df[df['instance_id'] == 'django__django-12983'].iloc[0]
     print(f"\nProcessing instance: {target_instance['instance_id']}")
+
+    # Save the complete instance data
+    save_instance_for_debugging(
+        target_instance.to_dict(), target_instance['instance_id']
+    )
 
     # Convert events to messages
     messages = process_instance_history(
@@ -464,6 +505,27 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
     # Load the SWE-bench output file
     df = load_swebench_output(file_path)
     print(f'Loaded {len(df)} instances from {file_path}')
+
+    # Add history length column
+    df['history_length'] = df['history'].apply(len)
+
+    # Get stats
+    shortest_idx = df['history_length'].idxmin()
+    longest_idx = df['history_length'].idxmax()
+
+    print('\nHistory Length:')
+    print(
+        f"Shortest history: {df.loc[shortest_idx, 'history_length']} events (instance: {df.loc[shortest_idx, 'instance_id']})"
+    )
+    print(
+        f"Longest history: {df.loc[longest_idx, 'history_length']} events (instance: {df.loc[longest_idx, 'instance_id']})"
+    )
+    print(f"Average length: {df['history_length'].mean():.1f} events")
+
+    # History Length:
+    # Shortest history: 16 events (instance: django__django-12983)
+    # Longest history: 202 events (instance: django__django-11422)
+    # Average length: 53.8 events
 
     # Process each instance's history
     for _, row in df.iterrows():
@@ -551,6 +613,9 @@ if __name__ == '__main__':
 
     # attach on fly the save_messages_for_debugging method to the condenser
     condenser.save_messages_for_debugging = save_messages_for_debugging
+
+    # attach the llm_anthropic_token_counter method to the LLM class
+    llm.get_token_count = llm_anthropic_token_counter
 
     # Call the main method with the specified file path
     main_with_one_instance(condenser, file_path=args.file)
