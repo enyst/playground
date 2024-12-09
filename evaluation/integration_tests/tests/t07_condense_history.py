@@ -447,8 +447,6 @@ def process_instance_history(history: list, instance_id: str) -> list[Message]:
             },
             'total_messages': len(messages),
             'total_tokens': sum(m['token_count'] for m in message_details),
-            'avg_tokens': sum(m['token_count'] for m in message_details)
-            / len(message_details),
         },
         'messages': message_details,
     }
