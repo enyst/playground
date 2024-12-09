@@ -10,12 +10,139 @@ import openhands
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
 from openhands.core.config.utils import get_llm_config_arg, load_app_config
 from openhands.core.logger import openhands_logger as logger
-from openhands.core.message import Message, TextContent
+from openhands.core.message import ImageContent, Message, TextContent
+from openhands.events.action import (
+    AgentDelegateAction,
+    AgentFinishAction,
+    BrowseInteractiveAction,
+    BrowseURLAction,
+    CmdRunAction,
+    FileEditAction,
+    IPythonRunCellAction,
+    MessageAction,
+)
 from openhands.events.action.agent import AgentSummarizeAction
+from openhands.events.event import EventSource
+from openhands.events.observation.browse import BrowserOutputObservation
+from openhands.events.observation.commands import (
+    CmdOutputObservation,
+    IPythonRunCellObservation,
+)
+from openhands.events.observation.delegate import AgentDelegateObservation
+from openhands.events.observation.error import ErrorObservation
+from openhands.events.observation.files import FileEditObservation
+from openhands.events.observation.reject import UserRejectObservation
 from openhands.events.serialization.event import event_from_dict
 from openhands.llm.llm import LLM
 from openhands.memory.condenser import MemoryCondenser
 from openhands.utils.prompt import PromptManager
+
+
+def convert_event_to_messages(event_dict: dict) -> list[Message]:
+    """
+    Converts a single event dictionary into one or more Message objects.
+
+    Args:
+        event_dict: Dictionary containing event data
+    Returns:
+        list[Message]: List of converted messages (usually one, but might be more for tool calls)
+    """
+    # First deserialize the event into its proper type
+    event = event_from_dict(event_dict)
+
+    # Handle Actions
+    if isinstance(event, MessageAction):
+        return [Message(role='assistant', content=[TextContent(text=event.content)])]
+    elif isinstance(event, CmdRunAction):
+        role = 'user' if event.source == EventSource.USER else 'assistant'
+        return [
+            Message(
+                role=role,
+                content=[TextContent(text=f'$ {event.command}')],
+            )
+        ]
+    elif isinstance(event, IPythonRunCellAction):
+        role = 'user' if event.source == EventSource.USER else 'assistant'
+        return [
+            Message(
+                role=role,
+                content=[TextContent(text=f'```python\n{event.code}\n```')],
+            )
+        ]
+    elif isinstance(event, FileEditAction):
+        content = f'Edit file {event.file_path}\n```\n{event.content}\n```'
+        return [Message(role='assistant', content=[TextContent(text=content)])]
+    elif isinstance(event, (BrowseInteractiveAction, BrowseURLAction)):
+        return [
+            Message(
+                role='assistant',
+                content=[TextContent(text=f'Browse: {event.url}')],
+            )
+        ]
+    elif isinstance(event, AgentDelegateAction):
+        return [
+            Message(
+                role='assistant',
+                content=[TextContent(text=f'Delegate to agent: {event.agent}')],
+            )
+        ]
+    elif isinstance(event, AgentFinishAction):
+        role = 'user' if event.source == EventSource.USER else 'assistant'
+        return [Message(role=role, content=[TextContent(text=event.content)])]
+    # Handle Observations
+    elif isinstance(event, CmdOutputObservation):
+        content = f'Command output (exit code {event.exit_code}):\n{event.output}'
+        return [Message(role='user', content=[TextContent(text=content)])]
+    elif isinstance(event, IPythonRunCellObservation):
+        content = []
+        if event.output:
+            content.append(TextContent(text=f'Output:\n{event.output}'))
+        if event.error:
+            content.append(TextContent(text=f'Error:\n{event.error}'))
+        if event.images:
+            content.append(ImageContent(image_urls=event.images))
+        return [Message(role='user', content=content)]
+    elif isinstance(event, FileEditObservation):
+        return [
+            Message(
+                role='user',
+                content=[TextContent(text=f'File edited: {event.file_path}')],
+            )
+        ]
+    elif isinstance(event, BrowserOutputObservation):
+        content = event.content
+        if isinstance(content, dict):
+            content = json.dumps(content, indent=2)
+        return [
+            Message(
+                role='user',
+                content=[TextContent(text=f'Browser output:\n{content}')],
+            )
+        ]
+    elif isinstance(event, AgentDelegateObservation):
+        return [
+            Message(
+                role='user',
+                content=[TextContent(text=f'Delegate result: {event.content}')],
+            )
+        ]
+    elif isinstance(event, ErrorObservation):
+        return [
+            Message(
+                role='user',
+                content=[TextContent(text=f'Error: {event.error}')],
+            )
+        ]
+    elif isinstance(event, UserRejectObservation):
+        return [
+            Message(
+                role='user',
+                content=[TextContent(text=event.content)],
+            )
+        ]
+
+    logger.warning(f'Unhandled event type: {type(event)}')
+    return []
 
 
 def save_messages_for_debugging(
@@ -84,73 +211,27 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
         else:
             print(f"No history found for instance {row['instance_id']}")
 
-    # use openhands's __file__ to get the project root directory
-    log_dir = Path(
-        os.path.dirname(openhands.__file__),
-        '..',
-        'logs',
-        'claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint',
-    )
-    log_dir.mkdir(parents=True, exist_ok=True)
+        # Convert events to messages
+        messages = process_instance_history(row['history'], row['instance_id'])
 
-    if file_path:
-        target_log = Path(file_path)
-        if not target_log.exists():
-            print(f'Specified log file does not exist: {target_log}')
-            return
-    else:
-        log_files = list(log_dir.glob('instance_*_*.json'))
+        if not messages:
+            logger.warning(f"No messages generated for instance {row['instance_id']}")
+            continue
 
-        if not log_files:
-            print(
-                'No instance_*_*.json files found in the ./logs/claude-3-5-sonnet-20241022_maxiter_100_N_v2.2-no-hint directory.'
-            )
-            return
-
-        # Sort files to find the latest one based on the digits at the end of the filename
-        def extract_digits(file_path: Path) -> int:
-            try:
-                # Extract the digits part from the filename
-                digits_str = file_path.stem.split('_')[-1]
-                return int(digits_str)
-            except (IndexError, ValueError):
-                # If digit extraction fails, assign the lowest possible value
-                return -1
-
-        log_files.sort(key=extract_digits, reverse=True)
-        target_log = log_files[0]
-
-        print(f'Loading messages from: {target_log}')
-
-    try:
-        with target_log.open('r', encoding='utf-8') as f:
-            messages_data = json.load(f)
-
-            # convert string content to list of TextContent if necessary
-            for msg in messages_data:
-                if isinstance(msg['content'], str):
-                    msg['content'] = [{'type': 'text', 'text': msg['content']}]
-
-            messages: list[Message] = [
-                Message.model_validate(msg, strict=False) for msg in messages_data
-            ]
-
-            print(f'Successfully loaded {len(messages)} messages:')
-            # for msg in messages:
-            #    print(f'{msg.role}:\n {msg.content[50:]}')
-
-            # run condense on these messages
+        # Condense the messages
+        try:
             summary_action = condenser.condense(messages)
-            print(f'summary_action: {summary_action}')
+            logger.info(f"Summary for instance {row['instance_id']}:")
+            logger.info(f'{summary_action}')
 
-            # save the summary action to a file named with the same name as the log file + summary
-            summary_file_path = target_log.with_suffix('.summary.json')
-            with summary_file_path.open('w', encoding='utf-8') as f:
-                json.dump(summary_action.model_dump(), f, ensure_ascii=False, indent=4)
+            # Save messages and summary for debugging if needed
+            if hasattr(condenser, 'save_messages_for_debugging'):
+                condenser.save_messages_for_debugging(messages, summary_action)
 
-    except Exception as e:
-        print(f'An error occurred while reading {target_log}: {e}')
-        return
+        except Exception as e:
+            logger.error(
+                f"Failed to condense messages for instance {row['instance_id']}: {e}"
+            )
 
 
 def load_swebench_output(file_path: str) -> pd.DataFrame:
@@ -192,35 +273,32 @@ def load_swebench_output(file_path: str) -> pd.DataFrame:
         raise
 
 
-def process_instance_history(history: list, instance_id: str) -> None:
+def process_instance_history(history: list, instance_id: str) -> list[Message]:
     """
-    Processes the history of events for a single instance.
+    Processes a single instance's history into a list of Messages.
 
     Args:
         history: List of events from the instance history
         instance_id: ID of the instance being processed
+    Returns:
+        list[Message]: Processed messages ready for condensing
     """
-    logger.info(f'\nProcessing history for instance {instance_id}')
-    logger.info('=' * 80)
+    messages: list[Message] = []
 
-    for i, event in enumerate(history):
-        # Events can be either:
-        # 1. A single event dict
-        # 2. A list of [action, observation] pairs (legacy format)
+    for event in history:
+        # Events can be either a single event dict or a list of [action, observation] pairs
         if isinstance(event, list):
-            # Legacy format with action/observation pairs
-            action = event_from_dict(event[0])
-            observation = event_from_dict(event[1])
-            logger.info(f'\nEvent {i+1}:')
-            logger.info(f'Action: {action.__class__.__name__}')
-            logger.info(f'{action}')
-            logger.info(f'Observation: {observation.__class__.__name__}')
-            logger.info(f'{observation}')
+            # Handle action/observation pairs
+            for item in event:
+                messages.extend(convert_event_to_messages(item))
         else:
-            # Single event
-            event_obj = event_from_dict(event)
-            logger.info(f'\nEvent {i+1}: {event_obj.__class__.__name__}')
-            logger.info(f'{event_obj}')
+            # Handle single events
+            messages.extend(convert_event_to_messages(event))
+
+    logger.debug(
+        f'Converted {len(history)} events into {len(messages)} messages for instance {instance_id}'
+    )
+    return messages
 
 
 if __name__ == '__main__':
