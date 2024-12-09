@@ -8,8 +8,8 @@ import pandas as pd
 
 import openhands
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
-from openhands.core import logger
 from openhands.core.config.utils import get_llm_config_arg, load_app_config
+from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import Message, TextContent
 from openhands.events.action.agent import AgentSummarizeAction
 from openhands.events.serialization.event import event_from_dict
@@ -163,9 +163,30 @@ def load_swebench_output(file_path: str) -> pd.DataFrame:
         DataFrame containing the parsed instances
     """
     try:
-        df = pd.read_json(file_path, lines=True)
+        # First verify the file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f'File not found: {file_path}')
+
+        # Read the file line by line to handle potential JSON parsing errors
+        records = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                try:
+                    if line.strip():  # Skip empty lines
+                        record = json.loads(line)
+                        records.append(record)
+                except json.JSONDecodeError as e:
+                    logger.warning(f'Failed to parse line {line_num}: {e}')
+                    continue
+
+        if not records:
+            raise ValueError('No valid records found in file')
+
+        df = pd.DataFrame.from_records(records)
         logger.info(f'Loaded {len(df)} instances from {file_path}')
+
         return df
+
     except Exception as e:
         logger.error(f'Failed to load output file: {e}')
         raise
