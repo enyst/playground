@@ -81,14 +81,11 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        # Fallback if no tool metadata
-        return [
-            Message(
-                role='assistant',
-                content=[TextContent(text=f'$ {event.command}')],
-                event_id=event.id,
-            )
-        ]
+        # no tool metadata should never happen for agent commands
+        logger.warning(
+            f'No tool metadata for agent command: {event.id} - {type(event)} - {event.command[:30]}'
+        )
+        return []
     elif isinstance(event, IPythonRunCellAction):
         if event.source == EventSource.USER:
             return [
@@ -109,13 +106,11 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        return [
-            Message(
-                role='assistant',
-                content=[TextContent(text=f'```python\n{event.code}\n```')],
-                event_id=event.id,
-            )
-        ]
+        # no tool metadata should never happen for agent Python code
+        logger.warning(
+            f'No tool metadata for agent Python code: {event.id} - {type(event)} - {event.code[:30]}'
+        )
+        return []
     elif isinstance(event, FileEditAction):
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
@@ -127,12 +122,11 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        content = f'Edit file {event.file_path}\n```\n{event.content}\n```'
-        return [
-            Message(
-                role='assistant', content=[TextContent(text=content)], event_id=event.id
-            )
-        ]
+        # no tool metadata should never happen for file edit
+        logger.warning(
+            f'No tool metadata for file edit: {event.id} - {type(event)} - {event.file_path}'
+        )
+        return []
     elif isinstance(event, (BrowseInteractiveAction, BrowseURLAction)):
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
@@ -144,13 +138,11 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        return [
-            Message(
-                role='assistant',
-                content=[TextContent(text=f'Browse: {event.url}')],
-                event_id=event.id,
-            )
-        ]
+        # no tool metadata should never happen for agent browse
+        logger.warning(
+            f'No tool metadata for agent browse: {event.id} - {type(event)} - {event.url}'
+        )
+        return []
     elif isinstance(event, AgentDelegateAction):
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
@@ -162,14 +154,13 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        return [
-            Message(
-                role='assistant',
-                content=[TextContent(text=f'Delegate to agent: {event.agent}')],
-                event_id=event.id,
-            )
-        ]
+        # no tool metadata should never happen for agent delegate
+        logger.warning(
+            f'No tool metadata for agent delegate: {event.id} - {type(event)} - {event.agent}'
+        )
+        return []
     elif isinstance(event, AgentFinishAction):
+        # no tool metadata is necessary for the finish action
         role = 'user' if event.source == EventSource.USER else 'assistant'
         return [
             Message(
