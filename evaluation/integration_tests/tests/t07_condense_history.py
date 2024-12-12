@@ -54,6 +54,8 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
     # Handle actions
     if isinstance(event, MessageAction):
         role = 'user' if event.source == EventSource.USER else 'assistant'
+
+        # the MessageAction never has tool metadata
         return [
             Message(
                 role=role,
@@ -62,6 +64,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             )
         ]
     elif isinstance(event, CmdRunAction):
+        # for user commands, just return
         if event.source == EventSource.USER:
             return [
                 Message(
@@ -70,7 +73,8 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        # For agent commands, get the original LLM response with reasoning
+
+        # for agent commands, it's a tool call, get the original LLM response with reasoning
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
             return [
@@ -87,6 +91,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         )
         return []
     elif isinstance(event, IPythonRunCellAction):
+        # for user Python code, just return
         if event.source == EventSource.USER:
             return [
                 Message(
@@ -95,7 +100,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                     event_id=event.id,
                 )
             ]
-        # For agent Python code, get original LLM response
+        # for agent Python code, it's a tool call, get the original LLM response
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
             return [
@@ -112,6 +117,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         )
         return []
     elif isinstance(event, FileEditAction):
+        # agent-only, it's a tool call
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
             return [
@@ -128,6 +134,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         )
         return []
     elif isinstance(event, (BrowseInteractiveAction, BrowseURLAction)):
+        # agent-only, it's a tool call
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
             return [
@@ -144,6 +151,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         )
         return []
     elif isinstance(event, AgentDelegateAction):
+        # agent-only, it's a tool call
         if event.tool_call_metadata and event.tool_call_metadata.model_response:
             assistant_msg = event.tool_call_metadata.model_response.choices[0].message
             return [
@@ -190,7 +198,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             ]
         return [Message(role='user', content=[TextContent(text=content)])]
     elif isinstance(event, IPythonRunCellObservation):
-        # Handle base64 image replacement
+        # replace base64 images with a placeholder
         text = event.content
         splitted = text.split('\n')
         for i, line in enumerate(splitted):
@@ -200,7 +208,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
                 )
         text = '\n'.join(splitted)
 
-        # Truncate content
+        # NOTE: we truncate content here, including the image data!
         text = truncate_content(text, llm.config.max_message_chars)
 
         if event.tool_call_metadata:
