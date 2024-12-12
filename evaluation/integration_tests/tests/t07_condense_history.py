@@ -32,6 +32,7 @@ from openhands.events.observation.commands import (
 from openhands.events.observation.delegate import AgentDelegateObservation
 from openhands.events.observation.error import ErrorObservation
 from openhands.events.observation.files import FileEditObservation
+from openhands.events.observation.observation import Observation
 from openhands.events.observation.reject import UserRejectObservation
 from openhands.events.serialization.event import event_from_dict, truncate_content
 from openhands.llm.llm import LLM
@@ -179,142 +180,78 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         ]
 
     # Handle observations (tool results)
-    if isinstance(event, CmdOutputObservation):
-        # Add interpreter details and truncate content
-        content = truncate_content(
-            event.content + event.interpreter_details, llm.config.max_message_chars
-        )
-        content += f'\n[Command finished with exit code {event.exit_code}]'
+    if isinstance(event, Observation):
+        # create the base message that will be based on observation type
+        message: Message | None = None
 
-        if event.tool_call_metadata:
-            return [
-                Message(
-                    role='tool',
-                    content=[TextContent(text=content)],
-                    tool_call_id=event.tool_call_metadata.tool_call_id,
-                    name=event.tool_call_metadata.function_name,
-                    event_id=event.id,
-                )
-            ]
-        return [Message(role='user', content=[TextContent(text=content)])]
-    elif isinstance(event, IPythonRunCellObservation):
-        # replace base64 images with a placeholder
-        text = event.content
-        splitted = text.split('\n')
-        for i, line in enumerate(splitted):
-            if '![image](data:image/png;base64,' in line:
-                splitted[i] = (
-                    '![image](data:image/png;base64, ...) already displayed to user'
-                )
-        text = '\n'.join(splitted)
+        if isinstance(event, CmdOutputObservation):
+            # Add interpreter details and truncate content
+            content = truncate_content(
+                event.content + event.interpreter_details, llm.config.max_message_chars
+            )
+            content += f'\n[Command finished with exit code {event.exit_code}]'
+            message = Message(role='user', content=[TextContent(text=content)])
 
-        # NOTE: we truncate content here, including the image data!
-        text = truncate_content(text, llm.config.max_message_chars)
+        elif isinstance(event, IPythonRunCellObservation):
+            # replace base64 images with a placeholder
+            text = event.content
+            splitted = text.split('\n')
+            for i, line in enumerate(splitted):
+                if '![image](data:image/png;base64,' in line:
+                    splitted[i] = (
+                        '![image](data:image/png;base64, ...) already displayed to user'
+                    )
+            text = '\n'.join(splitted)
+            text = truncate_content(text, llm.config.max_message_chars)
+            message = Message(role='user', content=[TextContent(text=text)])
 
+        elif isinstance(event, FileEditObservation):
+            text = truncate_content(str(event), llm.config.max_message_chars)
+            message = Message(role='user', content=[TextContent(text=text)])
+
+        elif isinstance(event, BrowserOutputObservation):
+            text = event.get_agent_obs_text()
+            message = Message(role='user', content=[TextContent(text=text)])
+
+        elif isinstance(event, AgentDelegateObservation):
+            content = truncate_content(
+                f'Delegate result: {event.content}', llm.config.max_message_chars
+            )
+            message = Message(role='user', content=[TextContent(text=content)])
+
+        elif isinstance(event, ErrorObservation):
+            content = truncate_content(
+                f'Error: {event.content}', llm.config.max_message_chars
+            )
+            content += '\n[Error occurred in processing last action]'
+            message = Message(role='user', content=[TextContent(text=content)])
+
+        elif isinstance(event, UserRejectObservation):
+            content = 'OBSERVATION:\n' + truncate_content(
+                event.content, llm.config.max_message_chars
+            )
+            content += '\n[Last action has been rejected by the user]'
+            message = Message(role='user', content=[TextContent(text=content)])
+
+        if message is None:
+            logger.warning(f'Unhandled observation type: {type(event)}')
+            return []
+
+        # Now handle tool metadata if present
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=text)],
+                    content=message.content,
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
                 )
             ]
-        return [Message(role='user', content=[TextContent(text=text)])]
-    elif isinstance(event, FileEditObservation):
-        text = truncate_content(str(event), llm.config.max_message_chars)
-        if event.tool_call_metadata:
-            return [
-                Message(
-                    role='tool',
-                    content=[TextContent(text=text)],
-                    tool_call_id=event.tool_call_metadata.tool_call_id,
-                    name=event.tool_call_metadata.function_name,
-                    event_id=event.id,
-                )
-            ]
-        return [
-            Message(
-                role='user',
-                content=[TextContent(text=text)],
-                event_id=event.id,
-            )
-        ]
-    elif isinstance(event, BrowserOutputObservation):
-        text = event.get_agent_obs_text()
-        if event.tool_call_metadata:
-            return [
-                Message(
-                    role='tool',
-                    content=[TextContent(text=text)],
-                    tool_call_id=event.tool_call_metadata.tool_call_id,
-                    name=event.tool_call_metadata.function_name,
-                    event_id=event.id,
-                )
-            ]
-        return [
-            Message(
-                role='user',
-                content=[TextContent(text=text)],
-                event_id=event.id,
-            )
-        ]
-    elif isinstance(event, AgentDelegateObservation):
-        content = truncate_content(
-            f'Delegate result: {event.content}', llm.config.max_message_chars
-        )
-        if event.tool_call_metadata:
-            return [
-                Message(
-                    role='tool',
-                    content=[TextContent(text=content)],
-                    tool_call_id=event.tool_call_metadata.tool_call_id,
-                    name=event.tool_call_metadata.function_name,
-                    event_id=event.id,
-                )
-            ]
-        return [
-            Message(
-                role='user',
-                content=[TextContent(text=content)],
-                event_id=event.id,
-            )
-        ]
-    elif isinstance(event, ErrorObservation):
-        content = truncate_content(
-            f'Error: {event.content}', llm.config.max_message_chars
-        )
-        content += '\n[Error occurred in processing last action]'
-        if event.tool_call_metadata:
-            return [
-                Message(
-                    role='tool',
-                    content=[TextContent(text=content)],
-                    tool_call_id=event.tool_call_metadata.tool_call_id,
-                    name=event.tool_call_metadata.function_name,
-                    event_id=event.id,
-                )
-            ]
-        return [
-            Message(
-                role='user',
-                content=[TextContent(text=content)],
-                event_id=event.id,
-            )
-        ]
-    elif isinstance(event, UserRejectObservation):
-        content = 'OBSERVATION:\n' + truncate_content(
-            event.content, llm.config.max_message_chars
-        )
-        content += '\n[Last action has been rejected by the user]'
-        return [
-            Message(
-                role='user',
-                content=[TextContent(text=content)],
-                event_id=event.id,
-            )
-        ]
+
+        # Add event_id to the base message
+        message.event_id = event.id
+        return [message]
 
     logger.warning(f'Unhandled event type: {type(event)}')
     return []
