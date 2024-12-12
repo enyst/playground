@@ -33,7 +33,7 @@ from openhands.events.observation.delegate import AgentDelegateObservation
 from openhands.events.observation.error import ErrorObservation
 from openhands.events.observation.files import FileEditObservation
 from openhands.events.observation.reject import UserRejectObservation
-from openhands.events.serialization.event import event_from_dict
+from openhands.events.serialization.event import event_from_dict, truncate_content
 from openhands.llm.llm import LLM
 from openhands.memory.condenser import MemoryCondenser
 from openhands.utils.prompt import PromptManager
@@ -172,7 +172,12 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
 
     # Handle observations (tool results)
     if isinstance(event, CmdOutputObservation):
-        content = f'Command output (exit code {event.exit_code}):\n{event.content}'
+        # Add interpreter details and truncate content
+        content = truncate_content(
+            event.content + event.interpreter_details, llm.config.max_message_chars
+        )
+        content += f'\n[Command finished with exit code {event.exit_code}]'
+
         if event.tool_call_metadata:
             return [
                 Message(
@@ -185,28 +190,39 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             ]
         return [Message(role='user', content=[TextContent(text=content)])]
     elif isinstance(event, IPythonRunCellObservation):
-        content = []
-        if event.content:
-            content.append(TextContent(text=f'Output:\n{event.content}'))
-        if event.error:
-            content.append(TextContent(text=f'Error:\n{event.error}'))
+        # Handle base64 image replacement
+        text = event.content
+        splitted = text.split('\n')
+        for i, line in enumerate(splitted):
+            if '![image](data:image/png;base64,' in line:
+                splitted[i] = (
+                    '![image](data:image/png;base64, ...) already displayed to user'
+                )
+        text = '\n'.join(splitted)
+
+        # Truncate content
+        text = truncate_content(text, llm.config.max_message_chars)
+
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=content,
+                    content=[TextContent(text=text)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
                 )
             ]
-        return [Message(role='user', content=content)]
+        return [Message(role='user', content=[TextContent(text=text)])]
     elif isinstance(event, FileEditObservation):
+        content = truncate_content(
+            f'File edited: {event.file_path}', llm.config.max_message_chars
+        )
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=f'File edited: {event.file_path}')],
+                    content=[TextContent(text=content)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
@@ -215,7 +231,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=f'File edited: {event.file_path}')],
+                content=[TextContent(text=content)],
                 event_id=event.id,
             )
         ]
@@ -223,11 +239,14 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         content = event.content
         if isinstance(content, dict):
             content = json.dumps(content, indent=2)
+        content = truncate_content(
+            f'Browser output:\n{content}', llm.config.max_message_chars
+        )
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=f'Browser output:\n{content}')],
+                    content=[TextContent(text=content)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
@@ -236,16 +255,19 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=f'Browser output:\n{content}')],
+                content=[TextContent(text=content)],
                 event_id=event.id,
             )
         ]
     elif isinstance(event, AgentDelegateObservation):
+        content = truncate_content(
+            f'Delegate result: {event.content}', llm.config.max_message_chars
+        )
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=f'Delegate result: {event.content}')],
+                    content=[TextContent(text=content)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
@@ -254,16 +276,20 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=f'Delegate result: {event.content}')],
+                content=[TextContent(text=content)],
                 event_id=event.id,
             )
         ]
     elif isinstance(event, ErrorObservation):
+        content = truncate_content(
+            f'Error: {event.content}', llm.config.max_message_chars
+        )
+        content += '\n[Error occurred in processing last action]'
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=f'Error: {event.content}')],
+                    content=[TextContent(text=content)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
@@ -272,15 +298,19 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=f'Error: {event.content}')],
+                content=[TextContent(text=content)],
                 event_id=event.id,
             )
         ]
     elif isinstance(event, UserRejectObservation):
+        content = 'OBSERVATION:\n' + truncate_content(
+            event.content, llm.config.max_message_chars
+        )
+        content += '\n[Last action has been rejected by the user]'
         return [
             Message(
                 role='user',
-                content=[TextContent(text=event.content)],
+                content=[TextContent(text=content)],
                 event_id=event.id,
             )
         ]
