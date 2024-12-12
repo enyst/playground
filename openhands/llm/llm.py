@@ -204,15 +204,15 @@ class LLM(RetryMixin, DebugMixin):
             # client code might be using a custom tokenizer or try to summarize a single large message
             override_token_limit = kwargs.pop('override_token_limit', False)
             token_count = self.get_token_count(messages)
+            max_input_tokens = self.config.max_input_tokens or 4096
             if not override_token_limit:
-                max_input_tokens = self.config.max_input_tokens or 4096
                 if token_count > max_input_tokens:
                     raise TokenLimitExceededError(
                         f'Token limit exceeded: {token_count} > {max_input_tokens}'
                     )
-            elif self.config.max_input_tokens < token_count:
+            elif max_input_tokens < token_count:
                 logger.debug(
-                    f'Overriding token limit {self.config.max_input_tokens} < {token_count}'
+                    f'Overriding token limit {max_input_tokens} < {token_count}'
                 )
 
             if self.is_caching_prompt_active():
