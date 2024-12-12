@@ -162,6 +162,7 @@ class MemoryCondenser:
         response = self.llm.completion(
             messages=messages,
             temperature=0.2,
+            override_token_limit=True,
         )
 
         print(f'summarize_messages got response: {response}')
