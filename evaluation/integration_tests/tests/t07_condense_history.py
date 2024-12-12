@@ -215,14 +215,12 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
             ]
         return [Message(role='user', content=[TextContent(text=text)])]
     elif isinstance(event, FileEditObservation):
-        content = truncate_content(
-            f'File edited: {event.file_path}', llm.config.max_message_chars
-        )
+        text = truncate_content(str(event), llm.config.max_message_chars)
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=content)],
+                    content=[TextContent(text=text)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
@@ -231,22 +229,17 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=content)],
+                content=[TextContent(text=text)],
                 event_id=event.id,
             )
         ]
     elif isinstance(event, BrowserOutputObservation):
-        content = event.content
-        if isinstance(content, dict):
-            content = json.dumps(content, indent=2)
-        content = truncate_content(
-            f'Browser output:\n{content}', llm.config.max_message_chars
-        )
+        text = event.get_agent_obs_text()
         if event.tool_call_metadata:
             return [
                 Message(
                     role='tool',
-                    content=[TextContent(text=content)],
+                    content=[TextContent(text=text)],
                     tool_call_id=event.tool_call_metadata.tool_call_id,
                     name=event.tool_call_metadata.function_name,
                     event_id=event.id,
@@ -255,7 +248,7 @@ def convert_event_to_messages(event_dict: dict) -> list[Message]:
         return [
             Message(
                 role='user',
-                content=[TextContent(text=content)],
+                content=[TextContent(text=text)],
                 event_id=event.id,
             )
         ]
