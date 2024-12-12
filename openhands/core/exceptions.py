@@ -121,3 +121,18 @@ class FunctionCallNotExistsError(Exception):
 
     def __init__(self, message):
         super().__init__(message)
+
+
+class TokenLimitExceededError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class SummarizeError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class InvalidSummaryResponseError(Exception):
+    def __init__(self, message):
+        super().__init__(message)

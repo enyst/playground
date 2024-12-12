@@ -55,6 +55,7 @@ class Message(BaseModel):
     content: list[TextContent | ImageContent] = Field(default_factory=list)
     cache_enabled: bool = False
     vision_enabled: bool = False
+    condensable: bool = True
     # function calling
     function_calling_enabled: bool = False
     # - tool calls (from LLM)
@@ -62,6 +63,8 @@ class Message(BaseModel):
     # - tool execution result (to LLM)
     tool_call_id: str | None = None
     name: str | None = None  # name of the tool
+    # track original event id
+    event_id: int = -1  # default to -1 to match Event default
 
     @property
     def contains_image(self) -> bool:
