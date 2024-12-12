@@ -103,10 +103,10 @@ class EmbeddingsLoader:
                 api_version=llm_config.api_version,
             )
         elif strategy == 'voyage':
-            from llama_index.legacy.embeddings.voyageai import VoyageEmbedding
+            from llama_index.embeddings.voyageai import VoyageEmbedding
 
             return VoyageEmbedding(
-                model='voyageai/voyage-code-2',
+                model_name='voyage-code-3',
             )
         elif (strategy is not None) and (strategy.lower() == 'none'):
             # TODO: this works but is not elegant enough. The incentive is when

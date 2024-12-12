@@ -3938,18 +3938,18 @@ openai = ">=1.1.0"
 
 [[package]]
 name = "llama-index-embeddings-voyageai"
-version = "0.3.0"
+version = "0.3.1"
 description = "llama-index embeddings voyageai integration"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index_embeddings_voyageai-0.3.0-py3-none-any.whl", hash = "sha256:79069c233d1da012c9d4dc496c67183b77cf739be26122b77f2bc2f688741130"},
-    {file = "llama_index_embeddings_voyageai-0.3.0.tar.gz", hash = "sha256:23836f806569f5fc2f2219dc3e4e081bc2725a646bed16b9cf58c14272ea2e8d"},
+    {file = "llama_index_embeddings_voyageai-0.3.1-py3-none-any.whl", hash = "sha256:f0e0b327ab21669a2b0501f207a6862f7a0b0a115bff15b6ceac712273a6fa03"},
+    {file = "llama_index_embeddings_voyageai-0.3.1.tar.gz", hash = "sha256:cfbc0a0697bda39c18398418628596c6ae8c668a0306d504a4fc16100fcd7d57"},
 ]
 
 [package.dependencies]
 llama-index-core = ">=0.12.0,<0.13.0"
-voyageai = ">=0.2.1,<0.3.0"
+voyageai = {version = ">=0.2.1,<0.4.0", markers = "python_version >= \"3.9\" and python_version < \"3.13\""}
 
 [[package]]
 name = "llama-index-indices-managed-llama-cloud"
@@ -10094,4 +10094,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "45bb0a1bfa27d2298c726f1270055382480e60e611fdbc1146caff18ec07eb27"
+content-hash = "7334dd947fe93756227b5fc8f86303852c5e9aaf8787cc35b0ce23fc1540df67"
