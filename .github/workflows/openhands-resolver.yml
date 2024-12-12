@@ -202,11 +202,7 @@ jobs:
           if [[ "${{ env.USE_CURRENT_BRANCH }}" == "true" ]] || [[ "${{ github.event.label.name }}" == "fix-me-opus" ]] || ([[ "${{ github.event_name }}" == "issue_comment" ]] && [[ "${{ github.event.comment.body }}" == *"@lil-opus"* ]]) || ([[ "${{ github.event_name }}" == "pull_request_review" ]] && [[ "${{ github.event.review.body }}" == *"@lil-opus"* ]]); then
             poetry install --without evaluation,llama-index
             python -m pip install --upgrade pip
-            if [[ -n "${{ github.head_ref }}" ]]; then
-              pip install git+https://github.com/${{ github.repository }}.git@${{ github.head_ref }}
-            else
-              pip install git+https://github.com/${{ github.repository }}.git
-            fi
+            pip install git+https://github.com/${{ github.repository }}.git@${{ github.head_ref }}
           else
             python -m pip install --upgrade -r requirements.txt
           fi
