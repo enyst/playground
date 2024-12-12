@@ -452,15 +452,75 @@ def save_instance_for_debugging(instance_data: dict, instance_id: str) -> None:
         logger.error(f'Failed to save instance data: {e}')
 
 
+def truncate_and_save_jsonl(file_path: Path) -> Path:
+    """Process a JSONL file to truncate oversized observations and save to a new file.
+
+    Args:
+        file_path: Path to the original JSONL file
+
+    Returns:
+        Path to the new JSONL file with truncated content
+    """
+    new_file_path = file_path.parent / f'{file_path.stem}.new.jsonl'
+    modified_count = 0
+    total_events = 0
+
+    # Read and process the file line by line
+    with open(file_path, 'r') as f_in, open(new_file_path, 'w') as f_out:
+        for line in f_in:
+            data = json.loads(line)
+            history = data.get('history', [])
+            modified = False
+
+            # Process each event in history
+            for event_dict in history:
+                total_events += 1
+
+                # Check if it's an observation with content
+                if 'observation' in event_dict and 'content' in event_dict:
+                    original_content = event_dict['content']
+                    # Get the truncated version
+                    truncated_content = truncate_content(
+                        original_content, llm.config.max_message_chars
+                    )
+
+                    # If content was truncated, update the event
+                    if len(truncated_content) < len(original_content):
+                        event_dict['content'] = truncated_content
+                        modified = True
+                        modified_count += 1
+
+                        # Log the truncation
+                        logger.info(
+                            f'Truncated observation content from {len(original_content):,} to '
+                            f'{len(truncated_content):,} chars'
+                        )
+
+            # Write the possibly modified line
+            f_out.write(json.dumps(data) + '\n')
+
+    # Log summary
+    logger.info(
+        f'Processed {total_events:,} events, truncated {modified_count:,} observations'
+    )
+    logger.info(f'Saved truncated version to: {new_file_path}')
+
+    return new_file_path
+
+
 def main_with_one_instance(condenser: MemoryCondenser, file_path: str | None = None):
     """Temporary debug version focusing on one instance"""
     if file_path is None:
         print('No file provided')
         return
 
-    # Load the SWE-bench output file
-    df = load_swebench_output(file_path)
-    print(f'Loaded {len(df)} instances from {file_path}')
+    # First truncate oversized observations and save to new file
+    input_path = Path(file_path)
+    processed_path = truncate_and_save_jsonl(input_path)
+
+    # Load the processed SWE-bench output file
+    df = load_swebench_output(processed_path)
+    print(f'Loaded {len(df)} instances from {processed_path}')
 
     # Find and process only django__django-12983
     target_instance = df[df['instance_id'] == 'django__django-12983'].iloc[0]
@@ -513,9 +573,13 @@ def main(condenser: MemoryCondenser, file_path: str | None = None):
         print('No file provided')
         return
 
-    # Load the SWE-bench output file
-    df = load_swebench_output(file_path)
-    print(f'Loaded {len(df)} instances from {file_path}')
+    # First truncate oversized observations and save to new file
+    input_path = Path(file_path)
+    processed_path = truncate_and_save_jsonl(input_path)
+
+    # Load the processed SWE-bench output file
+    df = load_swebench_output(processed_path)
+    print(f'Loaded {len(df)} instances from {processed_path}')
 
     # Add history length column
     df['history_length'] = df['history'].apply(len)
