@@ -502,8 +502,8 @@ class LLM(RetryMixin, DebugMixin):
 
         return cur_cost
 
-    def get_token_count(self, messages) -> int:
-        """Get the number of tokens in a list of messages.
+    def get_token_count(self, messages: list[dict] | list[Message]) -> int:
+        """Get the number of tokens in a list of messages. Use dicts for better token counting.
 
         Args:
             messages (list): A list of messages, either as a list of dicts or as a list of Message objects.
@@ -511,16 +511,20 @@ class LLM(RetryMixin, DebugMixin):
         Returns:
             int: The number of tokens.
         """
-        # convert Message objects to dicts, litellm expects dicts
+        # attempt to convert Message objects to dicts, litellm expects dicts
         if (
             isinstance(messages, list)
             and len(messages) > 0
             and isinstance(messages[0], Message)
         ):
-            messages = self.format_messages_for_llm(messages)
+            # TODO fix passing Message objects
+            logger.debug(
+                'Tokens will be undercounted for Message objects, because tool calls are not serialized'
+            )
+            messages = self.format_messages_for_llm(messages)  # type: ignore
 
         # try to get the token count with the default litellm tokenizers
-        # or the custom tokenizer attribute if set for this LLM configuration
+        # or the custom tokenizer if set for this LLM configuration
         try:
             return litellm.token_counter(
                 model=self.config.model,
@@ -528,9 +532,15 @@ class LLM(RetryMixin, DebugMixin):
                 custom_tokenizer=self.tokenizer,
             )
         except Exception as e:
-            # this is to limit logspam in case token count is not supported
+
+            # limit logspam in case token count is not supported
             logger.error(
-                f'Error getting token count for\n model {self.config.model}\ncustom_tokenizer: {self.config.custom_tokenizer if self.config.custom_tokenizer else "None"}\n{e}'
+                f'Error getting token count for\n model {self.config.model}\n{e}'
+                + (
+                    f'\ncustom_tokenizer: {self.config.custom_tokenizer}'
+                    if self.config.custom_tokenizer is not None
+                    else ''
+                )
             )
             return 0
 
