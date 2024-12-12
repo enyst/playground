@@ -148,8 +148,6 @@ def test_pr_handler_get_converted_issues_with_comments():
             mock_comments_response,  # Third call for PR comments
             mock_empty_response,  # Fourth call for PR comments (empty page)
             mock_external_issue_response,  # Mock response for the external issue reference #1
-            mock_comments_response,  # Comments for external issue #1
-            mock_empty_response,  # Empty page for external issue #1 comments
         ]
 
         # Mock the post request for GraphQL
@@ -176,7 +174,7 @@ def test_pr_handler_get_converted_issues_with_comments():
             assert prs[0].repo == 'test-repo'
             assert prs[0].head_branch == 'test-branch'
             assert prs[0].closing_issues == [
-                'Referenced Issue #1:\n\nThis is additional context from an externally referenced issue.\n\nComments:\nFirst comment\n---\nSecond comment'
+                'This is additional context from an externally referenced issue.'
             ]
 
 
@@ -578,15 +576,8 @@ def test_pr_handler_get_converted_issues_with_specific_comment_and_issue_refs():
             mock_empty_response,  # Second call for PRs (empty page)
             mock_comments_response,  # Third call for PR comments
             mock_empty_response,  # Fourth call for PR comments (empty page)
-            mock_external_issue_response_in_body,  # Mock response for issue #3
-            mock_comments_response,  # Comments for issue #3
-            mock_empty_response,  # Empty page for issue #3 comments
-            mock_external_issue_response_review_thread,  # Mock response for issue #6
-            mock_comments_response,  # Comments for issue #6
-            mock_empty_response,  # Empty page for issue #6 comments
-            mock_external_issue_response_review_thread,  # Mock response for issue #7
-            mock_comments_response,  # Comments for issue #7
-            mock_empty_response,  # Empty page for issue #7 comments
+            mock_external_issue_response_in_body,
+            mock_external_issue_response_review_thread,
         ]
 
         # Mock the post request for GraphQL
@@ -614,9 +605,8 @@ def test_pr_handler_get_converted_issues_with_specific_comment_and_issue_refs():
                 == 'Specific review comment that references #6\n---\nlatest feedback:\nAnother review comment referencing #7\n'
             )
             assert prs[0].closing_issues == [
-                'Referenced Issue #3:\n\nExternal context #1.\n\nComments:\nFirst comment\n---\nSecond comment',
-                'Referenced Issue #6:\n\nExternal context #2.\n\nComments:\nFirst comment\n---\nSecond comment',
-                'Referenced Issue #7:\n\nExternal context #2.\n\nComments:\nFirst comment\n---\nSecond comment',
+                'External context #1.',
+                'External context #2.',
             ]  # Only includes references inside comment ID and body PR
 
             # Verify other fields are set correctly
@@ -685,12 +675,8 @@ def test_pr_handler_get_converted_issues_with_duplicate_issue_refs():
             mock_empty_response,  # Second call for PRs (empty page)
             mock_comments_response,  # Third call for PR comments
             mock_empty_response,  # Fourth call for PR comments (empty page)
-            mock_external_issue_response_in_body,  # Mock response for issue #1
-            mock_comments_response,  # Comments for issue #1
-            mock_empty_response,  # Empty page for issue #1 comments
-            mock_external_issue_response_in_comment,  # Mock response for issue #2
-            mock_comments_response,  # Comments for issue #2
-            mock_empty_response,  # Empty page for issue #2 comments
+            mock_external_issue_response_in_body,  # Mock response for the external issue reference #1
+            mock_external_issue_response_in_comment,
         ]
 
         # Mock the post request for GraphQL
@@ -720,6 +706,6 @@ def test_pr_handler_get_converted_issues_with_duplicate_issue_refs():
             assert prs[0].repo == 'test-repo'
             assert prs[0].head_branch == 'test-branch'
             assert prs[0].closing_issues == [
-                'Referenced Issue #1:\n\nExternal context #1.\n\nComments:\nFirst comment addressing #1\n---\nSecond comment addressing #2',
-                'Referenced Issue #2:\n\nExternal context #2.\n\nComments:\nFirst comment addressing #1\n---\nSecond comment addressing #2',
+                'External context #1.',
+                'External context #2.',
             ]
