@@ -89,13 +89,18 @@ class Test(BaseIntegrationTest):
             logs = f.read()
 
         # Check for expected token usage patterns
-        print("\nLog contents:")
-        print(logs)
-        
         cache_writes = logs.count('Input tokens (cache write):')
         cache_hits = logs.count('Input tokens (cache hit):')
         
-        print(f"\nFound {cache_writes} cache writes and {cache_hits} cache hits")
+        # Get context around token usage
+        log_lines = logs.split('\n')
+        context = []
+        for i, line in enumerate(log_lines):
+            if 'Accumulated cost' in line:
+                start = max(0, i - 10)
+                end = min(len(log_lines), i + 10)
+                context.extend(log_lines[start:end])
+                context.append('-' * 40)  # separator between contexts
         
         # We expect:
         # 1. At least one cache write for system message
@@ -104,12 +109,12 @@ class Test(BaseIntegrationTest):
         if cache_writes == 0:
             return TestResult(
                 success=False,
-                reason='No cache writes found in logs'
+                reason=f'No cache writes found in logs.\nContext around token usage:\n' + '\n'.join(context)
             )
         if cache_hits == 0:
             return TestResult(
                 success=False,
-                reason='No cache hits found in logs'
+                reason=f'No cache hits found in logs.\nContext around token usage:\n' + '\n'.join(context)
             )
 
         return TestResult(success=True)
