@@ -70,11 +70,11 @@ jobs:
         env:
           SANDBOX_FORCE_REBUILD_RUNTIME: True
         run: |
-          # Run only t07_prompt_caching test
-          poetry run ./evaluation/integration_tests/scripts/run_infer.sh llm.eval HEAD CodeActAgent '' $N_PROCESSES t07_prompt_caching 'haiku_run'
+          # Run only t07_prompt_caching test with higher max iterations
+          poetry run ./evaluation/integration_tests/scripts/run_infer.sh llm.eval HEAD CodeActAgent '' $N_PROCESSES t07_prompt_caching 'haiku_run' --max-iterations 30
 
           # Get integration tests report
-          REPORT_FILE_HAIKU=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent/*haiku*_maxiter_10_N* -name "report.md" -type f | head -n 1)
+          REPORT_FILE_HAIKU=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent/*haiku*_maxiter_30_N* -name "report.md" -type f | head -n 1)
           echo "REPORT_FILE: $REPORT_FILE_HAIKU"
           echo "INTEGRATION_TEST_REPORT_HAIKU<<EOF" >> $GITHUB_ENV
           cat $REPORT_FILE_HAIKU >> $GITHUB_ENV
