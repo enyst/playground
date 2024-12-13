@@ -76,7 +76,7 @@ class Test(BaseIntegrationTest):
         # Now analyze the logs for token usage patterns
         log_dir = os.path.join(
             'evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent',
-            '*haiku*_maxiter_30_N*/logs'
+            '*haiku*_maxiter_*/logs'
         )
         log_pattern = os.path.join(log_dir, 'instance_t07_prompt_caching.log')
         log_files = glob.glob(log_pattern)
