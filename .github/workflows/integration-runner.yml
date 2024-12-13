@@ -90,7 +90,9 @@ jobs:
 
           # Get token usage logs - try both logs and infer_logs directories
           # Find the log file anywhere under CodeActAgent directory
-          LOG_FILE=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent -name "instance_t07_prompt_caching.log" -type f | head -n 1)
+          echo "Looking for log files..."
+          find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent -type f -name "instance_t07_prompt_caching.log" -print
+          LOG_FILE=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent -type f -name "instance_t07_prompt_caching.log" -print 2>/dev/null | head -n 1)
           echo "TOKEN_USAGE_LOGS<<EOF" >> $GITHUB_ENV
           echo "Token Usage Analysis:" >> $GITHUB_ENV
           echo '```' >> $GITHUB_ENV
