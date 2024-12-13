@@ -74,21 +74,15 @@ class Test(BaseIntegrationTest):
             )
 
         # Now analyze the logs for token usage patterns
-        base_dir = 'evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent'
-        # Look in both logs and infer_logs directories
-        log_patterns = [
-            os.path.join(base_dir, '*haiku*_maxiter_*/logs/instance_t07_prompt_caching.log'),
-            os.path.join(base_dir, '*haiku*_maxiter_*/infer_logs/instance_t07_prompt_caching.log')
-        ]
-        
-        log_files = []
-        for pattern in log_patterns:
-            log_files.extend(glob.glob(pattern))
-            
+        log_pattern = os.path.join(
+            'evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent',
+            '*haiku*_maxiter_*/infer_logs/instance_t07_prompt_caching.log'
+        )
+        log_files = glob.glob(log_pattern)
         if not log_files:
             return TestResult(
                 success=False,
-                reason=f'No log file found matching patterns: {log_patterns}'
+                reason=f'No log file found matching pattern: {log_pattern}'
             )
         log_file = log_files[0]
         with open(log_file, 'r') as f:
