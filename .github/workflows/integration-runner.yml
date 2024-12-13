@@ -71,7 +71,7 @@ jobs:
           SANDBOX_FORCE_REBUILD_RUNTIME: True
         run: |
           # Run only t07_prompt_caching test
-          poetry run ./evaluation/integration_tests/scripts/run_infer.sh llm.eval HEAD CodeActAgent t07_prompt_caching $N_PROCESSES '' 'haiku_run'
+          poetry run ./evaluation/integration_tests/scripts/run_infer.sh llm.eval HEAD CodeActAgent '' $N_PROCESSES '' 'haiku_run' --eval-ids t07_prompt_caching
 
           # Get integration tests report
           REPORT_FILE_HAIKU=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent/*haiku*_maxiter_10_N* -name "report.md" -type f | head -n 1)
