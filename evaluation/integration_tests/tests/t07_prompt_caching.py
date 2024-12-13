@@ -14,6 +14,9 @@ from openhands.runtime.base import Runtime
 from openhands.controller.state.state import State
 
 
+# Override the default response function for CodeActAgent
+from evaluation.utils.shared import FAKE_RESPONSES
+
 def custom_large_response(state: State, *args, **kwargs) -> str:
     """Provide large, detailed responses about what to do with each number."""
     # About 100 tokens per response
@@ -97,6 +100,5 @@ class Test(BaseIntegrationTest):
 
         return TestResult(success=True)
 
-    def get_fake_user_response_fn(self) -> Any:
-        """Override to provide our custom response function."""
-        return custom_large_response
+    # Override the default response function
+FAKE_RESPONSES['CodeActAgent'] = custom_large_response
