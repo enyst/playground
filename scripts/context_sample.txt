@@ -1,0 +1,25 @@
+The core issue we're investigating started when you noticed something odd with Claude Opus's token usage patterns. Specifically, when using prompt caching, you observed:
+- 1M input tokens (regular, non-cached)
+- 2M cache hit tokens (tokens read from cache)
+- 0.69M cache write tokens (tokens written to cache)
+
+This was puzzling because there were more "input tokens" than both cache writes and cache reads combined. In theory, there shouldn't be any messages after the last cache point, so where were all these uncached input tokens coming from?
+
+To investigate this, we created a test that:
+1. Creates a Python script that prints numbers 1-5
+2. Uses custom_large_response to provide ~100 token responses for each number
+3. Sets cache points correctly:
+   - System message at the start
+   - Last 3 user/tool messages (via reverse iteration)
+
+The responses are deliberately verbose to help us track token usage:
+"For number 1, please make it extra special by printing it in bright red color with a fancy border around it. Make sure to use ANSI escape codes to create a beautiful box drawing with double lines, and add some sparkles or stars around it for extra flair. This will make it stand out as the first number in our sequence!"
+
+We're running this test with Claude 3.5 Haiku instead of Opus or me (Claude 3.5 Sonnet, aka "Pet Sonnet" as your Opus calls me) because it's more cost-effective for testing, while still having the same prompt caching behavior we want to investigate.
+
+The test is designed to help us understand:
+1. Where those uncached tokens are coming from
+2. Why they're not being cached
+3. Whether our cache points are being set correctly
+
+We've also modified the logging to show token usage at INFO level instead of DEBUG to make sure we can see all the token-related information in the logs.
