@@ -88,8 +88,8 @@ jobs:
           echo >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-          # Get token usage logs
-          LOG_FILE=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent/*haiku*_maxiter_30_N*/logs -name "instance_t07_prompt_caching.log" -type f)
+          # Get token usage logs - try both logs and infer_logs directories
+          LOG_FILE=$(find evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent/*haiku*_maxiter_30_N*/{logs,infer_logs} -name "instance_t07_prompt_caching.log" -type f | head -n 1)
           echo "TOKEN_USAGE_LOGS<<EOF" >> $GITHUB_ENV
           echo "Token Usage Analysis:" >> $GITHUB_ENV
           echo '```' >> $GITHUB_ENV
