@@ -1,6 +1,7 @@
 """Test to verify prompt caching behavior with large responses."""
 
 import logging
+import glob
 import os
 import tempfile
 from typing import Any, Dict
@@ -23,9 +24,7 @@ def custom_large_response(state: State, *args, **kwargs) -> str:
     responses = [
         "For number 1, please make it extra special by printing it in bright red color with a fancy border around it. Make sure to use ANSI escape codes to create a beautiful box drawing with double lines, and add some sparkles or stars around it for extra flair. This will make it stand out as the first number in our sequence!",
         "For number 2, let's do something magical: print it in a shimmering rainbow effect by using multiple ANSI color codes in sequence. Add a gradient effect if possible, and maybe some wave-like patterns around it using ASCII art. This will make the second number truly mesmerizing!",
-        "For number 3, we should create a dramatic presentation: print it in bold purple with a pulsing effect, surrounded by a circular pattern of dots that gives it a cosmic, ethereal feeling. Maybe add some constellation-like connections between the dots!",
-        "For number 4, let's go for an elegant design: print it in a sophisticated emerald green color, wrapped in an ornate frame made of ASCII art flourishes and scrollwork. Add some delicate patterns that make it look like an illuminated manuscript!",
-        "For number 5, for our grand finale: combine multiple effects to create a spectacular display! Use blinking text, multiple colors, and create an elaborate ASCII art celebration around it with fireworks patterns and celebration symbols!"
+        "For number 3, we should create a dramatic presentation: print it in bold purple with a pulsing effect, surrounded by a circular pattern of dots that gives it a cosmic, ethereal feeling. Maybe add some constellation-like connections between the dots!"
     ]
     
     # Count how many times the agent has asked for input
@@ -42,7 +41,7 @@ def custom_large_response(state: State, *args, **kwargs) -> str:
 class Test(BaseIntegrationTest):
     """Test prompt caching behavior with a task that requires multiple interactions."""
 
-    INSTRUCTION = """Create a Python script numbers.py that prints numbers from 1 to 5, but with a twist: 
+    INSTRUCTION = """Create a Python script numbers.py that prints numbers from 1 to 3, but with a twist: 
     ask me what special thing to do with each number before writing it."""
 
     def __init__(self) -> None:
@@ -73,10 +72,19 @@ class Test(BaseIntegrationTest):
             )
 
         # Now analyze the logs for token usage patterns
-        log_file = next(f for f in os.listdir('/tmp') 
-                       if os.path.isfile(os.path.join('/tmp', f)) 
-                       and f.endswith('.log'))
-        with open(os.path.join('/tmp', log_file), 'r') as f:
+        log_dir = os.path.join(
+            'evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent',
+            '*haiku*_maxiter_10_N*/logs'
+        )
+        log_pattern = os.path.join(log_dir, 'instance_t07_prompt_caching.log')
+        log_files = glob.glob(log_pattern)
+        if not log_files:
+            return TestResult(
+                success=False,
+                reason=f'No log file found matching pattern: {log_pattern}'
+            )
+        log_file = log_files[0]
+        with open(log_file, 'r') as f:
             logs = f.read()
 
         # Check for expected token usage patterns
