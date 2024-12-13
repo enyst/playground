@@ -89,8 +89,13 @@ class Test(BaseIntegrationTest):
             logs = f.read()
 
         # Check for expected token usage patterns
+        print("\nLog contents:")
+        print(logs)
+        
         cache_writes = logs.count('Input tokens (cache write):')
         cache_hits = logs.count('Input tokens (cache hit):')
+        
+        print(f"\nFound {cache_writes} cache writes and {cache_hits} cache hits")
         
         # We expect:
         # 1. At least one cache write for system message
