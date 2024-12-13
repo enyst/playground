@@ -39,7 +39,7 @@ def custom_large_response(state: State, *args, **kwargs) -> str:
 class Test(BaseIntegrationTest):
     """Test prompt caching behavior with a task that requires multiple interactions."""
 
-    INSTRUCTION = """Create a Python script that prints numbers from 1 to 5, but with a twist: 
+    INSTRUCTION = """Create a Python script numbers.py that prints numbers from 1 to 5, but with a twist: 
     ask me what special thing to do with each number before writing it."""
 
     def __init__(self) -> None:
