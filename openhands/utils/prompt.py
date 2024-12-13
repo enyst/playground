@@ -1,5 +1,6 @@
 import os
 from itertools import islice
+from typing import Any
 
 from jinja2 import Template
 
@@ -32,6 +33,7 @@ class PromptManager:
 
         self.system_template: Template = self._load_template('system_prompt')
         self.user_template: Template = self._load_template('user_prompt')
+        self.summarize_template: Template = self._load_template('summarize_prompt')
         self.microagents: dict = {}
 
         microagent_files = []
@@ -112,3 +114,17 @@ class PromptManager:
         if latest_user_message:
             reminder_text = f'\n\nENVIRONMENT REMINDER: You have {state.max_iterations - state.iteration} turns left to complete the task. When finished reply with <finish></finish>.'
             latest_user_message.content.append(TextContent(text=reminder_text))
+
+    @property
+    def conversation_history(self) -> list[dict[str, Any]]:
+        return self._conversation_history
+
+    @conversation_history.setter
+    def conversation_history(self, conversation_history: list[dict[str, Any]]) -> None:
+        self._conversation_history = conversation_history
+
+    def get_summarize_prompt(self) -> str:
+        # render the template with the conversation memory
+        return self.summarize_template.render(
+            # conversation_history=self.conversation_history
+        ).strip()

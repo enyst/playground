@@ -25,8 +25,9 @@ from litellm.exceptions import (
     ServiceUnavailableError,
 )
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
+from litellm.utils import create_pretrained_tokenizer
 
-from openhands.core.exceptions import CloudFlareBlockageError
+from openhands.core.exceptions import CloudFlareBlockageError, TokenLimitExceededError
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.message import Message
 from openhands.llm.debug_mixin import DebugMixin
@@ -122,6 +123,13 @@ class LLM(RetryMixin, DebugMixin):
         if self.is_function_calling_active():
             logger.debug('LLM: model supports function calling')
 
+        # if using a custom tokenizer, make sure it's loaded and accessible in the format expected by litellm
+        if self.config.custom_tokenizer is not None:
+            self.tokenizer = create_pretrained_tokenizer(self.config.custom_tokenizer)
+        else:
+            self.tokenizer = None
+
+        # set up the completion function
         self._completion = partial(
             litellm_completion,
             model=self.config.model,
@@ -190,6 +198,22 @@ class LLM(RetryMixin, DebugMixin):
 
             # log the entire LLM prompt
             self.log_prompt(messages)
+
+            # normally, only send messages if they are below the token limit
+            # unless the client code set override_token_limit to True
+            # client code might be using a custom tokenizer or try to summarize a single large message
+            override_token_limit = kwargs.pop('override_token_limit', False)
+            token_count = self.get_token_count(messages)
+            max_input_tokens = self.config.max_input_tokens or 4096
+            if not override_token_limit:
+                if token_count > max_input_tokens:
+                    raise TokenLimitExceededError(
+                        f'Token limit exceeded: {token_count} > {max_input_tokens}'
+                    )
+            elif max_input_tokens < token_count:
+                logger.debug(
+                    f'Overriding token limit {max_input_tokens} < {token_count}'
+                )
 
             if self.is_caching_prompt_active():
                 # Anthropic-specific prompt caching
@@ -478,19 +502,46 @@ class LLM(RetryMixin, DebugMixin):
 
         return cur_cost
 
-    def get_token_count(self, messages) -> int:
-        """Get the number of tokens in a list of messages.
+    def get_token_count(self, messages: list[dict] | list[Message]) -> int:
+        """Get the number of tokens in a list of messages. Use dicts for better token counting.
 
         Args:
-            messages (list): A list of messages.
+            messages (list): A list of messages, either as a list of dicts or as a list of Message objects.
 
         Returns:
             int: The number of tokens.
         """
+        # attempt to convert Message objects to dicts, litellm expects dicts
+        if (
+            isinstance(messages, list)
+            and len(messages) > 0
+            and isinstance(messages[0], Message)
+        ):
+            # TODO fix passing Message objects
+            logger.debug(
+                'Tokens will be undercounted for Message objects, because tool calls are not serialized'
+            )
+            messages = self.format_messages_for_llm(messages)  # type: ignore
+
+        # try to get the token count with the default litellm tokenizers
+        # or the custom tokenizer if set for this LLM configuration
         try:
-            return litellm.token_counter(model=self.config.model, messages=messages)
-        except Exception:
-            # TODO: this is to limit logspam in case token count is not supported
+            return litellm.token_counter(
+                model=self.config.model,
+                messages=messages,
+                custom_tokenizer=self.tokenizer,
+            )
+        except Exception as e:
+
+            # limit logspam in case token count is not supported
+            logger.error(
+                f'Error getting token count for\n model {self.config.model}\n{e}'
+                + (
+                    f'\ncustom_tokenizer: {self.config.custom_tokenizer}'
+                    if self.config.custom_tokenizer is not None
+                    else ''
+                )
+            )
             return 0
 
     def _is_local(self) -> bool:
