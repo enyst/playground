@@ -15,7 +15,7 @@ from openhands.controller.state.state import State
 
 
 # Override the default response function for CodeActAgent
-from evaluation.utils.shared import FAKE_RESPONSES
+from evaluation.integration_tests.run_infer import FAKE_RESPONSES
 
 def custom_large_response(state: State, *args, **kwargs) -> str:
     """Provide large, detailed responses about what to do with each number."""
