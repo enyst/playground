@@ -140,55 +140,15 @@ def load_from_toml(cfg: AppConfig, toml_file: str = 'config.toml'):
                     logger.openhands_logger.debug(
                         'Attempt to load default LLM config from config toml'
                     )
-                    # Extract generic LLM fields, keeping draft_editor
-                    generic_llm_fields = {}
-                    for k, v in value.items():
-                        if not isinstance(v, dict) or k == 'draft_editor':
-                            generic_llm_fields[k] = v
-                    logger.openhands_logger.debug(
-                        f'Generic LLM fields: {generic_llm_fields}'
-                    )
-                    generic_llm_config = LLMConfig.from_dict(generic_llm_fields)
-                    logger.openhands_logger.debug(
-                        f'Generic LLM config dict: {generic_llm_config.__dict__}'
-                    )
-                    cfg.set_llm_config(generic_llm_config, 'llm')
-
-                    # Process custom named LLM configs
+                    llm_config = LLMConfig.from_dict(value)
+                    cfg.set_llm_config(llm_config, 'llm')
                     for nested_key, nested_value in value.items():
                         if isinstance(nested_value, dict):
                             logger.openhands_logger.debug(
-                                f'Processing custom LLM config "{nested_key}":'
+                                f'Attempt to load group {nested_key} from config toml as llm config'
                             )
-                            logger.openhands_logger.debug(
-                                f'  Nested value: {nested_value}'
-                            )
-                            # Apply generic LLM config with custom LLM overrides, e.g.
-                            # [llm]
-                            # model="..."
-                            # num_retries = 5
-                            # [llm.claude]
-                            # model="claude-3-5-sonnet"
-                            # results in num_retries APPLIED to claude-3-5-sonnet
-                            custom_fields = {}
-                            for k, v in nested_value.items():
-                                if not isinstance(v, dict) or k == 'draft_editor':
-                                    custom_fields[k] = v
-                            merged_llm_dict = generic_llm_config.__dict__.copy()
-                            merged_llm_dict.update(custom_fields)
-                            # Handle draft_editor inheritance:
-                            # - If draft_editor is "null", use None
-                            # - If draft_editor is in custom fields, use it
-                            # - If draft_editor is not in custom fields, inherit from generic
-                            if 'draft_editor' in custom_fields:
-                                if custom_fields['draft_editor'] == 'null':
-                                    merged_llm_dict['draft_editor'] = None
-                            else:
-                                merged_llm_dict['draft_editor'] = (
-                                    generic_llm_config.draft_editor
-                                )
-                            custom_llm_config = LLMConfig.from_dict(merged_llm_dict)
-                            cfg.set_llm_config(custom_llm_config, nested_key)
+                            llm_config = LLMConfig.from_dict(nested_value)
+                            cfg.set_llm_config(llm_config, nested_key)
                 elif key is not None and key.lower() == 'security':
                     logger.openhands_logger.debug(
                         'Attempt to load security config from config toml'
@@ -433,257 +393,37 @@ def get_parser() -> argparse.ArgumentParser:
         '--eval-ids',
         default=None,
         type=str,
-        help='Comma-separated list of evaluation IDs to run',
+        help='The comma-separated list (in quotes) of IDs of the instances to evaluate',
     )
     parser.add_argument(
-        '--eval-skip-ids',
-        default=None,
-        type=str,
-        help='Comma-separated list of evaluation IDs to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-failed',
+        '--no-auto-continue',
         action='store_true',
-        help='Skip failed evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-passed',
-        action='store_true',
-        help='Skip passed evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-skipped',
-        action='store_true',
-        help='Skip skipped evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-timeout',
-        action='store_true',
-        help='Skip timed out evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-error',
-        action='store_true',
-        help='Skip errored evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-unknown',
-        action='store_true',
-        help='Skip unknown evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-all',
-        action='store_true',
-        help='Skip all evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-none',
-        action='store_true',
-        help='Skip no evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-random',
-        action='store_true',
-        help='Skip random evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-random-seed',
-        type=int,
-        default=42,
-        help='Random seed for skipping random evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-random-n',
-        type=int,
-        default=0,
-        help='Number of random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-percent',
-        type=float,
-        default=0.0,
-        help='Percentage of random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-min',
-        type=int,
-        default=0,
-        help='Minimum number of random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-max',
-        type=int,
-        default=0,
-        help='Maximum number of random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-step',
-        type=int,
-        default=1,
-        help='Step size for random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-start',
-        type=int,
-        default=0,
-        help='Start index for random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-stop',
-        type=int,
-        default=0,
-        help='Stop index for random evaluations to skip',
-    )
-    parser.add_argument(
-        '--eval-skip-random-wrap',
-        action='store_true',
-        help='Wrap around when skipping random evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace',
-        action='store_true',
-        help='Replace when skipping random evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-random-unique',
-        action='store_true',
-        help='Only skip unique random evaluations',
-    )
-    parser.add_argument(
-        '--eval-skip-random-sorted',
-        action='store_true',
-        help='Sort random evaluations before skipping',
-    )
-    parser.add_argument(
-        '--eval-skip-random-reverse',
-        action='store_true',
-        help='Reverse random evaluations before skipping',
-    )
-    parser.add_argument(
-        '--eval-skip-random-shuffle',
-        action='store_true',
-        help='Shuffle random evaluations before skipping',
-    )
-    parser.add_argument(
-        '--eval-skip-random-choice',
-        action='store_true',
-        help='Use random.choice instead of random.sample',
-    )
-    parser.add_argument(
-        '--eval-skip-random-weights',
-        type=str,
-        default=None,
-        help='Weights for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-cum-weights',
-        type=str,
-        default=None,
-        help='Cumulative weights for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-k',
-        type=int,
-        default=1,
-        help='Number of choices to make',
-    )
-    parser.add_argument(
-        '--eval-skip-random-counts',
-        type=str,
-        default=None,
-        help='Counts for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-p',
-        type=float,
-        default=None,
-        help='Probability for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-size',
-        type=int,
-        default=None,
-        help='Size for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-p',
-        type=float,
-        default=None,
-        help='Probability of replacement for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-size',
-        type=int,
-        default=None,
-        help='Size of replacement for random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-counts',
-        type=str,
-        default=None,
-        help='Counts for replacement in random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-weights',
-        type=str,
-        default=None,
-        help='Weights for replacement in random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-cum-weights',
-        type=str,
-        default=None,
-        help='Cumulative weights for replacement in random.choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-k',
-        type=int,
-        default=1,
-        help='Number of choices to make for replacement',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-p-k',
-        type=float,
-        default=None,
-        help='Probability of replacement for k choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-size-k',
-        type=int,
-        default=None,
-        help='Size of replacement for k choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-counts-k',
-        type=str,
-        default=None,
-        help='Counts for replacement in k choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-weights-k',
-        type=str,
-        default=None,
-        help='Weights for replacement in k choices',
-    )
-    parser.add_argument(
-        '--eval-skip-random-replace-cum-weights-k',
-        type=str,
-        default=None,
-        help='Cumulative weights for replacement in k choices',
+        help='Disable automatic "continue" responses. Will read from stdin instead.',
     )
     return parser
 
 
-def parse_arguments(args=None):
-    """Parse command line arguments."""
+def parse_arguments() -> argparse.Namespace:
+    """Parse the command line arguments."""
     parser = get_parser()
-    return parser.parse_args(args)
+    parsed_args, _ = parser.parse_known_args()
+    return parsed_args
 
 
-def load_app_config(args=None) -> AppConfig:
-    """Load the app config from command line arguments."""
-    args = parse_arguments(args)
-    cfg = AppConfig()
-    load_from_toml(cfg, args.config_file)
-    finalize_config(cfg)
-    return cfg
+def load_app_config(
+    set_logging_levels: bool = True, config_file: str = 'config.toml'
+) -> AppConfig:
+    """Load the configuration from the specified config file and environment variables.
+
+    Args:
+        set_logging_levels: Whether to set the global variables for logging levels.
+        config_file: Path to the config file. Defaults to 'config.toml' in the current directory.
+    """
+    config = AppConfig()
+    load_from_toml(config, config_file)
+    load_from_env(config, os.environ)
+    finalize_config(config)
+    if set_logging_levels:
+        logger.DEBUG = config.debug
+        logger.DISABLE_COLOR_PRINTING = config.disable_color
+    return config
