@@ -89,15 +89,27 @@ class Test(BaseIntegrationTest):
                 success=False,
                 reason=f'No log file found matching pattern: {log_pattern}',
             )
+
+        # We found it, read it
         log_file = log_files[0]
         with open(log_file, 'r') as f:
             logs = f.read()
 
-        # Check for expected token usage patterns
-        cache_writes = logs.count('Input tokens (cache write):')
-        cache_hits = logs.count('Input tokens (cache hit):')
+        # the log messages look like this:
+        # 2024-12-13 16:50:26,651 - INFO - Input tokens: 5213 | Output tokens: 182
+        # Input tokens (cache hit): 5028
+        # Input tokens (cache write): 180
 
-        # Get context around token usage
+        # Check for expected token usage patterns
+        cache_writes_no = logs.count('Input tokens (cache write):')
+        cache_hits_no = logs.count('Input tokens (cache hit):')
+
+        cache_writes_values = []
+        cache_hits_values = []
+        input_tokens_values = []
+        output_tokens_values = []
+
+        # Get values, and context around token usage
         log_lines = logs.split('\n')
         context = []
         for i, line in enumerate(log_lines):
@@ -107,21 +119,76 @@ class Test(BaseIntegrationTest):
                 context.extend(log_lines[start:end])
                 context.append('-' * 40)  # separator between contexts
 
+            # get the values after the 'Input tokens (cache write):' and 'Input tokens (cache hit):'
+            if 'Input tokens (cache write):' in line:
+                cache_writes_values.append(
+                    int(line.split('Input tokens (cache write): ')[1].strip())
+                )
+            if 'Input tokens (cache hit):' in line:
+                cache_hits_values.append(
+                    int(line.split('Input tokens (cache hit): ')[1].strip())
+                )
+
+            # get the values after the 'Input tokens: ' and 'Output tokens: '
+            # the line looks like this:
+            # 2024-12-13 16:50:26,651 - INFO - Input tokens: 5213 | Output tokens: 182
+            if 'Input tokens:' in line:
+                input_tokens_values.append(
+                    int(line.split('Input tokens: ')[1].split(' |')[0].strip())
+                )
+            if 'Output tokens:' in line:
+                output_tokens_values.append(
+                    int(line.split('Output tokens: ')[1].split(' |')[0].strip())
+                )
+
         # We expect:
         # 1. At least one cache write for system message
         # 2. Multiple cache hits as conversation progresses
         # 3. Cache hits should increase in later interactions
-        if cache_writes == 0:
+        if cache_writes_no == 0:
             return TestResult(
                 success=False,
                 reason='No cache writes found in logs.\nContext around token usage:\n'
                 + '\n'.join(context),
             )
-        if cache_hits == 0:
+        if cache_hits_no == 0:
             return TestResult(
                 success=False,
                 reason='No cache hits found in logs.\nContext around token usage:\n'
                 + '\n'.join(context),
             )
 
+        # check if the input tokens are increasing
+        if not all(
+            input_tokens_values[i] <= input_tokens_values[i + 1]
+            for i in range(len(input_tokens_values) - 1)
+        ):
+            return TestResult(
+                success=False,
+                reason='Input tokens are not increasing.\nContext around token usage:\n'
+                + '\n'.join(context),
+            )
+
+        # check if the cache hits are increasing
+        if not all(
+            cache_hits_values[i] <= cache_hits_values[i + 1]
+            for i in range(len(cache_hits_values) - 1)
+        ):
+            return TestResult(
+                success=False,
+                reason='Cache hits are not increasing.\nContext around token usage:\n'
+                + '\n'.join(context),
+            )
+
+        # check if the cache hits are always the sum of the previous line's input tokens and previous line's cache hits
+        for i in range(1, len(cache_hits_values)):
+            if (
+                cache_hits_values[i]
+                != input_tokens_values[i - 1] + cache_hits_values[i - 1]
+            ):
+                return TestResult(
+                    success=False,
+                    reason=f"Cache hits are not the sum of the previous line's input tokens {input_tokens_values[i-1]} and previous line's cache hits {cache_hits_values[i-1]}.\nContext around token usage:\n"
+                    + '\n'.join(context),
+                )
         return TestResult(success=True)
