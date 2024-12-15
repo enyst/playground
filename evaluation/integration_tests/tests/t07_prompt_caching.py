@@ -180,15 +180,15 @@ class Test(BaseIntegrationTest):
                 + '\n'.join(context),
             )
 
-        # check if the cache hits are always the sum of the previous line's input tokens and previous line's cache hits
+        # check if the cache hits are always the sum of the previous line's cache writes and previous line's cache hits
         for i in range(1, len(cache_hits_values)):
             if (
                 cache_hits_values[i]
-                != input_tokens_values[i - 1] + cache_hits_values[i - 1]
+                != cache_writes_values[i - 1] + cache_hits_values[i - 1]
             ):
                 return TestResult(
                     success=False,
-                    reason=f"Cache hits are not the sum of the previous line's input tokens {input_tokens_values[i-1]} and previous line's cache hits {cache_hits_values[i-1]}.\nContext around token usage:\n"
+                    reason=f"Cache hits are not the sum of the previous line's cache writes {cache_writes_values[i-1]} and previous line's cache hits {cache_hits_values[i-1]}.\nContext around token usage:\n"
                     + '\n'.join(context),
                 )
         return TestResult(success=True)
