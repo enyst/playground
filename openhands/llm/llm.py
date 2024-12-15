@@ -495,7 +495,7 @@ class LLM(RetryMixin, DebugMixin):
 
         # log the stats
         if stats:
-            logger.info(stats)
+            logger.debug(stats)
 
         return cur_cost
 
