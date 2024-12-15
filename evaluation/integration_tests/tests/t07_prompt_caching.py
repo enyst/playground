@@ -1,49 +1,53 @@
 """Test to verify prompt caching behavior with large responses."""
 
-import logging
 import glob
+import logging
 import os
 import tempfile
-from typing import Any, Dict
-
-from evaluation.integration_tests.tests.base import BaseIntegrationTest, TestResult
-from openhands.core.logger import openhands_logger
-from openhands.core.main import auto_continue_response
-from openhands.events.action import CmdRunAction, MessageAction
-from openhands.events.event import Event
-from openhands.runtime.base import Runtime
-from openhands.controller.state.state import State
-
 
 # Override the default response function for CodeActAgent
 from evaluation.integration_tests.run_infer import FAKE_RESPONSES
+from evaluation.integration_tests.tests.base import BaseIntegrationTest, TestResult
+from openhands.controller.state.state import State
+from openhands.core.logger import openhands_logger
+from openhands.events.action import CmdRunAction, MessageAction
+from openhands.events.event import Event
+from openhands.runtime.base import Runtime
+
 
 def custom_large_response(state: State, *args, **kwargs) -> str:
-    """Provide large, detailed responses about what to do with each number."""
+    """Provide larger, detailed responses about what to do with each number."""
     # About 100 tokens per response
     responses = [
-        "For number 1, please make it extra special by printing it in bright red color with a fancy border around it. Make sure to use ANSI escape codes to create a beautiful box drawing with double lines, and add some sparkles or stars around it for extra flair. This will make it stand out as the first number in our sequence!",
+        'For number 1, please make it extra special by printing it in bright red color with a fancy border around it. Make sure to use ANSI escape codes to create a beautiful box drawing with double lines, and add some sparkles or stars around it for extra flair. This will make it stand out as the first number in our sequence!',
         "For number 2, let's do something magical: print it in a shimmering rainbow effect by using multiple ANSI color codes in sequence. Add a gradient effect if possible, and maybe some wave-like patterns around it using ASCII art. This will make the second number truly mesmerizing!",
-        "For number 3, we should create a dramatic presentation: print it in bold purple with a pulsing effect, surrounded by a circular pattern of dots that gives it a cosmic, ethereal feeling. Maybe add some constellation-like connections between the dots!",
+        'For number 3, we should create a dramatic presentation: print it in bold purple with a pulsing effect, surrounded by a circular pattern of dots that gives it a cosmic, ethereal feeling. Maybe add some constellation-like connections between the dots!',
         "For number 4, let's go for an elegant design: print it in a sophisticated emerald green color, wrapped in an ornate frame made of ASCII art flourishes and scrollwork. Add some delicate patterns that make it look like an illuminated manuscript!",
-        "For number 5, for our grand finale: combine multiple effects to create a spectacular display! Use blinking text, multiple colors, and create an elaborate ASCII art celebration around it with fireworks patterns and celebration symbols!"
+        'For number 5, for our grand finale: combine multiple effects to create a spectacular display! Use blinking text, multiple colors, and create an elaborate ASCII art celebration around it with fireworks patterns and celebration symbols!',
     ]
-    
+
     # Count how many times the agent has asked for input
-    message_count = sum(1 for event in state.history 
-                       if isinstance(event, MessageAction) 
-                       and event.source == "assistant" 
-                       and "what" in event.content.lower())
-    
+    message_count = sum(
+        1
+        for event in state.history
+        if isinstance(event, MessageAction)
+        and event.source == 'assistant'
+        and 'what' in event.content.lower()
+    )
+
     if message_count <= len(responses):
         return responses[message_count - 1]
-    return "continue"
+    return 'continue'
+
+
+# Provide a custom response function for the CodeActAgent
+FAKE_RESPONSES['CodeActAgent'] = custom_large_response
 
 
 class Test(BaseIntegrationTest):
     """Test prompt caching behavior with a task that requires multiple interactions."""
 
-    INSTRUCTION = """Create a Python script numbers.py that prints numbers from 1 to 5, but with a twist: 
+    INSTRUCTION = """Create a Python script numbers.py that prints numbers from 1 to 5, but with a twist:
     ask me what special thing to do with each number before writing it."""
 
     def __init__(self) -> None:
@@ -65,24 +69,25 @@ class Test(BaseIntegrationTest):
     def verify_result(cls, runtime: Runtime, histories: list[Event]) -> TestResult:
         """Verify the test results by analyzing the logs."""
         # First verify that the script was created and works
-        action = CmdRunAction(command='python3 /workspace/numbers.py', keep_prompt=False)
+        action = CmdRunAction(
+            command='python3 /workspace/numbers.py', keep_prompt=False
+        )
         obs = runtime.run_action(action)
         if obs.exit_code != 0:
             return TestResult(
-                success=False,
-                reason=f'Script execution failed: {obs.content}'
+                success=False, reason=f'Script execution failed: {obs.content}'
             )
 
         # Now analyze the logs for token usage patterns
         log_pattern = os.path.join(
             'evaluation/evaluation_outputs/outputs/integration_tests/CodeActAgent',
-            '*haiku*_maxiter_*/infer_logs/instance_t07_prompt_caching.log'
+            '*haiku*_maxiter_*/infer_logs/instance_t07_prompt_caching.log',
         )
         log_files = glob.glob(log_pattern)
         if not log_files:
             return TestResult(
                 success=False,
-                reason=f'No log file found matching pattern: {log_pattern}'
+                reason=f'No log file found matching pattern: {log_pattern}',
             )
         log_file = log_files[0]
         with open(log_file, 'r') as f:
@@ -91,7 +96,7 @@ class Test(BaseIntegrationTest):
         # Check for expected token usage patterns
         cache_writes = logs.count('Input tokens (cache write):')
         cache_hits = logs.count('Input tokens (cache hit):')
-        
+
         # Get context around token usage
         log_lines = logs.split('\n')
         context = []
@@ -101,7 +106,7 @@ class Test(BaseIntegrationTest):
                 end = min(len(log_lines), i + 10)
                 context.extend(log_lines[start:end])
                 context.append('-' * 40)  # separator between contexts
-        
+
         # We expect:
         # 1. At least one cache write for system message
         # 2. Multiple cache hits as conversation progresses
@@ -109,15 +114,14 @@ class Test(BaseIntegrationTest):
         if cache_writes == 0:
             return TestResult(
                 success=False,
-                reason=f'No cache writes found in logs.\nContext around token usage:\n' + '\n'.join(context)
+                reason='No cache writes found in logs.\nContext around token usage:\n'
+                + '\n'.join(context),
             )
         if cache_hits == 0:
             return TestResult(
                 success=False,
-                reason=f'No cache hits found in logs.\nContext around token usage:\n' + '\n'.join(context)
+                reason='No cache hits found in logs.\nContext around token usage:\n'
+                + '\n'.join(context),
             )
 
         return TestResult(success=True)
-
-    # Override the default response function
-FAKE_RESPONSES['CodeActAgent'] = custom_large_response
