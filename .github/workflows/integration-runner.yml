@@ -69,7 +69,6 @@ jobs:
       - name: Run integration test evaluation for Haiku
         env:
           SANDBOX_FORCE_REBUILD_RUNTIME: True
-          DEBUG: 1
         run: |
           # Run only t07_prompt_caching test with higher max iterations
           poetry run ./evaluation/integration_tests/scripts/run_infer.sh \
