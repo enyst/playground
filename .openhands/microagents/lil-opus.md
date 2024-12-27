@@ -1,3 +1,8 @@
+---
+name: lil-opus
+agent: CodeAct
+---
+
 # Opus Planning Resolver Design Document
 
 ## Overview
