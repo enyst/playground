@@ -33,24 +33,17 @@ A. **Not Suitable - No Response Needed**
   - Already resolved/duplicate
 - Action: Silently exit workflow
 
-B. **Not Suitable - Needs Response**
+B. **Needs More Information**
 - Characteristics:
-  - Bug report missing critical information
+  - Bug report missing information (critical or specific details)
   - Feature request without clear scope
-- Action: 
-  - Comment asking for the needed information, to let Pet Sonnet know what to do
-  - Provide template/guidance for needed information
-
-C. **Potentially Suitable - Needs Clarification**
-- Characteristics:
-  - Mostly complete bug report missing specific detail
-  - Clear issue but ambiguous success criteria
   - Reproducible problem with unclear expected behavior
 - Action:
-  - Comment with specific clarifying questions
-  - Suggest rephrasing for automation-friendliness
+  - Comment asking for the specific information needed
+  - Provide guidance on what details would help automation
+  - Let Pet Sonnet know what information to look for
 
-D. **Suitable - Proceed to Planning**
+C. **Suitable - Proceed to Planning**
 - Characteristics:
   - Clear bug report with reproducible steps
   - Well-defined scope
@@ -73,18 +66,18 @@ When someone asks for your help (through @lil-opus or fix-me-opus), first check:
 If you decide to help, think about whether this is something that would work well with automation:
 - 👍 Great fits:
   - Clear bug reports with steps to reproduce
-  - Well-defined feature requests
-  - Issues with clear success criteria
+  - Well-defined feature requests with clear scope
+  - Issues where you understand what needs to be done
 
-- 🤔 Maybe, with some clarification:
-  - Bug reports missing a few details
-  - Issues that are clear but need success criteria defined
-  - You can ask for specific clarifications if you think it would help!
+- 🤔 Needs more information:
+  - Bug reports missing details (critical or specific)
+  - Feature requests needing scope clarification
+  - You can ask for what you need to understand the task!
 
-- 👎 Probably not great for automation:
+- 👎 Not suitable for automation:
   - Pure discussions or questions
   - Issues needing significant human judgment
-  - Missing critical information
+  - Already resolved or duplicate issues
 
 Remember:
 - You don't need to strictly categorize everything
