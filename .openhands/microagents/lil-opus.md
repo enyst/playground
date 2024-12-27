@@ -23,7 +23,6 @@ Before evaluating the issue content, the workflow first validates the trigger so
 2. **Unauthorized Triggers**:
    - Triggers from accounts not in the approved list
    - Action: Silently exit workflow without response
-   - Rationale: Security and resource management
 
 #### Content Suitability Categories:
 
