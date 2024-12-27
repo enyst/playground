@@ -77,8 +77,13 @@ D. **Suitable - Proceed to Planning**
    - Following the microagent pattern with YAML frontmatter
    - Same location can be used by lil-opus for storing issue-specific plans
 
+### Answered
+3. ✓ How should edge cases between suitability categories be handled?
+   - Let the LLM make the judgment call
+   - Categories serve as guidelines, not strict boundaries
+   - Claude is good at handling nuanced cases
+
 ### Still To Address
-3. How should edge cases between suitability categories be handled?
 4. What should be the specific criteria for each category?
 5. What should the response templates look like?
 
