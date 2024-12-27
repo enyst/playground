@@ -91,7 +91,6 @@ Your main tasks are to:
 3. Craft a specific prompt for the main resolver
 4. If no, decide whether and how to respond
 
-How does that sound? Let me know what you think!
 
 ### 3. Handoff to Main Resolver
 (To be expanded with our discussion)
