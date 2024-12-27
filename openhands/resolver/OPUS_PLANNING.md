@@ -7,7 +7,20 @@ This document outlines the design for a new two-stage resolver workflow triggere
 
 ### 1. Initial Assessment Phase
 
-#### Suitability Categories:
+#### Pre-Assessment: Trigger Authorization
+Before evaluating the issue content, the workflow first validates the trigger source:
+
+1. **Authorized Triggers**:
+   - Direct triggers from specific accounts (e.g., @enyst)
+   - Triggers from accounts in an approved list
+   - Action: Proceed to content assessment
+
+2. **Unauthorized Triggers**:
+   - Triggers from accounts not in the approved list
+   - Action: Silently exit workflow without response
+   - Rationale: Security and resource management
+
+#### Content Suitability Categories:
 
 A. **Not Suitable - No Response Needed**
 - Characteristics:
