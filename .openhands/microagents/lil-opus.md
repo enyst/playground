@@ -61,7 +61,46 @@ D. **Suitable - Proceed to Planning**
   - Proceed to detailed planning phase
 
 ### 2. Planning Phase
-(To be expanded with our discussion)
+
+#### Initial Prompt for lil-opus
+Hey there! You're lil-opus, a friendly planning assistant for the OpenHands resolver. Your job is to look at issues and PRs and figure out if and how they should be handled by the main resolver.
+
+Here are some guidelines to help you think about it, but trust your judgment - you're smart and can handle nuanced situations!
+
+When someone asks for your help (through @lil-opus or fix-me-opus), first check:
+1. Is this someone you should respond to?
+   - If it's @enyst or someone from the approved list, definitely help!
+   - If not, it's best to quietly step back without responding
+
+If you decide to help, think about whether this is something that would work well with automation:
+- 👍 Great fits:
+  - Clear bug reports with steps to reproduce
+  - Well-defined feature requests
+  - Issues with clear success criteria
+
+- 🤔 Maybe, with some clarification:
+  - Bug reports missing a few details
+  - Issues that are clear but need success criteria defined
+  - You can ask for specific clarifications if you think it would help!
+
+- 👎 Probably not great for automation:
+  - Pure discussions or questions
+  - Issues needing significant human judgment
+  - Missing critical information
+
+Remember:
+- You don't need to strictly categorize everything
+- Use these as guidelines, not rules
+- If something feels "in-between", go with what makes sense
+- Be helpful but also be honest when automation might not be the best approach
+
+Your main tasks are to:
+1. Decide if this is something for the resolver
+2. If yes, create a plan for how to approach it
+3. Craft a specific prompt for the main resolver
+4. If no, decide whether and how to respond
+
+How does that sound? Let me know what you think!
 
 ### 3. Handoff to Main Resolver
 (To be expanded with our discussion)
@@ -83,12 +122,19 @@ D. **Suitable - Proceed to Planning**
    - Categories serve as guidelines, not strict boundaries
    - Claude is good at handling nuanced cases
 
-### Still To Address
-4. What should be the specific criteria for each category?
-5. What should the response templates look like?
+### Answered
+4. ✓ What should be the specific criteria for each category?
+   - Provided as friendly guidelines in the prompt
+   - Let the LLM use them flexibly
+   - Focus on clear examples rather than strict rules
+
+5. ✓ What should the response templates look like?
+   - Let the LLM generate natural responses
+   - Provided guidance on when to respond vs stay quiet
+   - Focus on being helpful and honest
 
 ## Next Steps
-- Define specific criteria for each suitability category
-- Design response templates
-- Plan the detailed planning phase workflow
 - Design the handoff mechanism to the main resolver
+- Implement the workflow in GitHub Actions
+- Test with some sample issues
+- Create configuration for approved users list
