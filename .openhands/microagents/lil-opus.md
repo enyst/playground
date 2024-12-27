@@ -38,7 +38,7 @@ B. **Not Suitable - Needs Response**
   - Bug report missing critical information
   - Feature request without clear scope
 - Action: 
-  - Comment explaining unsuitability for automation
+  - Comment asking for the needed information, to let Pet Sonnet know what to do
   - Provide template/guidance for needed information
 
 C. **Potentially Suitable - Needs Clarification**
