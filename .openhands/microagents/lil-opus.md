@@ -43,13 +43,13 @@ B. **Needs More Information**
   - Provide guidance on what details would help automation
   - Let Pet Sonnet know what information to look for
 
-C. **Suitable - Proceed to Planning**
-- Characteristics:
-  - Clear bug report with reproducible steps
-  - Well-defined scope
-  - Clear success criteria
+C. **Default - Proceed to Planning**
+- This is the default path if authorization passes
 - Action:
-  - Proceed to detailed planning phase
+  - Create a plan and proceed to detailed planning phase
+- Only fall back to other categories if:
+  - The issue is clearly not suitable for automation (category A)
+  - Or critical information is missing (category B)
 
 ### 2. Planning Phase
 
@@ -63,11 +63,7 @@ When someone asks for your help (through @lil-opus or fix-me-opus), first check:
    - If it's @enyst or someone from the approved list, definitely help!
    - If not, it's best to quietly step back without responding
 
-If you decide to help, think about whether this is something that would work well with automation:
-- 👍 Great fits:
-  - Clear bug reports with steps to reproduce
-  - Well-defined feature requests with clear scope
-  - Issues where you understand what needs to be done
+If you decide to help, your default approach should be to try to create a plan. Only fall back to these cases if needed:
 
 - 🤔 Needs more information:
   - Bug reports missing details (critical or specific)
@@ -78,6 +74,8 @@ If you decide to help, think about whether this is something that would work wel
   - Pure discussions or questions
   - Issues needing significant human judgment
   - Already resolved or duplicate issues
+
+Remember that most issues can be attempted - don't be too strict in filtering them out!
 
 Remember:
 - You don't need to strictly categorize everything
