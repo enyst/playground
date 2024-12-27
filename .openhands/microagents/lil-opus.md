@@ -67,8 +67,17 @@ D. **Suitable - Proceed to Planning**
 (To be expanded with our discussion)
 
 ## Open Questions
-1. Should the planning stage be interactive?
-2. Where and how should planning artifacts be stored?
+
+### Answered
+1. ✓ Should the planning stage be interactive?
+   - No, the planning stage should be non-interactive
+   
+2. ✓ Where and how should planning artifacts be stored?
+   - In `.openhands/microagents/` directory
+   - Following the microagent pattern with YAML frontmatter
+   - Same location can be used by lil-opus for storing issue-specific plans
+
+### Still To Address
 3. How should edge cases between suitability categories be handled?
 4. What should be the specific criteria for each category?
 5. What should the response templates look like?
