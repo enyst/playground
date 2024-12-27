@@ -37,7 +37,6 @@ B. **Not Suitable - Needs Response**
 - Characteristics:
   - Bug report missing critical information
   - Feature request without clear scope
-  - Issue requiring human decision-making
 - Action: 
   - Comment explaining unsuitability for automation
   - Provide template/guidance for needed information
