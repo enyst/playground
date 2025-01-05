@@ -49,18 +49,24 @@ Follow these steps to use this workflow in your own repository:
       - Add the 'fix-me' label to any issue you want the AI to resolve
       - The agent will consider all comments in the issue thread when resolving
       - The workflow will:
-        1. Attempt to resolve the issue using OpenHands
-        2. Create a draft PR if successful, or push a branch if unsuccessful
-        3. Comment on the issue with the results
-        4. Remove the 'fix-me' label once processed
+        1. Install the latest stable version of OpenHands from PyPI
+        2. Attempt to resolve the issue using OpenHands
+        3. Create a draft PR if successful, or push a branch if unsuccessful
+        4. Comment on the issue with the results
+        5. Remove the 'fix-me' label once processed
 
    b. Using `@openhands-agent` mention:
       - Create a new comment containing `@openhands-agent` in any issue
       - The agent will only consider the comment where it's mentioned
       - The workflow will:
-        1. Attempt to resolve the issue based on the specific comment
-        2. Create a draft PR if successful, or push a branch if unsuccessful
-        3. Comment on the issue with the results
+        1. Install the latest stable version of OpenHands from PyPI
+        2. Attempt to resolve the issue based on the specific comment
+        3. Create a draft PR if successful, or push a branch if unsuccessful
+        4. Comment on the issue with the results
+
+   Note: By default, the workflow installs the latest stable version of OpenHands from PyPI. If you want to use the latest development version from the main branch instead, you can either:
+   - Use the 'fix-me-experimental' label instead of 'fix-me'
+   - Use '@openhands-agent-exp' in your comment instead of '@openhands-agent'
 
 Need help? Feel free to [open an issue](https://github.com/all-hands-ai/openhands/issues) or email us at [contact@all-hands.dev](mailto:contact@all-hands.dev).
 
