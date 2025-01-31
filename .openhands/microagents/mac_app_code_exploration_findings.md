@@ -4,7 +4,7 @@ This document summarizes the findings from exploring the frontend and backend co
 
 ## 1. Frontend Code Findings (React)
 
-The web frontend is built using React and provides valuable UI components and logic that can be参考 for the Mac app development.
+The web frontend is built using React and provides valuable UI components and logic that can be used as a reference for the Mac app development.
 
 ### 1.1. UI Components (frontend/src/components/features/)
 
