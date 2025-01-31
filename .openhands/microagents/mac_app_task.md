@@ -1,3 +1,8 @@
+---
+name: mac_app_ui_design_plan
+type: task
+agent: SimpleAgent
+---
 # OpenHands Mac App UI Design Plan
 
 This document outlines the plan for the user interface of the OpenHands Mac application.
