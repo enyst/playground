@@ -104,4 +104,4 @@ This layout aims to provide a clear and organized interface, separating the main
 
 ---
 
-This is the initial UI design plan for the OpenHands Mac application.  We will iterate and refine this plan as we move forward with development.
+This is the initial UI design plan.  We will iterate and refine this plan as we move forward with development.
