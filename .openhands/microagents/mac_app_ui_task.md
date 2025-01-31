@@ -28,7 +28,7 @@ The Mac app UI will consist of the following core elements:
         *   Other settings as needed (e.g., theme, font size).
 
 6.  **Control Buttons:**
-    *   Description: Buttons to control the execution of the OpenHands agent.
+    *   Description: Buttons to control the execution of the agent.
     *   Functionality:
         *   Start: Initiate agent execution for the given task.
         *   Stop: Terminate agent execution.
