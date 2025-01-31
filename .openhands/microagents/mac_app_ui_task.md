@@ -58,7 +58,43 @@ The Mac app UI will consist of the following core elements:
 
 ## 2.  UI Structure (Conceptual Layout)
 
-*(Visual mockup or text-based layout description to be added later - e.g., using a simple grid layout concept)*
+The UI layout is conceptually divided into two main columns: a left column for the Chat Area and a right column for context and tools.
+
+```
++-----------------------------------------------------+-----------------------------------------------------------------------+
+|                      Left Column                      |                             Right Column                              |
+| +-------------------------------------------------+ | +-------------------------------------------------------------------+ |
+| |                  Chat Area                      | | |                      Top Right Section                            | |
+| | +---------------------------------------------+ | | | | +---------------------------------------+-----------------------+ |
+| | |          Agent Output Display             | | | | | |    Workspace (File Explorer)       | Variable Context Area   | |
+| | | (Conversation History, Agent Actions, Logs) | | | | | |                                       | (Web Browser,         | |
+| | +---------------------------------------------+ | | | | |                                       |  Settings, Prompts,    | |
+| | |              Task Input Area                | | | | |                                       |  Memory - switchable)  | |
+| | |         (User Input Text Area)              | | | | +---------------------------------------+-----------------------+ |
+| | +---------------------------------------------+ | | +-------------------------------------------------------------------+ |
+| +-------------------------------------------------+ | | |             Bottom Right Section: Terminal/Command Output         | |
+|                                                     | | | +-------------------------------------------------------------------+ |
+|                                                     | | | |                                                                   | |
+|                                                     | | | | (Smaller height than Top Right Section)                           | |
+|                                                     | | +-------------------------------------------------------------------+ |
++-----------------------------------------------------+-----------------------------------------------------------------------+
+```
+
+*   **Left Column (Chat Area):** Focuses on user interaction and agent communication.
+    *   **Agent Output Display:** Shows the conversation history, agent actions, and logs.
+    *   **Task Input Area:**  Provides a text area for user instructions.
+
+*   **Right Column (Context and Tools):**  Provides supporting information and tools, split horizontally.
+    *   **Top Right Section:** Split vertically into two areas.
+        *   **Workspace (File Explorer):** Displays a file tree for workspace navigation.
+        *   **Variable Context Area:** A switchable area to display:
+            *   Web Browser View
+            *   Settings Panel
+            *   Prompt Configuration Area
+            *   Memory Area
+    *   **Bottom Right Section: Terminal/Command Output:** Displays the output of commands executed by the agent.  This section has a smaller height than the Top Right Section.
+
+This layout aims to provide a clear and organized interface, separating the main interaction flow (chat) from supporting tools and contextual information.
 
 ## 3.  Backend Communication
 
