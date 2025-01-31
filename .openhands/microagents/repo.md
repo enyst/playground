@@ -40,3 +40,10 @@ Frontend:
   - Available variables: VITE_BACKEND_HOST, VITE_USE_TLS, VITE_INSECURE_SKIP_VERIFY, VITE_FRONTEND_PORT
 - Internationalization:
   - Generate i18n declaration file: `npm run make-i18n`
+
+## IMPORTANT: Microagents
+
+To understand the public microagents available in this repository, please read [microagents/README.md](microagents/README.md). These microagents are shared across all OpenHands users and provide reusable knowledge and common workflows.
+
+The repo-specific microagents are in .openhands/microagents and they are "private" to this repo.
+## IMPORTANT: Frontend Setup
