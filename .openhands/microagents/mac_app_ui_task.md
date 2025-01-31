@@ -45,7 +45,6 @@ The Mac app UI will consist of the following core elements:
         *   **MicroAgent Content Editor:**
             *   View and edit (for repo-specific) the content of selected MicroAgents (Markdown/YAML editor with syntax highlighting).
             *   View (for public MicroAgents) the content of selected MicroAgents (view-only editor).
-        *   **MicroAgent Description/Info Panel:** Display detailed descriptions of selected MicroAgents.
         *   **(Optional) Version Control/Undo-Redo for Repo-Specific MicroAgents:** Basic undo/redo functionality in the editor.
 
 8.  **Memory Area:**
