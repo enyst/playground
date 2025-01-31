@@ -85,10 +85,11 @@ The UI layout is conceptually divided into two main columns: a left column for t
 *   **Right Column (Context and Tools):**  Provides supporting information and tools, split horizontally.
     *   **Top Right Section:** Split vertically into two areas.
         *   **Workspace (File Explorer):** Displays a file tree for workspace navigation.
-        *   **Variable Context Area:** A switchable area to display:
-            *   Settings Panel
-            *   Prompt Configuration Area
-            *   Memory Area
+        *   **Variable Context Area:** A switchable tabbed panel to display different context-related views.  Users can switch between these views as needed. The views available in this area are:
+            *   **Code View:**  To display and interact with code (similar to a Jupyter view, potentially for code editing/viewing, output visualization, etc. - details to be defined).
+            *   **Settings Panel:**  For configuring application settings.
+            *   **Prompt Configuration Area:** For managing system prompts and MicroAgents.
+            *   **Memory Area:** To visualize and manage the agent's memory.
     *   **Bottom Right Section: Terminal/Command Output:** Displays the output of commands executed by the agent.  This section has a smaller height than the Top Right Section.
 
 This layout aims to provide a clear and organized interface, separating the main interaction flow (chat) from supporting tools and contextual information.
