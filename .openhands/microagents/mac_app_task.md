@@ -60,7 +60,7 @@ The Mac app will include the following core features:
 
 ## 2. App Structure
 
-The app structure is conceptually divided into two main columns: a left column for the Main Interaction Area and a right column for context and tools.
+The app structure is conceptually divided into two main columns: a left column for the Chat Area and a right column for context and tools.
 
 ```
 +-----------------------------------------------------+-----------------------------------------------------------------------+
