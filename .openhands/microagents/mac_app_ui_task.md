@@ -18,9 +18,7 @@ The Mac app UI will consist of the following core elements:
     *   Description: A file tree view to browse and manage files within the OpenHands workspace.
     *   Functionality: File system navigation, file opening, basic file management (create, delete, rename - optional for initial version).
 
-4.  **Web Browser View:**
-    *   Description: An embedded web browser to display web pages when the agent interacts with the web.
-    *   Functionality: Display web content, allow basic navigation (back/forward - optional for initial version).
+
 
 5.  **Settings Panel:**
     *   Description: A panel to configure various settings for the Mac app and the OpenHands backend.
@@ -88,7 +86,6 @@ The UI layout is conceptually divided into two main columns: a left column for t
     *   **Top Right Section:** Split vertically into two areas.
         *   **Workspace (File Explorer):** Displays a file tree for workspace navigation.
         *   **Variable Context Area:** A switchable area to display:
-            *   Web Browser View
             *   Settings Panel
             *   Prompt Configuration Area
             *   Memory Area
