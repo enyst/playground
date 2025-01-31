@@ -19,9 +19,6 @@ If either command fails, it may have automatically fixed some issues. You should
 then re-run the command to ensure it passes.
 
 ## Repository Structure
-## IMPORTANT: Public Microagents
-
-To understand the public microagents available in this repository, please read [microagents/README.md](microagents/README.md). These microagents are shared across all OpenHands users and provide reusable knowledge and common workflows.
 Backend:
 - Located in the `openhands` directory
 - Testing:
