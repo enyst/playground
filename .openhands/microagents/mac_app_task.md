@@ -1,5 +1,5 @@
 ---
-name: mac_app_ui_design_plan
+name: mac_app
 type: task
 agent: SimpleAgent
 ---
