@@ -115,15 +115,15 @@ The backend server sends events to the Mac app using the `oh_event` event. Event
 {
     "timestamp": "ISO timestamp string",
     "source": "event source enum value (string)",
-    "message": "event message (string)", 
+    "message": "event message (string)",
     // ... other top-level keys ...
 
     // Action Event:
-    "action": { 
-        // Action-specific data 
+    "action": {
+        // Action-specific data
     },
-    "args": { 
-        // Action arguments 
+    "args": {
+        // Action arguments
     },
     "timeout": (optional) timeout value (number)
 
@@ -161,6 +161,77 @@ The backend server sends events to the Mac app using the `oh_event` event. Event
 
 #### 3.1.2. Sending Actions (`oh_action`)
 
+### 3.2. Examples of `oh_action` subtypes (from Web UI)
+
+Here are some examples of `oh_action` subtypes that are currently sent by the web UI, based on our code exploration:
+
+#### 3.2.1. Run Command (`"run"`)
+
+*   **Action Type String:** `"run"`
+*   **Backend Action Class:** `CmdRunAction`
+*   **Example `oh_action` Payload (JSON):**
+    ```json
+    {
+      "action": "run",
+      "args": {
+        "command": "ls -l /workspace",
+        "hidden": false
+      }
+    }
+    ```
+*   **Source (Frontend):** `/workspace/playground/frontend/src/hooks/use-terminal.ts` (`getTerminalCommand` function)
+*   **Description:** This action is sent when a user executes a command in the terminal within the web UI. It instructs the backend to run a bash command.
+
+#### 3.2.2. Change Agent State (`"change_agent_state"`)
+
+*   **Action Type String:** `"change_agent_state"`
+*   **Backend Action Class:** `ChangeAgentStateAction`
+*   **Example `oh_action` Payload (JSON):**
+    ```json
+    {
+      "action": "change_agent_state",
+      "args": {
+        "agent_state": "PAUSED"
+      }
+    }
+    ```
+*   **Source (Frontend):** `/workspace/playground/frontend/src/components/features/controls/agent-control-bar.tsx` and other files using `generateAgentStateChangeEvent` function.
+*   **Description:** This action is sent when the user interacts with UI controls to change the agent's state, such as pausing, resuming, or stopping the agent's execution.
+
+#### 3.2.3. Send Message (`"message"`)
+
+*   **Action Type String:** `"message"`
+*   **Backend Action Class:** `MessageAction`
+*   **Example `oh_action` Payload (JSON):**
+    ```json
+    {
+      "action": "message",
+      "args": {
+        "content": "Hello, agent!",
+        "image_urls": [],
+        "timestamp": "2025-01-31T21:00:00.000Z"
+      }
+    }
+    ```
+*   **Source (Frontend):** `/workspace/playground/frontend/src/components/features/chat/chat-interface.tsx` (`createChatMessage` function)
+*   **Description:** This action is sent when the user sends a message in the chat interface. It delivers the user's message content, image URLs (if any), and timestamp to the backend agent.
+
+*   **Action Type String:** `"change_agent_state"`
+*   **Backend Action Class:** `ChangeAgentStateAction`
+*   **Example `oh_action` Payload (JSON):**
+    ```json
+    {
+      "action": "change_agent_state",
+      "args": {
+        "agent_state": "PAUSED"
+      }
+    }
+    ```
+*   **Source (Frontend):** `/workspace/playground/frontend/src/components/features/controls/agent-control-bar.tsx` and other files using `generateAgentStateChangeEvent` function.
+*   **Description:** This action is sent when the user interacts with UI controls to change the agent's state, such as pausing, resuming, or stopping the agent's execution.
+
+The Mac app will need to be able to send similar `oh_action` events to interact with the OpenHands backend.
+
 The Mac app sends actions to the backend server using the `oh_action` event. These actions are triggered by **user interactions within the Mac app**, and in the backend processing, they are associated with `EventSource.USER`. Actions are also sent as dictionaries in JSON format.
 
 **`oh_action` Data Structure:**
@@ -171,7 +242,7 @@ The Mac app sends actions to the backend server using the `oh_action` event. The
     "args": {
         // Action-specific arguments (key-value pairs)
     },
-    "timeout": (optional) timeout value in seconds (number) 
+    "timeout": (optional) timeout value in seconds (number)
 }
 ```
 
@@ -267,7 +338,7 @@ Here is a list of available actions that can be sent to the backend via the `oh_
         *   `content` (str, required): Message content to display.
         *   `image_urls` (list[str] | None, optional): Image URLs in message.
         *   `wait_for_response` (bool, optional): Wait for user response (ignore for basic use).
-        *   `security_risk` (optional): Ignore for basic use. 
+        *   `security_risk` (optional): Ignore for basic use.
 
 The backend server is already configured to use SocketIO for real-time communication with the web UI.  The SocketIO server is initialized in `openhands/server/shared.py` and event handlers are defined in `openhands/server/listen_socket.py`.
 
@@ -284,5 +355,3 @@ We have decided to use Swift/Cocoa for building the Mac app UI.
 
 
 ---
-
-
