@@ -133,42 +133,6 @@ The backend is built using FastAPI and provides REST API endpoints and a SocketI
 
 This document summarizes the findings from exploring the frontend and backend codebases of the OpenHands repository, focusing on aspects relevant to the development of the Mac App MVP using Swift/Cocoa.
 
-* `context/ws-client-provider.tsx`: Provides WebSocket context (`WsClientContext`, `useWsClient`) for SocketIO communication. Manages connection and `send` function.
-* `context/conversation-context.tsx`: Provides conversation ID context (`ConversationContext`, `useConversation`) from route parameters.
-* `context/files.tsx`: Provides file-related state management context (`FilesContext`, `useFiles`) for file explorer.
-* `context/settings-context.tsx`: Provides settings management context.
-
-### 1.5. API Client (frontend/src/api/)
-
-* `api/open-hands.ts`: Defines `OpenHands` API client class with methods for interacting with backend REST API endpoints (e.g., `getFiles`, `getFile`, `saveFile`, `getSettings`, `saveSettings`, `createConversation`, `getModels`, `getAgents`).
-* `api/open-hands-axios.ts`: Configures Axios instance for API requests, handles authorization headers.
-
-### 1.6. Types and Enums (frontend/src/types/)
-
-* `types/action-type.tsx`: Defines `ActionType` enum listing all possible action types sent to the backend (e.g., `MESSAGE`, `RUN`, `READ`, `WRITE`, `CHANGE_AGENT_STATE`).
-* `types/agent-state.tsx`: Defines `AgentState` enum listing all possible agent states (e.g., `RUNNING`, `AWAITING_USER_INPUT`, `STOPPED`).
-* `components/agent-status-map.constant.ts`: Defines `AGENT_STATUS_MAP` constant, mapping `AgentState` to status messages and indicator styles.
-
-## 2. Backend Code Findings (Python FastAPI)
-
-The backend is built using FastAPI and provides REST API endpoints and a SocketIO server for communication.
-
-### 2.1. SocketIO Server (openhands/server/listen_socket.py)
-
-* Sets up SocketIO server using `socketio.AsyncServer`.
-* Handles `connect`, `oh_action`, and `disconnect` events.
-* Implements authentication and authorization for Saas mode using JWT cookies.
-* Manages conversations and agent sessions using `conversation_manager`.
-* Streams agent events to clients via `oh_event` events.
-
-### 2.2. API Endpoints (openhands/server/routes/)
-
-* **File Management (files.py):**
-    * `GET /api/conversations/{conversation_id}/list-files`: Lists files in workspace.
-    * `GET /api/conversations/{conversation_id}/select-file`: Retrieves file content.
-    * `POST /api/conversations/{conversation_id}/save-file`: Saves file content.
-    * `POST /api/conversations/{conversation_id}/upload-files`: Uploads files to workspace.
-    * `GET /api/conversations/{conversation_id}/zip-directory`: Downloads workspace as zip.
 * **Conversation Management (manage_conversations.py):**
     * `POST /api/conversations`: Creates a new conversation.
     * `GET /api/conversations`: Lists/searches conversations.
