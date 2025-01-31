@@ -3,13 +3,13 @@ name: mac_app
 type: task
 agent: CodeActAgent
 ---
-# OpenHands Mac App UI Design Plan
+# OpenHands Mac App Technical Guide
 
-This document outlines the plan for the user interface of the OpenHands Mac application.
+This document provides a technical overview and development guide for the OpenHands Mac application.
 
-## 1. Core UI Elements
+## 1. Core App Features
 
-The Mac app UI will consist of the following core elements:
+The Mac app will include the following core features:
 
 1.  **Task Input Area:**
     *   Description: A text area where users can input instructions and tasks for OpenHands.
@@ -58,9 +58,9 @@ The Mac app UI will consist of the following core elements:
         *   **Memory Display:** Visualize agent's memory content (format to be determined - e.g., text, graph).
         *   **(Optional) Memory Management:** Features to clear or edit memory (for advanced users).
 
-## 2.  UI Structure (Conceptual Layout)
+## 2.  Conceptual App Structure
 
-The UI layout is conceptually divided into two main columns: a left column for the Chat Area and a right column for context and tools.
+The app structure is conceptually divided into two main columns: a left column for the Main Interaction Area and a right column for context and tools.
 
 ```
 +-----------------------------------------------------+-----------------------------------------------------------------------+
@@ -71,8 +71,8 @@ The UI layout is conceptually divided into two main columns: a left column for t
 | | |          Agent Output Display             | | | | | |    Workspace (File Explorer)       | Variable Context Area   | |
 | | | (Conversation History, Agent Actions, Logs) | | | | | |                                       | (Settings,         | |
 | | +---------------------------------------------+ | | | | |                                       |  Prompts,    | |
-| | |              Task Input Area                | | | | |                                       |  Memory - switchable)  | |
-| | |         (User Input Text Area)              | | | | +---------------------------------------+-----------------------+ |
+| | |              User Input Area                | | | | |                                       |  Memory - switchable)  | |
+| | |         (User Input Area)              | | | | +---------------------------------------+-----------------------+ |
 | | +---------------------------------------------+ | | +-------------------------------------------------------------------+ |
 | +-------------------------------------------------+ | | |             Bottom Right Section: Terminal/Command Output         | |
 |                                                     | | | +-------------------------------------------------------------------+ |
@@ -82,9 +82,9 @@ The UI layout is conceptually divided into two main columns: a left column for t
 +-----------------------------------------------------+-----------------------------------------------------------------------+
 ```
 
-*   **Left Column (Chat Area):** Focuses on user interaction and agent communication.
+*   **Left Column (Main Interaction Area):** Focuses on user interaction and agent communication.
     *   **Agent Output Display:** Shows the conversation history, agent actions, and logs.
-    *   **Task Input Area:**  Provides a text area for user instructions.
+    *   **User Input Area:**  Provides a text area for user instructions.
 
 *   **Right Column (Context and Tools):**  Provides supporting information and tools, split horizontally.
     *   **Top Right Section:** Split vertically into two areas.
@@ -285,4 +285,4 @@ We have decided to use Swift/Cocoa for building the Mac app UI.
 
 ---
 
-This is the initial UI design plan.  We will iterate and refine this plan as we move forward with development.
+
