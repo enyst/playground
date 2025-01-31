@@ -82,7 +82,7 @@ The app structure is conceptually divided into two main columns: a left column f
 +-----------------------------------------------------+-----------------------------------------------------------------------+
 ```
 
-*   **Left Column (Main Interaction Area):** Focuses on user interaction and agent communication.
+*   **Left Column (Chat Area):** Focuses on user interaction and agent communication.
     *   **Agent Output Display:** Shows the conversation history, agent actions, and logs.
     *   **User Input Area:**  Provides a text area for user instructions.
 
