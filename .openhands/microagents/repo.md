@@ -45,5 +45,5 @@ Frontend:
 
 To understand the public microagents available in this repository, please read [microagents/README.md](microagents/README.md). These microagents are shared across all OpenHands users and provide reusable knowledge and common workflows.
 
-The repo-specific microagents are in .openhands/microagents and they are "private" to this repo.
-## IMPORTANT: Frontend Setup
+The repo-specific microagents are in .openhands/microagents and they are "private" to this repo. To understand the tasks we have to perform now, read the contents of the private microagents whose names include 'task'. You can use the `str_replace_editor` tool with the `view` command and the absolute path to the file to view their content.
+
