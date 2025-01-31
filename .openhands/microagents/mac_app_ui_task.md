@@ -65,7 +65,7 @@ The UI layout is conceptually divided into two main columns: a left column for t
 | | +---------------------------------------------+ | | | | +---------------------------------------+-----------------------+ |
 | | |          Agent Output Display             | | | | | |    Workspace (File Explorer)       | Variable Context Area   | |
 | | | (Conversation History, Agent Actions, Logs) | | | | | |                                       | (Settings,         | |
-| | +---------------------------------------------+ | | | | |                                       |  Settings, Prompts,    | |
+| | +---------------------------------------------+ | | | | |                                       |  Prompts,    | |
 | | |              Task Input Area                | | | | |                                       |  Memory - switchable)  | |
 | | |         (User Input Text Area)              | | | | +---------------------------------------+-----------------------+ |
 | | +---------------------------------------------+ | | +-------------------------------------------------------------------+ |
