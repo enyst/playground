@@ -44,6 +44,9 @@ Frontend:
 - Internationalization:
   - Generate i18n declaration file: `npm run make-i18n`
 
-## IMPORTANT: Frontend Setup
+## IMPORTANT: Microagents
 
-To understand the frontend setup in this repository, please read [frontend/README.md](frontend/README.md). This document provides information about the frontend application, including the tech stack, how to get started, run the application in development and production modes, project structure, features, testing, and contributing.
+To understand the public microagents available in this repository, please read [microagents/README.md](microagents/README.md). These microagents are shared across all OpenHands users and provide reusable knowledge and common workflows.
+
+The repo-specific microagents are in .openhands/microagents and they are "private" to this repo.
+## IMPORTANT: Frontend Setup
