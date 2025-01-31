@@ -111,7 +111,7 @@ This approach reuses the existing communication infrastructure and avoids the ne
 
 ## 4.  Implementation
 
-*(Technology choices for building the Mac app UI - e.g., Swift/Cocoa, React Native for Mac, Electron, etc. - to be discussed and decided later)*
+We have decided to use Swift/Cocoa for building the Mac app UI.
 
 
 
