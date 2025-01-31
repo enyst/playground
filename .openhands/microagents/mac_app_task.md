@@ -1,7 +1,7 @@
 ---
 name: mac_app
 type: task
-agent: SimpleAgent
+agent: CodeActAgent
 ---
 # OpenHands Mac App UI Design Plan
 
