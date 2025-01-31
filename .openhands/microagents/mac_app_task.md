@@ -1,3 +1,8 @@
+---
+name: mac_app
+type: task
+agent: CodeActAgent
+---
 # OpenHands Mac App UI Design Plan
 
 This document outlines the plan for the user interface of the OpenHands Mac application.
