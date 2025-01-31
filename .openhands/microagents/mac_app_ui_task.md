@@ -86,7 +86,6 @@ The UI layout is conceptually divided into two main columns: a left column for t
     *   **Top Right Section:** Split vertically into two areas.
         *   **Workspace (File Explorer):** Displays a file tree for workspace navigation.
         *   **Variable Context Area:** A switchable tabbed panel to display different context-related views.  Users can switch between these views as needed. The views available in this area are:
-            *   **Code View:**  To display and interact with code (similar to a Jupyter view, potentially for code editing/viewing, output visualization, etc. - details to be defined).
             *   **Settings Panel:**  For configuring application settings.
             *   **Prompt Configuration Area:** For managing system prompts and MicroAgents.
             *   **Memory Area:** To visualize and manage the agent's memory.
