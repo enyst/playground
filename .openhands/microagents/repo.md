@@ -43,3 +43,7 @@ Frontend:
   - Available variables: VITE_BACKEND_HOST, VITE_USE_TLS, VITE_INSECURE_SKIP_VERIFY, VITE_FRONTEND_PORT
 - Internationalization:
   - Generate i18n declaration file: `npm run make-i18n`
+
+## IMPORTANT: Frontend Setup
+
+To understand the frontend setup in this repository, please read [frontend/README.md](frontend/README.md). This document provides information about the frontend application, including the tech stack, how to get started, run the application in development and production modes, project structure, features, testing, and contributing.
