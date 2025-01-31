@@ -58,7 +58,7 @@ The Mac app will include the following core features:
         *   **Memory Display:** Visualize agent's memory content (format to be determined - e.g., text, graph).
         *   **(Optional) Memory Management:** Features to clear or edit memory (for advanced users).
 
-## 2.  Conceptual App Structure
+## 2. App Structure
 
 The app structure is conceptually divided into two main columns: a left column for the Main Interaction Area and a right column for context and tools.
 
