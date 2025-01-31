@@ -3,7 +3,7 @@ name: mac_app
 type: task
 agent: CodeActAgent
 ---
-# OpenHands Mac App Technical Guide
+# OpenHands Mac App
 
 This document provides a technical overview and development guide for the OpenHands Mac application.
 
