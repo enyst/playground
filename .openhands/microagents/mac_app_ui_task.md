@@ -15,7 +15,7 @@ The Mac app UI will consist of the following core elements:
     *   Functionality: Real-time display of agent's progress, including code changes and command executions.
 
 3.  **File Explorer:**
-    *   Description: A file tree view to browse and manage files within the OpenHands workspace.
+    *   Description: A file tree view to browse and manage files within the workspace.
     *   Functionality: File system navigation, file opening, basic file management (create, delete, rename - optional for initial version).
 
 
