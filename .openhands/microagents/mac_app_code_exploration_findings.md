@@ -133,42 +133,6 @@ The backend is built using FastAPI and provides REST API endpoints and a SocketI
 
 This document summarizes the findings from exploring the frontend and backend codebases of the OpenHands repository, focusing on aspects relevant to the development of the Mac App MVP using Swift/Cocoa.
 
-## 1. Frontend Code Findings (React)
-
-The web frontend is built using React and provides valuable UI components and logic that can be used as a reference for the Mac app development.
-
-### 1.1. UI Components (frontend/src/components/features/)
-
-* **Chat Feature (chat/):**
-    * `chat/chat-input.tsx`: User input area component using `TextareaAutosize`. Handles text input, submission, image pasting/drag-and-drop. Key prop: `onSubmit(message: string)`.
-    * `chat/interactive-chat-box.tsx`: Wraps `ChatInput` and adds image upload/display functionality. Prop: `onSubmit(message: string, images: File[])`.
-    * `chat/messages.tsx`: Renders a list of chat messages.
-    * `chat/chat-message.tsx`: Displays individual chat messages (agent outputs).
-* **File Explorer Feature (file-explorer/):**
-    * `file-explorer/file-explorer.tsx`: Main file explorer component, uses `useListFiles` hook to fetch file list and renders `ExplorerTree`.
-    * `file-explorer/explorer-tree.tsx`: Renders the file tree structure recursively using `TreeNode` components.
-    * `file-explorer/tree-node.tsx`: Renders individual file/folder nodes, uses `useListFiles` (for folders) and `useListFile` (for file content/metadata).
-* **Controls Feature (controls/):**
-    * `controls/agent-control-bar.tsx`: Contains Pause/Resume button using `ActionButton`. Sends `CHANGE_AGENT_STATE` actions.
-    * `controls/agent-status-bar.tsx`: Displays agent status using `AGENT_STATUS_MAP` and Redux state.
-* **Terminal Feature (terminal/):**
-    * `terminal/terminal.tsx`: Renders a terminal UI using `xterm.js` and `useTerminal` hook.
-    * `hooks/use-terminal.ts`: Custom hook for integrating `xterm.js`, handling input, output, and commands.
-
-### 1.2. Shared Components (frontend/src/components/shared/)
-
-* `buttons/action-button.tsx`: Reusable button component for triggering agent actions, with tooltip and styling.
-* `modals/settings/settings-modal.tsx`: Modal for displaying and editing application settings, uses `SettingsForm`.
-* `modals/settings/settings-form.tsx`: Form component within `SettingsModal`, contains various input fields for settings.
-
-### 1.3. Hooks (frontend/src/hooks/query/)
-
-* `hooks/query/use-list-files.ts`: Fetches file list from backend API endpoint `/api/conversations/{conversation_id}/list-files`.
-* `hooks/query/use-list-file.ts`: (Misnamed, should be `useFileContent`) Fetches file content from backend API endpoint `/api/conversations/{conversation_id}/select-file`.
-* `hooks/use-terminal.ts`: Integrates `xterm.js` terminal emulator, handles input, output, and commands.
-
-### 1.4. Contexts (frontend/src/context/)
-
 * `context/ws-client-provider.tsx`: Provides WebSocket context (`WsClientContext`, `useWsClient`) for SocketIO communication. Manages connection and `send` function.
 * `context/conversation-context.tsx`: Provides conversation ID context (`ConversationContext`, `useConversation`) from route parameters.
 * `context/files.tsx`: Provides file-related state management context (`FilesContext`, `useFiles`) for file explorer.
