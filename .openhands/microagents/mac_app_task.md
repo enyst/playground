@@ -161,7 +161,7 @@ The backend server sends events to the Mac app using the `oh_event` event. Event
 
 #### 3.1.2. Sending Actions (`oh_action`)
 
-The Mac app sends actions to the backend server using the `oh_action` event. Actions are also sent as dictionaries in JSON format.
+The Mac app sends actions to the backend server using the `oh_action` event. These actions are triggered by **user interactions within the Mac app**, and in the backend processing, they are associated with `EventSource.USER`. Actions are also sent as dictionaries in JSON format.
 
 **`oh_action` Data Structure:**
 
