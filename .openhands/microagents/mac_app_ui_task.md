@@ -64,7 +64,7 @@ The UI layout is conceptually divided into two main columns: a left column for t
 | |                  Chat Area                      | | |                      Top Right Section                            | |
 | | +---------------------------------------------+ | | | | +---------------------------------------+-----------------------+ |
 | | |          Agent Output Display             | | | | | |    Workspace (File Explorer)       | Variable Context Area   | |
-| | | (Conversation History, Agent Actions, Logs) | | | | | |                                       | (Web Browser,         | |
+| | | (Conversation History, Agent Actions, Logs) | | | | | |                                       | (Settings,         | |
 | | +---------------------------------------------+ | | | | |                                       |  Settings, Prompts,    | |
 | | |              Task Input Area                | | | | |                                       |  Memory - switchable)  | |
 | | |         (User Input Text Area)              | | | | +---------------------------------------+-----------------------+ |
