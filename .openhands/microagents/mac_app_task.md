@@ -99,7 +99,15 @@ This layout aims to provide a clear and organized interface, separating the main
 
 ## 3.  Backend Communication
 
-*(Details on how the Mac app UI will communicate with the Python backend - e.g., using REST API, WebSockets, etc. - to be defined later)*
+The Mac app UI will communicate with the Python backend using **SocketIO**. 
+
+The backend server is already configured to use SocketIO for real-time communication with the web UI.  The SocketIO server is initialized in `openhands/server/shared.py` and event handlers are defined in `openhands/server/listen_socket.py`.
+
+The existing SocketIO setup is configured to allow Cross-Origin Requests from any origin (`cors_allowed_origins='*'`), which will allow the Mac app to connect to the backend server.
+
+The Mac app will need to implement a SocketIO client to connect to the backend server and communicate using the same event names (`oh_action`, `oh_event`, etc.) as the web UI.
+
+This approach reuses the existing communication infrastructure and avoids the need to design a new communication protocol.
 
 ## 4.  Implementation
 
