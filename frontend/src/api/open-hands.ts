@@ -13,7 +13,7 @@ import {
   GetTrajectoryResponse,
 } from "./open-hands.types";
 import { openHands } from "./open-hands-axios";
-import { ApiSettings } from "#/types/settings";
+import { ApiSettings, PostApiSettings } from "#/types/settings";
 
 class OpenHands {
   /**
@@ -239,9 +239,6 @@ class OpenHands {
       body,
     );
 
-    // TODO: remove this once we have a multi-conversation UI
-    localStorage.setItem("latest_conversation_id", data.conversation_id);
-
     return data;
   }
 
@@ -267,9 +264,28 @@ class OpenHands {
    * Save the settings to the server. Only valid settings are saved.
    * @param settings - the settings to save
    */
-  static async saveSettings(settings: Partial<ApiSettings>): Promise<boolean> {
+  static async saveSettings(
+    settings: Partial<PostApiSettings>,
+  ): Promise<boolean> {
     const data = await openHands.post("/api/settings", settings);
     return data.status === 200;
+  }
+
+  static async createCheckoutSession(amount: number): Promise<string> {
+    const { data } = await openHands.post(
+      "/api/billing/create-checkout-session",
+      {
+        amount,
+      },
+    );
+    return data.redirect_url;
+  }
+
+  static async getBalance(): Promise<string> {
+    const { data } = await openHands.get<{ credits: string }>(
+      "/api/billing/credits",
+    );
+    return data.credits;
   }
 
   static async getGitHubUser(): Promise<GitHubUser> {
