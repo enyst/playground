@@ -1,3 +1,4 @@
+import { ModalButton } from "#/components/shared/buttons/modal-button";
 import {
   BaseModalTitle,
   BaseModalDescription,
@@ -6,7 +7,6 @@ import { ModalBackdrop } from "#/components/shared/modals/modal-backdrop";
 import { ModalBody } from "#/components/shared/modals/modal-body";
 import { useCurrentSettings } from "#/context/settings-context";
 import { handleCaptureConsent } from "#/utils/handle-capture-consent";
-import { BrandButton } from "../settings/brand-button";
 
 interface AnalyticsConsentFormModalProps {
   onClose: () => void;
@@ -40,7 +40,7 @@ export function AnalyticsConsentFormModal({
         onSubmit={handleSubmit}
         className="flex flex-col gap-2"
       >
-        <ModalBody className="border border-tertiary">
+        <ModalBody>
           <BaseModalTitle title="Your Privacy Preferences" />
           <BaseModalDescription>
             We use tools to understand how our application is used to improve
@@ -53,14 +53,12 @@ export function AnalyticsConsentFormModal({
             Send anonymous usage data
           </label>
 
-          <BrandButton
+          <ModalButton
             testId="confirm-preferences"
             type="submit"
-            variant="primary"
-            className="w-full"
-          >
-            Confirm Preferences
-          </BrandButton>
+            text="Confirm Preferences"
+            className="bg-primary text-white w-full hover:opacity-80"
+          />
         </ModalBody>
       </form>
     </ModalBackdrop>

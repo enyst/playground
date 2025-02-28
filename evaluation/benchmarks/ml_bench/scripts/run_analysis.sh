@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 RESULT_FILE=$1
 MODEL_CONFIG=$2

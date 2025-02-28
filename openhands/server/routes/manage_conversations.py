@@ -18,7 +18,6 @@ from openhands.server.shared import (
     SettingsStoreImpl,
     config,
     conversation_manager,
-    monitoring_listener,
 )
 from openhands.server.types import LLMAuthenticationError, MissingSettingsError
 from openhands.storage.data_models.conversation_info import ConversationInfo
@@ -52,7 +51,6 @@ async def _create_new_conversation(
     initial_user_msg: str | None,
     image_urls: list[str] | None,
 ):
-    monitoring_listener.on_create_conversation()
     logger.info('Loading settings')
     settings_store = await SettingsStoreImpl.get_instance(config, user_id)
     settings = await settings_store.load()

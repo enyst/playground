@@ -8,71 +8,36 @@ We can't simply pass in our own client object, because all the different impleme
 different types of client object.
 
 So we monkey patch the httpx.Client class to track newly created instances and close these
-when the operations complete. (Since some paths create a single shared client and reuse these,
-we actually need to create a proxy object that allows these clients to be reusable.)
+when the operations complete. (This is relatively safe, as if the client is reused after this
+then is will transparently reopen)
 
 Hopefully, this will be fixed soon and we can remove this abomination.
 """
 
-import contextlib
+from dataclasses import dataclass, field
+from functools import wraps
 from typing import Callable
 
-import httpx
+from httpx import Client
 
 
-@contextlib.contextmanager
-def ensure_httpx_close():
-    wrapped_class = httpx.Client
-    proxys = []
+@dataclass
+class EnsureHttpxClose:
+    clients: list[Client] = field(default_factory=list)
+    original_init: Callable | None = None
 
-    class ClientProxy:
-        """
-        Sometimes LiteLLM opens a new httpx client for each connection, and does not close them.
-        Sometimes it does close them. Sometimes, it reuses a client between connections. For cases
-        where a client is reused, we need to be able to reuse the client even after closing it.
-        """
+    def __enter__(self):
+        self.original_init = Client.__init__
 
-        client_constructor: Callable
-        args: tuple
-        kwargs: dict
-        client: httpx.Client
+        @wraps(Client.__init__)
+        def init_wrapper(*args, **kwargs):
+            self.clients.append(args[0])
+            return self.original_init(*args, **kwargs)  # type: ignore
 
-        def __init__(self, *args, **kwargs):
-            self.args = args
-            self.kwargs = kwargs
-            self.client = wrapped_class(*self.args, **self.kwargs)
-            proxys.append(self)
+        Client.__init__ = init_wrapper
 
-        def __getattr__(self, name):
-            # Invoke a method on the proxied client - create one if required
-            if self.client is None:
-                self.client = wrapped_class(*self.args, **self.kwargs)
-            return getattr(self.client, name)
-
-        def close(self):
-            # Close the client if it is open
-            if self.client:
-                self.client.close()
-                self.client = None
-
-        def __iter__(self, *args, **kwargs):
-            # We have to override this as debuggers invoke it causing the client to reopen
-            if self.client:
-                return self.client.iter(*args, **kwargs)
-            return object.__getattribute__(self, 'iter')(*args, **kwargs)
-
-        @property
-        def is_closed(self):
-            # Check if closed
-            if self.client is None:
-                return True
-            return self.client.is_closed
-
-    httpx.Client = ClientProxy
-    try:
-        yield
-    finally:
-        httpx.Client = wrapped_class
-        while proxys:
-            proxy = proxys.pop()
-            proxy.close()
+    def __exit__(self, type, value, traceback):
+        Client.__init__ = self.original_init
+        while self.clients:
+            client = self.clients.pop()
+            client.close()

@@ -1,9 +1,6 @@
 import hashlib
-import os
 import uuid
 from typing import Tuple, Type
-
-from pydantic import SecretStr
 
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
 from openhands.controller import AgentController
@@ -16,21 +13,18 @@ from openhands.core.logger import openhands_logger as logger
 from openhands.events import EventStream
 from openhands.events.event import Event
 from openhands.llm.llm import LLM
+from openhands.memory.memory import Memory
 from openhands.microagent.microagent import BaseMicroAgent
 from openhands.runtime import get_runtime_cls
 from openhands.runtime.base import Runtime
 from openhands.security import SecurityAnalyzer, options
 from openhands.storage import get_file_store
-from openhands.utils.async_utils import call_async_from_sync
 
 
 def create_runtime(
     config: AppConfig,
     sid: str | None = None,
     headless_mode: bool = True,
-    agent: Agent | None = None,
-    selected_repository: str | None = None,
-    github_token: SecretStr | None = None,
 ) -> Runtime:
     """Create a runtime for the agent to run on.
 
@@ -39,8 +33,6 @@ def create_runtime(
         Set it to incompatible value will cause unexpected behavior on RemoteRuntime.
     headless_mode: Whether the agent is run in headless mode. `create_runtime` is typically called within evaluation scripts,
         where we don't want to have the VSCode UI open, so it defaults to True.
-    selected_repository: (optional) The GitHub repository to use.
-    github_token: (optional) The GitHub token to use.
     """
     # if sid is provided on the command line, use it as the name of the event stream
     # otherwise generate it on the basis of the configured jwt_secret
@@ -51,17 +43,8 @@ def create_runtime(
     file_store = get_file_store(config.file_store, config.file_store_path)
     event_stream = EventStream(session_id, file_store)
 
-    # set up the security analyzer
-    if config.security.security_analyzer:
-        options.SecurityAnalyzers.get(
-            config.security.security_analyzer, SecurityAnalyzer
-        )(event_stream)
-
     # agent class
-    if agent:
-        agent_cls = type(agent)
-    else:
-        agent_cls = openhands.agenthub.Agent.get_cls(config.default_agent)
+    agent_cls = openhands.agenthub.Agent.get_cls(config.default_agent)
 
     # runtime and tools
     runtime_cls = get_runtime_cls(config.runtime)
@@ -74,38 +57,43 @@ def create_runtime(
         headless_mode=headless_mode,
     )
 
-    call_async_from_sync(runtime.connect)
-
-    # clone selected repository if provided
-    repo_directory = None
-    github_token = (
-        SecretStr(os.environ.get('GITHUB_TOKEN')) if not github_token else github_token
-    )
-    if selected_repository and github_token:
-        logger.debug(f'Selected repository {selected_repository}.')
-        repo_directory = runtime.clone_repo(
-            github_token,
-            selected_repository,
-            None,
-        )
-
-    # load microagents from selected repository
-    if agent and agent.prompt_manager and selected_repository and repo_directory:
-        agent.prompt_manager.set_runtime_info(runtime)
-        microagents: list[BaseMicroAgent] = runtime.get_microagents_from_selected_repo(
-            selected_repository
-        )
-        agent.prompt_manager.load_microagents(microagents)
-        agent.prompt_manager.set_repository_info(selected_repository, repo_directory)
-
-    logger.debug(
-        f'Runtime initialized with plugins: {[plugin.name for plugin in runtime.plugins]}'
-    )
-
     return runtime
 
 
-def create_agent(config: AppConfig) -> Agent:
+def create_memory(
+    microagents_dir: str,
+    agent: Agent,
+    runtime: Runtime,
+    event_stream: EventStream,
+    selected_repository: str | None = None,
+) -> Memory:
+    # If the agent config has disabled microagents, use them
+    disabled_microagents = agent.config.disabled_microagents
+
+    mem = Memory(
+        event_stream=event_stream,
+        microagents_dir=microagents_dir,
+        disabled_microagents=disabled_microagents,
+    )
+
+    if agent.prompt_manager and runtime:
+        # sets available hosts
+        mem.set_runtime_info(runtime.web_hosts)
+
+        # loads microagents from repo/.openhands/microagents
+        microagents: list[BaseMicroAgent] = runtime.get_microagents_from_selected_repo(
+            selected_repository
+        )
+        mem.load_user_workspace_microagents(microagents)
+
+        if selected_repository:
+            repo_directory = selected_repository.split('/')[1]
+            if repo_directory:
+                mem.set_repository_info(selected_repository, repo_directory)
+    return mem
+
+
+def create_agent(runtime: Runtime, config: AppConfig) -> Agent:
     agent_cls: Type[Agent] = Agent.get_cls(config.default_agent)
     agent_config = config.get_agent_config(config.default_agent)
     llm_config = config.get_llm_config_from_agent(config.default_agent)
@@ -113,6 +101,11 @@ def create_agent(config: AppConfig) -> Agent:
         llm=LLM(config=llm_config),
         config=agent_config,
     )
+
+    if config.security.security_analyzer:
+        options.SecurityAnalyzers.get(
+            config.security.security_analyzer, SecurityAnalyzer
+        )(runtime.event_stream)
 
     return agent
 
