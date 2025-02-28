@@ -36,20 +36,4 @@ describe("BrandButton", () => {
 
     expect(screen.getByText("Test Button")).toBeDisabled();
   });
-
-  it("should pass a start content", () => {
-    render(
-      <BrandButton
-        type="button"
-        variant="primary"
-        startContent={
-          <div data-testid="custom-start-content">Start Content</div>
-        }
-      >
-        Test Button
-      </BrandButton>,
-    );
-
-    screen.getByTestId("custom-start-content");
-  });
 });

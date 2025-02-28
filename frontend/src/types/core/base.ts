@@ -10,7 +10,6 @@ export type OpenHandsEventType =
   | "browse"
   | "browse_interactive"
   | "reject"
-  | "think"
   | "finish"
   | "error";
 

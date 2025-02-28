@@ -121,7 +121,7 @@ class DockerRuntime(ActionExecutionClient):
                     'error',
                     f'Container {self.container_name} not found.',
                 )
-                raise AgentRuntimeDisconnectedError from e
+                raise e
             if self.runtime_container_image is None:
                 if self.base_container_image is None:
                     raise ValueError(

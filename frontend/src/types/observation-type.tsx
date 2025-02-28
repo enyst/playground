@@ -22,12 +22,6 @@ enum ObservationType {
 
   // Delegate result
   DELEGATE = "delegate",
-
-  // A response to the agent's thought (usually a static message)
-  THINK = "think",
-
-  // A no-op observation
-  NULL = "null",
 }
 
 export default ObservationType;

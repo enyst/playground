@@ -1,38 +1,51 @@
-import httpx
+from httpx import Client
 
-from openhands.utils.ensure_httpx_close import ensure_httpx_close
+from openhands.utils.ensure_httpx_close import EnsureHttpxClose
 
 
 def test_ensure_httpx_close_basic():
-    """Test basic functionality of ensure_httpx_close."""
-    ctx = ensure_httpx_close()
+    """Test basic functionality of EnsureHttpxClose."""
+    clients = []
+    ctx = EnsureHttpxClose()
     with ctx:
         # Create a client - should be tracked
-        client = httpx.Client()
+        client = Client()
+        assert client in ctx.clients
+        assert len(ctx.clients) == 1
+        clients.append(client)
 
     # After context exit, client should be closed
     assert client.is_closed
 
 
 def test_ensure_httpx_close_multiple_clients():
-    """Test ensure_httpx_close with multiple clients."""
-    ctx = ensure_httpx_close()
+    """Test EnsureHttpxClose with multiple clients."""
+    ctx = EnsureHttpxClose()
     with ctx:
-        client1 = httpx.Client()
-        client2 = httpx.Client()
+        client1 = Client()
+        client2 = Client()
+        assert len(ctx.clients) == 2
+        assert client1 in ctx.clients
+        assert client2 in ctx.clients
 
     assert client1.is_closed
     assert client2.is_closed
 
 
 def test_ensure_httpx_close_nested():
-    """Test nested usage of ensure_httpx_close."""
-    with ensure_httpx_close():
-        client1 = httpx.Client()
+    """Test nested usage of EnsureHttpxClose."""
+    outer_ctx = EnsureHttpxClose()
+    with outer_ctx:
+        client1 = Client()
+        assert client1 in outer_ctx.clients
 
-        with ensure_httpx_close():
-            client2 = httpx.Client()
-            assert not client2.is_closed
+        inner_ctx = EnsureHttpxClose()
+        with inner_ctx:
+            client2 = Client()
+            assert client2 in inner_ctx.clients
+            # Since both contexts are using the same monkey-patched __init__,
+            # both contexts will track all clients created while they are active
+            assert client2 in outer_ctx.clients
 
         # After inner context, client2 should be closed
         assert client2.is_closed
@@ -45,11 +58,12 @@ def test_ensure_httpx_close_nested():
 
 
 def test_ensure_httpx_close_exception():
-    """Test ensure_httpx_close when an exception occurs."""
+    """Test EnsureHttpxClose when an exception occurs."""
     client = None
+    ctx = EnsureHttpxClose()
     try:
-        with ensure_httpx_close():
-            client = httpx.Client()
+        with ctx:
+            client = Client()
             raise ValueError('Test exception')
     except ValueError:
         pass
@@ -59,11 +73,12 @@ def test_ensure_httpx_close_exception():
     assert client.is_closed
 
 
-def test_ensure_httpx_close_restore_client():
-    """Test that the original client is restored after context exit."""
-    original_client = httpx.Client
-    with ensure_httpx_close():
-        assert httpx.Client != original_client
+def test_ensure_httpx_close_restore_init():
+    """Test that the original __init__ is restored after context exit."""
+    original_init = Client.__init__
+    ctx = EnsureHttpxClose()
+    with ctx:
+        assert Client.__init__ != original_init
 
     # Original __init__ should be restored
-    assert httpx.Client == original_client
+    assert Client.__init__ == original_init

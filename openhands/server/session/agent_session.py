@@ -20,7 +20,6 @@ from openhands.runtime import get_runtime_cls
 from openhands.runtime.base import Runtime
 from openhands.runtime.impl.remote.remote_runtime import RemoteRuntime
 from openhands.security import SecurityAnalyzer, options
-from openhands.server.monitoring import MonitoringListener
 from openhands.storage.files import FileStore
 from openhands.utils.async_utils import call_sync_from_async
 from openhands.utils.shutdown_listener import should_continue
@@ -46,13 +45,11 @@ class AgentSession:
     _started_at: float = 0
     _closed: bool = False
     loop: asyncio.AbstractEventLoop | None = None
-    monitoring_listener: MonitoringListener
 
     def __init__(
         self,
         sid: str,
         file_store: FileStore,
-        monitoring_listener: MonitoringListener,
         status_callback: Optional[Callable] = None,
         github_user_id: str | None = None,
     ):
@@ -68,7 +65,6 @@ class AgentSession:
         self.file_store = file_store
         self._status_callback = status_callback
         self.github_user_id = github_user_id
-        self._monitoring_listener = monitoring_listener
 
     async def start(
         self,
@@ -103,13 +99,10 @@ class AgentSession:
             logger.warning('Session closed before starting')
             return
         self._starting = True
-        started_at = time.time()
-        self._started_at = started_at
-        finished = False  # For monitoring
-        runtime_connected = False
+        self._started_at = time.time()
         try:
             self._create_security_analyzer(config.security.security_analyzer)
-            runtime_connected = await self._create_runtime(
+            await self._create_runtime(
                 runtime_name=runtime_name,
                 config=config,
                 agent=agent,
@@ -149,13 +142,8 @@ class AgentSession:
                     ChangeAgentStateAction(AgentState.AWAITING_USER_INPUT),
                     EventSource.ENVIRONMENT,
                 )
-            finished = True
         finally:
             self._starting = False
-            success = finished and runtime_connected
-            self._monitoring_listener.on_agent_session_start(
-                success, (time.time() - started_at)
-            )
 
     async def close(self):
         """Closes the Agent session"""
@@ -183,6 +171,10 @@ class AgentSession:
         if self.security_analyzer is not None:
             await self.security_analyzer.close()
 
+    async def stop_agent_loop_for_error(self):
+        if self.controller is not None:
+            await self.controller.set_agent_state_to(AgentState.ERROR)
+
     def _create_security_analyzer(self, security_analyzer: str | None):
         """Creates a SecurityAnalyzer instance that will be used to analyze the agent actions
 
@@ -204,16 +196,13 @@ class AgentSession:
         github_token: SecretStr | None = None,
         selected_repository: str | None = None,
         selected_branch: str | None = None,
-    ) -> bool:
+    ):
         """Creates a runtime instance
 
         Parameters:
         - runtime_name: The name of the runtime associated with the session
         - config:
         - agent:
-
-        Return True on successfully connected, False if could not connect.
-        Raises if already created, possibly in other situations.
         """
 
         if self.runtime is not None:
@@ -240,7 +229,6 @@ class AgentSession:
             plugins=agent.sandbox_plugins,
             status_callback=self._status_callback,
             headless_mode=False,
-            attach_to_existing=False,
             env_vars=env_vars,
             **kwargs,
         )
@@ -258,7 +246,7 @@ class AgentSession:
                 self._status_callback(
                     'error', 'STATUS$ERROR_RUNTIME_DISCONNECTED', str(e)
                 )
-            return False
+            return
 
         if selected_repository:
             await call_sync_from_async(
@@ -271,7 +259,6 @@ class AgentSession:
         logger.debug(
             f'Runtime initialized with plugins: {[plugin.name for plugin in self.runtime.plugins]}'
         )
-        return True
 
     def _create_controller(
         self,

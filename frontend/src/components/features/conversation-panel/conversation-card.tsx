@@ -101,11 +101,9 @@ export function ConversationCard({
           "h-auto w-fit rounded-xl border border-[#525252]",
       )}
     >
-      <div className="flex items-center justify-between w-full">
-        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden mr-2">
-          {isActive && (
-            <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-          )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 w-full">
+          {isActive && <span className="w-2 h-2 bg-blue-500 rounded-full" />}
           {titleMode === "edit" && (
             <input
               ref={inputRef}
@@ -121,8 +119,7 @@ export function ConversationCard({
           {titleMode === "view" && (
             <p
               data-testid="conversation-card-title"
-              className="text-sm leading-6 font-semibold bg-transparent truncate overflow-hidden"
-              title={title}
+              className="text-sm leading-6 font-semibold bg-transparent w-full"
             >
               {title}
             </p>

@@ -1,5 +1,4 @@
-from typing import Any, Iterable
-
+from typing import Any, Iterable, Tuple
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 
@@ -32,9 +31,7 @@ class Message(Event):
     content: str | None
     tool_calls: list[ToolCall] | None = None
 
-    def __rich_repr__(
-        self,
-    ) -> Iterable[Any | tuple[Any] | tuple[str, Any] | tuple[str, Any, Any]]:
+    def __rich_repr__(self) -> Iterable[Any | tuple[Any] | tuple[str, Any] | tuple[str, Any, Any]]:
         # Print on separate line
         yield 'role', self.role
         yield 'content', self.content
