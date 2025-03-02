@@ -389,15 +389,11 @@ class ConversationMemory:
                     if obs.repo_name or obs.repo_directory
                     else None
                 )
-                runtime_info = None
-                if obs.runtime_hosts:
-                    # Convert to dict[str, int] if it's a list
-                    if isinstance(obs.runtime_hosts, list):
-                        # Default to port 12000 for each host
-                        hosts_dict = {host: 12000 for host in obs.runtime_hosts}
-                        runtime_info = RuntimeInfo(available_hosts=hosts_dict)
-                    else:
-                        runtime_info = RuntimeInfo(available_hosts=obs.runtime_hosts)
+                runtime_info = (
+                    RuntimeInfo(available_hosts=obs.runtime_hosts)
+                    if obs.runtime_hosts
+                    else None
+                )
                 repo_instructions = (
                     obs.repo_instructions if obs.repo_instructions else ''
                 )

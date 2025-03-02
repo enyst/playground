@@ -11,7 +11,12 @@ from openhands.microagent.microagent import RepoMicroAgent
 
 @dataclass
 class RuntimeInfo:
-    available_hosts: dict[str, int]
+    available_hosts: dict[str, int] | list[str]
+
+    def __post_init__(self):
+        # Convert list[str] to dict[str, int] if needed
+        if isinstance(self.available_hosts, list):
+            self.available_hosts = {host: 12000 for host in self.available_hosts}
 
 
 @dataclass
