@@ -246,6 +246,8 @@ def test_recall_observation_serialization():
     # Create original dictionary
     original_observation_dict = {
         'observation': 'recall',
+        'content': '',
+        'message': "Recalled: recall_type=RecallType.ENVIRONMENT_INFO, repo_name=some_repo_name, repo_instructions=complex_repo_instruc..., runtime_hosts={'host1': 8080, 'host2': 8081}, microagent_knowledge=[]",
         'extras': {
             'recall_type': RecallType.ENVIRONMENT_INFO.value,
             'repo_name': 'some_repo_name',
@@ -286,6 +288,8 @@ def test_recall_observation_microagent_knowledge_serialization():
     # Create original dictionary
     original_observation_dict = {
         'observation': 'recall',
+        'content': '',
+        'message': "Recalled: recall_type=RecallType.KNOWLEDGE_MICROAGENT, repo_name=, repo_instructions=..., runtime_hosts={}, microagent_knowledge=[{'agent_name': 'microagent1', 'trigger_word': 'trigger_word1', 'content': 'content1'}, {'agent_name': 'microagent2', 'trigger_word': 'trigger_word2', 'content': 'content2'}]",
         'extras': {
             'recall_type': RecallType.KNOWLEDGE_MICROAGENT.value,
             'repo_name': '',
