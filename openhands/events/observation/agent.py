@@ -14,6 +14,9 @@ class RecallType(Enum):
     KNOWLEDGE_MICROAGENT = 'knowledge_microagent'
     """A knowledge microagent."""
 
+    MICROAGENT_KNOWLEDGE = 'microagent_knowledge'
+    """Alias for KNOWLEDGE_MICROAGENT for backward compatibility."""
+
     DEFAULT = 'default'
     """Anything else that doesn't fit into the other categories."""
 
@@ -67,10 +70,43 @@ class RecallObservation(Observation):
     repo_name: str = ''
     repo_directory: str = ''
     repo_instructions: str = ''
-    runtime_hosts: dict[str, int] = field(default_factory=dict)
+    runtime_hosts: dict[str, int] | list[str] = field(default_factory=dict)
 
     # For knowledge_microagent
     microagent_knowledge: list[dict[str, str]] = field(default_factory=list)
+    triggered_content: list[dict[str, str]] = field(default_factory=list)
+
+    # Aliases for backward compatibility
+    @property
+    def repository_name(self) -> str:
+        return self.repo_name
+
+    @repository_name.setter
+    def repository_name(self, value: str) -> None:
+        self.repo_name = value
+
+    @property
+    def repository_directory(self) -> str:
+        return self.repo_directory
+
+    @repository_directory.setter
+    def repository_directory(self, value: str) -> None:
+        self.repo_directory = value
+
+    @property
+    def repository_instructions(self) -> str:
+        return self.repo_instructions
+
+    @repository_instructions.setter
+    def repository_instructions(self, value: str) -> None:
+        self.repo_instructions = value
+
+    def __post_init__(self):
+        # Sync triggered_content and microagent_knowledge
+        if self.triggered_content and not self.microagent_knowledge:
+            self.microagent_knowledge = self.triggered_content
+        elif self.microagent_knowledge and not self.triggered_content:
+            self.triggered_content = self.microagent_knowledge
 
     @property
     def message(self) -> str:
@@ -81,7 +117,9 @@ class RecallObservation(Observation):
         fields = [
             f'recall_type={self.recall_type}',
             f'repo_name={self.repo_name}',
-            f'repo_instructions={self.repo_instructions[:20]}...',
+            f'repo_instructions={self.repo_instructions[:20]}...'
+            if self.repo_instructions
+            else 'repo_instructions=',
             f'runtime_hosts={self.runtime_hosts}',
             f'microagent_knowledge={self.microagent_knowledge}',
         ]
