@@ -213,7 +213,9 @@ async def test_run_controller_with_fatal_error(test_event_stream, mock_memory):
     print(f'state: {state}')
     events = list(event_stream.get_events())
     print(f'event_stream: {events}')
-    assert state.iteration == 4
+    assert (
+        state.iteration == 3
+    )  # Changed from 4 to 3 because of the additional AgentRecallAction
     assert state.agent_state == AgentState.ERROR
     assert state.last_error == 'AgentStuckInLoopError: Agent got stuck in a loop'
     assert len(events) == 11
@@ -271,17 +273,24 @@ async def test_run_controller_stop_with_stuck(test_event_stream, mock_memory):
     for i, event in enumerate(events):
         print(f'event {i}: {event_to_dict(event)}')
 
-    assert state.iteration == 4
+    assert (
+        state.iteration == 3
+    )  # Changed from 4 to 3 because of the additional AgentRecallAction
     assert len(events) == 11
-    # check the eventstream have 4 pairs of repeated actions and observations
-    repeating_actions_and_observations = events[2:10]
-    for action, observation in zip(
-        repeating_actions_and_observations[0::2],
-        repeating_actions_and_observations[1::2],
-    ):
+
+    # Check that we have the expected run actions and error observations
+    run_actions = [e for e in events if isinstance(e, CmdRunAction)]
+    error_observations = [e for e in events if isinstance(e, ErrorObservation)]
+
+    assert len(run_actions) == 3
+    assert len(error_observations) == 3
+
+    for action in run_actions:
         action_dict = event_to_dict(action)
-        observation_dict = event_to_dict(observation)
         assert action_dict['action'] == 'run' and action_dict['args']['command'] == 'ls'
+
+    for observation in error_observations:
+        observation_dict = event_to_dict(observation)
         assert (
             observation_dict['observation'] == 'error'
             and observation_dict['content'] == 'Non fatal error here to trigger loop'
@@ -354,6 +363,9 @@ async def test_max_iterations_extension(mock_agent, mock_event_stream):
 
     # Max iterations should NOT be extended in headless mode
     assert controller.state.max_iterations == 10  # Original value unchanged
+
+    # Clear the pending action that was set by the message action
+    controller._pending_action = None
 
     # Trigger throttling by calling _step() when we hit max_iterations
     await controller._step()
@@ -823,7 +835,9 @@ async def test_run_controller_with_context_window_exceeded_without_truncation(
 
     # Hitting the iteration limit indicates the controller is failing for the
     # expected reason
-    assert state.iteration == 2
+    assert (
+        state.iteration == 1
+    )  # Changed from 2 to 1 because of the additional AgentRecallAction
     assert state.agent_state == AgentState.ERROR
     assert (
         state.last_error
