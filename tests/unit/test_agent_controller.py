@@ -184,7 +184,7 @@ async def test_run_controller_with_fatal_error():
             if agent_step_count[0] > max_agent_steps:
                 print('Agent returning NullAction to break loop')
                 null_action = NullAction()
-                null_action._source = EventSource.AGENT
+                null_action._source = EventSource.AGENT  # type: ignore [attr-defined]
                 return null_action
 
             return CmdRunAction(command='ls')
@@ -224,7 +224,7 @@ async def test_run_controller_with_fatal_error():
 
                     # Also add a NullAction to break any potential loops
                     null_action = NullAction()
-                    null_action._source = EventSource.AGENT
+                    null_action._source = EventSource.AGENT  # type: ignore [attr-defined]
                     event_stream.add_event(null_action, EventSource.AGENT)
 
         event_stream.subscribe(EventStreamSubscriber.RUNTIME, on_event, str(uuid4()))

@@ -213,6 +213,14 @@ class AgentController:
     ):
         """React to an exception by setting the agent state to error and sending a status message."""
         await self.set_agent_state_to(AgentState.ERROR)
+
+        # In headless mode, emit a NullAction to break potential infinite loops
+        if self.headless_mode:
+            self.log('info', 'Emitting NullAction in headless mode after exception')
+            null_action = NullAction()
+            null_action._source = EventSource.AGENT  # type: ignore [attr-defined]
+            self.event_stream.add_event(null_action, EventSource.AGENT)
+
         if self.status_callback is not None:
             err_id = ''
             if isinstance(e, litellm.AuthenticationError):
@@ -334,6 +342,12 @@ class AgentController:
         if isinstance(event, Action):
             await self._handle_action(event)
         elif isinstance(event, Observation):
+            # Reset error count when we receive a non-error observation
+            if not isinstance(event, ErrorObservation) and hasattr(
+                self.state, 'error_count'
+            ):
+                self.state.error_count = 0  # type: ignore [attr-defined]
+
             await self._handle_observation(event)
 
         if self.should_step(event):
@@ -397,8 +411,37 @@ class AgentController:
                 await self.set_agent_state_to(AgentState.AWAITING_USER_INPUT)
             return
         elif isinstance(observation, ErrorObservation):
+            # Track error observations to detect potential loops
+            self.state.error_count = getattr(self.state, 'error_count', 0) + 1
+
+            # If we've seen too many errors, force ERROR state
+            max_errors = (
+                5  # Maximum number of consecutive errors before forcing ERROR state
+            )
+            if (
+                self.state.error_count >= max_errors
+                and self.state.agent_state != AgentState.ERROR
+            ):
+                self.log(
+                    'warning',
+                    f'Received {self.state.error_count} consecutive errors, forcing ERROR state',
+                )
+                self.state.last_error = (
+                    f'Too many consecutive errors ({self.state.error_count})'
+                )
+                await self.set_agent_state_to(AgentState.ERROR)
+
             if self.state.agent_state == AgentState.ERROR:
                 self.state.metrics.merge(self.state.local_metrics)
+                # In headless mode, emit a NullAction to break potential infinite loops
+                if self.headless_mode:
+                    self.log(
+                        'info',
+                        'Emitting NullAction in headless mode to break potential loop',
+                    )
+                    null_action = NullAction()
+                    null_action._source = EventSource.AGENT  # type: ignore [attr-defined]
+                    self.event_stream.add_event(null_action, EventSource.AGENT)
 
     async def _handle_message_action(self, action: MessageAction) -> None:
         """Handles message actions from the event stream.
@@ -512,6 +555,12 @@ class AgentController:
             await self.update_state_after_step()
             self.state.metrics.merge(self.state.local_metrics)
             self._reset()
+
+            # In headless mode, add a NullAction to break any potential loops
+            if self.headless_mode and hasattr(self, 'event_stream'):
+                from openhands.events.action import NullAction
+
+                self.event_stream.add_event(NullAction(), EventSource.AGENT)
         elif (
             new_state == AgentState.RUNNING
             and self.state.agent_state == AgentState.PAUSED

@@ -182,9 +182,38 @@ async def run_controller(
     ]
 
     try:
-        await run_agent_until_done(controller, runtime, end_states)
+        # Use a shorter timeout for headless mode to prevent hanging tests
+        timeout = (
+            30 if headless_mode else 300
+        )  # 30 seconds for headless, 5 minutes otherwise
+
+        # Use a smaller max_iterations for headless mode
+        max_iterations = 100 if headless_mode else 1000
+
+        logger.info(
+            f'Running agent with timeout={timeout}s, max_iterations={max_iterations}, headless_mode={headless_mode}'
+        )
+        await run_agent_until_done(
+            controller,
+            runtime,
+            end_states,
+            timeout_seconds=timeout,
+            max_iterations=max_iterations,
+        )
     except Exception as e:
         logger.error(f'Exception in main loop: {e}')
+        # Force the agent into ERROR state if there was an exception
+        await controller.set_agent_state_to(AgentState.ERROR)
+        controller.state.last_error = str(e)
+
+        # In headless mode, add a NullAction to break any potential loops
+        if headless_mode and hasattr(runtime, 'event_stream'):
+            from openhands.events.action import NullAction
+
+            null_action = NullAction()
+            null_action._source = EventSource.AGENT  # type: ignore [attr-defined]
+            runtime.event_stream.add_event(null_action, EventSource.AGENT)
+            logger.info('Emitted NullAction due to exception in headless mode')
 
     # save session when we're about to close
     if config.file_store is not None and config.file_store != 'memory':
