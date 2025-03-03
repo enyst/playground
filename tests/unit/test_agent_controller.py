@@ -13,7 +13,12 @@ from openhands.core.config.agent_config import AgentConfig
 from openhands.core.main import run_controller
 from openhands.core.schema import AgentState
 from openhands.events import Event, EventSource, EventStream, EventStreamSubscriber
-from openhands.events.action import ChangeAgentStateAction, CmdRunAction, MessageAction, NullAction
+from openhands.events.action import (
+    ChangeAgentStateAction,
+    CmdRunAction,
+    MessageAction,
+    NullAction,
+)
 from openhands.events.observation import (
     AgentStateChangedObservation,
     ErrorObservation,
@@ -145,47 +150,50 @@ async def test_run_controller_with_fatal_error():
     config = AppConfig()
     # Set a very low max_iterations to ensure the test doesn't hang
     config.max_iterations = 3
-    
+
     file_store = InMemoryFileStore({})
     event_stream = EventStream(sid='test', file_store=file_store)
 
     # Mock the Memory component to prevent pickling errors
-    with patch('openhands.memory.memory.Memory') as MockMemory, \
-         patch('openhands.core.setup.Memory') as MockMemory2:
+    with patch('openhands.memory.memory.Memory') as MockMemory, patch(
+        'openhands.core.setup.Memory'
+    ) as MockMemory2:
         # Configure the mock to do nothing on events to avoid pickling errors
         mock_memory_instance = MockMemory.return_value
         mock_memory_instance.on_event.return_value = None
         mock_memory_instance.event_stream = event_stream
-        
+
         # Also mock the Memory instance in setup.py
         mock_memory_instance2 = MockMemory2.return_value
         mock_memory_instance2.on_event.return_value = None
         mock_memory_instance2.event_stream = event_stream
-        
+
         agent = MagicMock(spec=Agent)
 
         # Track how many times the agent step function has been called
         agent_step_count = [0]
         max_agent_steps = 2
-        
+
         def agent_step_fn(state):
             agent_step_count[0] += 1
-            print(f'agent_step_fn received state: {state}, step count: {agent_step_count[0]}')
-            
+            print(
+                f'agent_step_fn received state: {state}, step count: {agent_step_count[0]}'
+            )
+
             # After max steps, return a NullAction to break the loop
             if agent_step_count[0] > max_agent_steps:
-                print("Agent returning NullAction to break loop")
+                print('Agent returning NullAction to break loop')
                 null_action = NullAction()
                 null_action._source = EventSource.AGENT
                 return null_action
-            
+
             return CmdRunAction(command='ls')
 
         agent.step = agent_step_fn
         agent.llm = MagicMock(spec=LLM)
         agent.llm.metrics = Metrics()
         agent.llm.config = config.get_llm_config()
-        agent.name = "TestAgent"
+        agent.name = 'TestAgent'
         agent.reset = MagicMock()  # Add mock for reset method
 
         runtime = MagicMock(spec=Runtime)
@@ -198,20 +206,22 @@ async def test_run_controller_with_fatal_error():
         def on_event(event: Event):
             if isinstance(event, CmdRunAction):
                 call_count[0] += 1
-                print(f"Call count: {call_count[0]}")
-                
+                print(f'Call count: {call_count[0]}')
+
                 # Always respond with an error
                 error_obs = ErrorObservation('You messed around with Jim')
                 error_obs._cause = event.id
                 event_stream.add_event(error_obs, EventSource.USER)
-                
+
                 # After max_calls, force an error state to break the loop
                 if call_count[0] >= max_calls:
-                    print("Forcing ERROR state after max calls")
+                    print('Forcing ERROR state after max calls')
                     # Force the agent into ERROR state
-                    state_change_obs = AgentStateChangedObservation(agent_state=AgentState.ERROR)
+                    state_change_obs = AgentStateChangedObservation(
+                        agent_state=AgentState.ERROR
+                    )
                     event_stream.add_event(state_change_obs, EventSource.AGENT)
-                    
+
                     # Also add a NullAction to break any potential loops
                     null_action = NullAction()
                     null_action._source = EventSource.AGENT
@@ -231,24 +241,24 @@ async def test_run_controller_with_fatal_error():
                     fake_user_response_fn=lambda _: 'repeat',
                     headless_mode=True,  # Ensure headless mode is explicitly set
                 ),
-                timeout=5  # Short timeout to prevent test hanging
+                timeout=5,  # Short timeout to prevent test hanging
             )
             print(f'Controller completed with state: {state}')
         except asyncio.TimeoutError:
-            print("Controller task timed out")
+            print('Controller task timed out')
             # Even if we timeout, we should still check the events
             print("Test timed out but we'll check the events anyway")
-        
+
         # Check the events regardless of timeout
         events = list(event_stream.get_events())
         print(f'event_stream length: {len(events)}')
-        
+
         # We should have at least a few events
-        assert len(events) >= 1, f"Expected at least one event, got {len(events)}"
-        
+        assert len(events) >= 1, f'Expected at least one event, got {len(events)}'
+
         # Print all events for debugging
         for i, event in enumerate(events):
-            print(f"Event {i}: {type(event).__name__} - {event_to_dict(event)}")
+            print(f'Event {i}: {type(event).__name__} - {event_to_dict(event)}')
 
 
 @pytest.mark.asyncio
