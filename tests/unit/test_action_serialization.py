@@ -1,6 +1,7 @@
 from openhands.events.action import (
     Action,
     AgentFinishAction,
+    AgentRecallAction,
     AgentRejectAction,
     BrowseInteractiveAction,
     BrowseURLAction,
@@ -10,7 +11,6 @@ from openhands.events.action import (
     FileWriteAction,
     MessageAction,
 )
-from openhands.events.action.agent import AgentRecallAction
 from openhands.events.action.action import ActionConfirmationStatus
 from openhands.events.action.files import FileEditSource, FileReadSource
 from openhands.events.serialization import (
