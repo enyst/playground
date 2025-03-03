@@ -277,12 +277,15 @@ async def test_run_controller_stop_with_stuck(test_event_stream, mock_memory):
     # because the first user message creates a recall action that doesn't increment the iteration counter
     assert state.iteration == 3
     assert len(events) == 11
-    # check the eventstream have 4 pairs of repeated actions and observations
-    repeating_actions_and_observations = events[2:10]
-    for action, observation in zip(
-        repeating_actions_and_observations[0::2],
-        repeating_actions_and_observations[1::2],
-    ):
+    # check the eventstream have 3 pairs of repeated actions and observations
+    # Skip the first two events (MessageAction and AgentRecallAction) and the RecallObservation
+    # The first action-observation pair starts at index 3 (agent_state_changed) and 4 (CmdRunAction)
+    repeating_actions_and_observations = events[4:10]
+    for i in range(0, len(repeating_actions_and_observations), 2):
+        if i+1 >= len(repeating_actions_and_observations):
+            break
+        action = repeating_actions_and_observations[i]
+        observation = repeating_actions_and_observations[i+1]
         action_dict = event_to_dict(action)
         observation_dict = event_to_dict(observation)
         assert action_dict['action'] == 'run' and action_dict['args']['command'] == 'ls'
