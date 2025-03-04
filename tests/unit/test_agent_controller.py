@@ -217,7 +217,7 @@ async def test_run_controller_with_fatal_error(test_event_stream, mock_memory):
     assert state.iteration == 4
     assert state.agent_state == AgentState.ERROR
     assert state.last_error == 'AgentStuckInLoopError: Agent got stuck in a loop'
-    assert len(events) == 11
+    assert len(events) == 13
 
 
 @pytest.mark.asyncio
@@ -273,19 +273,28 @@ async def test_run_controller_stop_with_stuck(test_event_stream, mock_memory):
         print(f'event {i}: {event_to_dict(event)}')
 
     assert state.iteration == 4
-    assert len(events) == 11
+    assert len(events) == 13
     # check the eventstream have 4 pairs of repeated actions and observations
-    repeating_actions_and_observations = events[2:10]
-    for action, observation in zip(
-        repeating_actions_and_observations[0::2],
-        repeating_actions_and_observations[1::2],
-    ):
+    # The events are now:
+    # 0: MessageAction
+    # 1: AgentRecallAction
+    # 2: RecallObservation
+    # 3: agent_state_changed
+    # 4-11: 4 pairs of CmdRunAction and ErrorObservation
+    # 12: agent_state_changed
+    
+    # Check the 4 pairs of CmdRunAction and ErrorObservation (events 4-11)
+    cmd_run_actions = [events[i] for i in [4, 6, 8, 10]]
+    error_observations = [events[i] for i in [5, 7, 9, 11]]
+    
+    for action, observation in zip(cmd_run_actions, error_observations):
         action_dict = event_to_dict(action)
         observation_dict = event_to_dict(observation)
-        assert action_dict['action'] == 'run' and action_dict['args']['command'] == 'ls'
+        # Check that we have CmdRunAction with 'ls' and ErrorObservation
+        assert action_dict.get('action') == 'run' and action_dict.get('args', {}).get('command') == 'ls'
         assert (
-            observation_dict['observation'] == 'error'
-            and observation_dict['content'] == 'Non fatal error here to trigger loop'
+            observation_dict.get('observation') == 'error'
+            and observation_dict.get('content') == 'Non fatal error here to trigger loop'
         )
     last_event = event_to_dict(events[-1])
     assert last_event['extras']['agent_state'] == 'error'
@@ -698,7 +707,7 @@ async def test_run_controller_with_context_window_exceeded_with_truncation(
         def step(self, state: State):
             # If the state has more than one message and we haven't errored yet,
             # throw the context window exceeded error
-            if len(state.history) > 1 and not self.has_errored:
+            if len(state.history) > 3 and not self.has_errored:
                 error = ContextWindowExceededError(
                     message='prompt is too long: 233885 tokens > 200000 maximum',
                     model='',
@@ -773,7 +782,7 @@ async def test_run_controller_with_context_window_exceeded_without_truncation(
         def step(self, state: State):
             # If the state has more than one message and we haven't errored yet,
             # throw the context window exceeded error
-            if len(state.history) > 1 and not self.has_errored:
+            if len(state.history) > 3 and not self.has_errored:
                 error = ContextWindowExceededError(
                     message='prompt is too long: 233885 tokens > 200000 maximum',
                     model='',
