@@ -137,6 +137,8 @@ class AgentSession:
                 repo_directory=repo_directory,
             )
 
+            self.event_stream.subscribe(EventStreamSubscriber.MEMORY, self.memory.on_event, 'Memory')
+
             if github_token:
                 self.event_stream.set_secrets(
                     {
