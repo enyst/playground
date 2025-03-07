@@ -31,8 +31,7 @@ class ReplayManager:
 
         if replay_events:
             logger.info(f'Replay events loaded, events length = {len(replay_events)}')
-            for index in range(len(replay_events) - 1):
-                event = replay_events[index]
+            for event in replay_events[:-1]:
                 if isinstance(event, MessageAction) and event.wait_for_response:
                     # For any message waiting for response that is not the last
                     # event, we override wait_for_response to False, as a response
