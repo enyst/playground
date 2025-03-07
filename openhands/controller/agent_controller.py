@@ -434,6 +434,7 @@ class AgentController:
             # set pending_action while we search for information
             recall_action = AgentRecallAction(query=action.content)
             self._pending_action = recall_action
+                self._pending_action._cause = self._pending_action.id
             # this is source=USER because the user message is the trigger for the recall
             self.event_stream.add_event(recall_action, EventSource.USER)
 
