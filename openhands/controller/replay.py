@@ -77,5 +77,7 @@ class ReplayManager:
         assert self.replay_events is not None
         event = self.replay_events[self.replay_index]
         assert isinstance(event, Action)
+        event._id = None  # type: ignore[attr-defined]
+
         self.replay_index += 1
         return event
