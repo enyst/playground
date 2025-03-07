@@ -261,7 +261,7 @@ def load_replay_log(trajectory_path: str) -> tuple[list[Event] | None, Action]:
                     # the user or agent, and should not be replayed
                     continue
                 # cannot add an event with _id to event stream
-                event._id = None  # type: ignore[attr-defined]
+                event._id = Event.INVALID_ID  # type: ignore[attr-defined]
                 events.append(event)
             assert isinstance(events[0], MessageAction)
             return events[1:], events[0]
