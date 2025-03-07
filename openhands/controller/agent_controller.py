@@ -387,7 +387,7 @@ class AgentController:
             self.agent.llm.metrics.merge(observation.llm_metrics)
 
         # this happens for runnable actions and recall actions
-        if self._pending_action and self._pending_action.id == observation.cause:
+        if self._pending_action and getattr(self._pending_action, '_cause', None) == observation.cause:
             if self.state.agent_state == AgentState.AWAITING_USER_CONFIRMATION:
                 return
             self._pending_action = None
