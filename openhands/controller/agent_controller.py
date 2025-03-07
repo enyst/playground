@@ -293,6 +293,10 @@ class AgentController:
         return False
 
     def on_event(self, event: Event) -> None:
+
+        if self._pending_action and not getattr(self._pending_action, 'wait_for_response', False):
+            self._pending_action = None
+
         """Callback from the event stream. Notifies the controller of incoming events.
 
         Args:
