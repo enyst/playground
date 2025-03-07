@@ -458,6 +458,10 @@ class AgentController:
                 ):
                     found_observation = True
                     break
+            if self._pending_action and hasattr(self._pending_action, 'wait_for_response') and not self._pending_action.wait_for_response:
+                logger.info("Pending AgentRecallAction does not wait for response; clearing pending action")
+                self._pending_action = None
+
 
             # make a new ErrorObservation with the tool call metadata
             if not found_observation:
