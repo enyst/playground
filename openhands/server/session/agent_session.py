@@ -16,6 +16,8 @@ from openhands.events.event import EventSource
 from openhands.events.stream import EventStream
 from openhands.memory.memory import Memory
 from openhands.microagent.microagent import BaseMicroAgent
+from openhands.events.constants import EventStreamSubscriber
+
 from openhands.runtime import get_runtime_cls
 from openhands.runtime.base import Runtime
 from openhands.runtime.impl.remote.remote_runtime import RemoteRuntime
@@ -339,6 +341,8 @@ class AgentSession:
             event_stream=self.event_stream,
             sid=self.sid,
         )
+
+        self.event_stream.subscribe(EventStreamSubscriber.MEMORY, memory.on_event, 'Memory')
 
         if self.runtime:
             # sets available hosts and other runtime info
