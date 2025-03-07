@@ -387,7 +387,7 @@ class AgentController:
             self.agent.llm.metrics.merge(observation.llm_metrics)
 
         # this happens for runnable actions and recall actions
-        if self._pending_action and ((self._pending_action._cause) if getattr(self._pending_action, '_cause', None) is not None else self._pending_action.id) == observation.cause:
+        if self._pending_action and self._pending_action.id == observation.cause:
             if self.state.agent_state == AgentState.AWAITING_USER_CONFIRMATION:
                 return
             self._pending_action = None
@@ -434,6 +434,7 @@ class AgentController:
             # set pending_action while we search for information
             recall_action = AgentRecallAction(query=action.content)
             self._pending_action = recall_action
+                self._pending_action._cause = self._pending_action.id
             # this is source=USER because the user message is the trigger for the recall
             self.event_stream.add_event(recall_action, EventSource.USER)
 
