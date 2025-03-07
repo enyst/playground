@@ -293,6 +293,10 @@ class AgentController:
         return False
 
     def on_event(self, event: Event) -> None:
+
+        if self._pending_action and not getattr(self._pending_action, 'wait_for_response', False):
+            self._pending_action = None
+
         """Callback from the event stream. Notifies the controller of incoming events.
 
         Args:
@@ -434,8 +438,12 @@ class AgentController:
             # set pending_action while we search for information
             recall_action = AgentRecallAction(query=action.content)
             self._pending_action = recall_action
+            self._pending_action._cause = self._pending_action.id
             # this is source=USER because the user message is the trigger for the recall
-            self.event_stream.add_event(recall_action, EventSource.USER)
+
+
+
+
 
             if self.get_agent_state() != AgentState.RUNNING:
                 await self.set_agent_state_to(AgentState.RUNNING)
@@ -453,11 +461,15 @@ class AgentController:
             for event in self.state.history:
                 if (
                     isinstance(event, Observation)
-                    and event.tool_call_metadata
-                    == self._pending_action.tool_call_metadata
+                    and event.cause
+                    == self._pending_action.cause
                 ):
                     found_observation = True
                     break
+            if found_observation:
+                logger.info("Matching RecallObservation received; clearing pending action")
+                self._pending_action = None
+
 
             # make a new ErrorObservation with the tool call metadata
             if not found_observation:
