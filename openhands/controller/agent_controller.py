@@ -453,8 +453,8 @@ class AgentController:
             for event in self.state.history:
                 if (
                     isinstance(event, Observation)
-                    and event.tool_call_metadata
-                    == self._pending_action.tool_call_metadata
+                    and event.cause
+                    == self._pending_action.cause
                 ):
                     found_observation = True
                     break
