@@ -17,7 +17,7 @@ class ReplayManager:
     initial state of the trajectory.
     """
 
-    def __init__(self, events: list[Event] | None):
+    def __init__(self, events: list[Event] | None, headless: bool = True):
         replay_events = []
         for event in events or []:
             if event.source == EventSource.ENVIRONMENT:
@@ -31,16 +31,20 @@ class ReplayManager:
 
         if replay_events:
             logger.info(f'Replay events loaded, events length = {len(replay_events)}')
-            for event in replay_events[:-1]:
-                if isinstance(event, MessageAction) and event.wait_for_response:
-                    # For any message waiting for response that is not the last
-                    # event, we override wait_for_response to False, as a response
-                    # would have been included in the next event, and we don't
-                    # want the user to interfere with the replay process
-                    logger.info(
-                        'Replay events contains wait_for_response message action, ignoring wait_for_response'
-                    )
-                    event.wait_for_response = False
+            if headless:
+                for idx, event in enumerate(replay_events):
+                    if isinstance(event, MessageAction) and event.wait_for_response:
+                        logger.info(
+                            f"Replay event at index {idx} is a MessageAction waiting for response; disabling wait_for_response"
+                        )
+                        event.wait_for_response = False
+            else:
+                for event in replay_events[:-1]:
+                    if isinstance(event, MessageAction) and event.wait_for_response:
+                        logger.info(
+                            "Replay events contains wait_for_response message action, ignoring wait_for_response"
+                        )
+                        event.wait_for_response = False
         self.replay_events = replay_events
         self.replay_mode = bool(replay_events)
         self.replay_index = 0
