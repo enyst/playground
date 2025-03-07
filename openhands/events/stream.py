@@ -279,7 +279,7 @@ class EventStream:
         if event.id is not None:
             self.file_store.write(self._get_filename_for_id(event.id), json.dumps(data))
         self._queue.put(event)
-    return event
+        return event
 
 
     def set_secrets(self, secrets: dict[str, str]):
