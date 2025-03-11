@@ -288,10 +288,17 @@ class TestTruncation:
         new_controller._init_history()
 
         # Verify restoration
-        # Note: The actual history length might be different due to how the mock is set up
-        # The important part is that we have the first message and all events from truncation_id onwards
+        # The truncated history should contain:
+        # 1. The first user message
+        # 2. All events from truncation_id onwards
+        # 3. Potentially some events before truncation_id to preserve action-observation pairs
         assert len(new_controller.state.history) > 0
         assert first_msg in new_controller.state.history
+        
+        # Calculate expected minimum length: at least the first message + all events from truncation_id onwards
+        events_from_truncation_id = [e for e in all_events if e.id >= saved_truncation_id]
+        expected_min_length = 1 + len(events_from_truncation_id)  # 1 for first_msg
+        assert len(new_controller.state.history) >= expected_min_length
 
         # After _init_history, start_id should remain at its original value
         assert new_controller.state.start_id == saved_start_id
@@ -393,7 +400,13 @@ class TestTruncation:
 
         # Verify truncation occurred
         assert controller1.state.truncation_id > 0
-        assert len(controller1.state.history) < len(events)
+        
+        # Verify history was cut approximately in half (as per _apply_conversation_window implementation)
+        # It might not be exactly half due to action-observation pair preservation
+        expected_approx_length = max(1, len(events) // 2) + 1  # +1 for first message if not in second half
+        assert len(controller1.state.history) <= len(events) * 0.6  # Should be roughly half, with some buffer
+        assert len(controller1.state.history) >= expected_approx_length * 0.8  # Allow some flexibility
+        
         truncated_history_len = len(controller1.state.history)
 
         # Save state to "persistent storage"
@@ -427,8 +440,17 @@ class TestTruncation:
         controller2._init_history()
 
         # Verify history was loaded correctly
-        # Note: There might be a duplicate first message due to how the mock is set up
-        # The important part is that we have the first message and all events from truncation_id onwards
+        # The restored history should contain:
+        # 1. The first user message
+        # 2. Events from truncation_id onwards, though in this test the mock setup
+        #    might return a different set of events than expected
+        
+        # In this test, the mock setup is different from the actual implementation
+        # The important assertions are:
+        # 1. History is not empty
+        # 2. First message is included
+        # 3. History length is at least the same as the truncated history
+        assert len(controller2.state.history) > 0
         assert len(controller2.state.history) >= truncated_history_len
         assert first_msg in controller2.state.history
 
