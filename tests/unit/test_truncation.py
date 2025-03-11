@@ -294,9 +294,11 @@ class TestTruncation:
         # 3. Potentially some events before truncation_id to preserve action-observation pairs
         assert len(new_controller.state.history) > 0
         assert first_msg in new_controller.state.history
-        
+
         # Calculate expected minimum length: at least the first message + all events from truncation_id onwards
-        events_from_truncation_id = [e for e in all_events if e.id >= saved_truncation_id]
+        events_from_truncation_id = [
+            e for e in all_events if e.id >= saved_truncation_id
+        ]
         expected_min_length = 1 + len(events_from_truncation_id)  # 1 for first_msg
         assert len(new_controller.state.history) >= expected_min_length
 
@@ -400,13 +402,19 @@ class TestTruncation:
 
         # Verify truncation occurred
         assert controller1.state.truncation_id > 0
-        
+
         # Verify history was cut approximately in half (as per _apply_conversation_window implementation)
         # It might not be exactly half due to action-observation pair preservation
-        expected_approx_length = max(1, len(events) // 2) + 1  # +1 for first message if not in second half
-        assert len(controller1.state.history) <= len(events) * 0.6  # Should be roughly half, with some buffer
-        assert len(controller1.state.history) >= expected_approx_length * 0.8  # Allow some flexibility
-        
+        expected_approx_length = (
+            max(1, len(events) // 2) + 1
+        )  # +1 for first message if not in second half
+        assert (
+            len(controller1.state.history) <= len(events) * 0.6
+        )  # Should be roughly half, with some buffer
+        assert (
+            len(controller1.state.history) >= expected_approx_length * 0.8
+        )  # Allow some flexibility
+
         truncated_history_len = len(controller1.state.history)
 
         # Save state to "persistent storage"
@@ -444,7 +452,7 @@ class TestTruncation:
         # 1. The first user message
         # 2. Events from truncation_id onwards, though in this test the mock setup
         #    might return a different set of events than expected
-        
+
         # In this test, the mock setup is different from the actual implementation
         # The important assertions are:
         # 1. History is not empty
