@@ -82,11 +82,25 @@ A Mac desktop client could provide an improved user experience for working with 
   - Current: Global settings only
   - Needed: Per-project settings (e.g., runtime configuration, LLM selection)
 
+### Project and Conversation Models
+
+There are two potential models for the relationship between projects and conversations:
+
+#### Option 1: Project as a Container for Multiple Conversations
+* **Project Definition**: A project corresponds to a specific directory on disk and can contain multiple conversations
+* **Workspace Sharing**: Conversations within the same project share the same workspace directory
+* **Use Case**: Working on different aspects of the same codebase in parallel conversations
+
+#### Option 2: One-to-One Project-Conversation Relationship
+* **Project Definition**: Each conversation is its own project with a unique workspace directory
+* **Implementation**: Create isolated copies of source directories in `workspaces/conversation_{sid}`
+* **Use Case**: Complete isolation between different tasks or projects
+
 ### Conversation Management
 
-* **Conversations Within Projects** ❌ (not supported)
-  - Current: All conversations share the same workspace
-  - Needed: Conversations grouped by project with isolated workspaces
+* **Project-Based Conversations** ❌ (not supported)
+  - Current: All conversations share the same global workspace
+  - Needed: Either option 1 (grouped conversations) or option 2 (1:1 mapping)
 
 * **Conversation History** ✅ (supported)
   - Current: Conversation history is saved and can be revisited
@@ -94,7 +108,7 @@ A Mac desktop client could provide an improved user experience for working with 
 
 * **Conversation Transfer** ❌ (not supported)
   - Current: No way to move conversations between projects
-  - Needed: Ability to move or copy conversations between projects
+  - Needed: Ability to move or copy conversations between projects (only relevant for Option 1)
 
 ### File System Integration
 
@@ -138,10 +152,20 @@ To implement this improved UX, the following changes would be needed:
 
 The investigation confirms that the current OpenHands web UI mounts the same host directory for all conversations, which creates a limitation for users who want to work on multiple projects simultaneously. This is because the workspace configuration is global rather than per-conversation.
 
-A Mac desktop client could address this limitation by implementing a project-based workflow that allows users to:
-1. Create and manage multiple projects with different workspace directories
-2. Switch between projects easily
-3. Have conversations that are isolated to specific projects
-4. Integrate with native macOS features for a better user experience
+A Mac desktop client could address this limitation by implementing one of two project models:
 
-These improvements would significantly enhance the usability of OpenHands for users who work on multiple projects, making it a more versatile tool for software development and other tasks that require context switching between different workspaces.
+### Option 1: Projects as Containers
+- A project corresponds to a specific directory on disk
+- Multiple conversations can exist within a project, sharing the same workspace
+- Users can work on different aspects of the same codebase in parallel conversations
+- Project switching changes the workspace directory for all new conversations
+
+### Option 2: One-to-One Project-Conversation Mapping
+- Each conversation is its own project with a unique workspace directory
+- Workspaces are isolated copies of source directories
+- Complete separation between different tasks or projects
+- Simpler mental model: one conversation = one project = one workspace
+
+Both approaches would significantly enhance the usability of OpenHands for users who work on multiple projects, making it a more versatile tool for software development and other tasks that require context switching between different workspaces.
+
+The technical implementation would require modifying the `AppConfig` to support either per-project or per-conversation workspace paths, depending on which model is chosen.
