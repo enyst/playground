@@ -907,6 +907,9 @@ class AgentController:
             else self.event_stream.get_latest_event_id()
         )
 
+        # Store the original start_id to preserve it
+        original_start_id = self.state.start_id
+
         # sanity check
         if start_id > end_id + 1:
             self.log(
@@ -1003,8 +1006,8 @@ class AgentController:
         else:
             self.state.history = events
 
-        # make sure history is in sync
-        self.state.start_id = start_id
+        # Restore the original first message id
+        self.state.start_id = original_start_id
 
     def _handle_long_context_error(self) -> None:
         # When context window is exceeded, keep roughly half of agent interactions
