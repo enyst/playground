@@ -69,18 +69,41 @@ A Mac desktop client could provide an improved user experience for working with 
 * **Project Workspaces** ✅ (partially supported)
   - Current: Single global workspace directory configured in settings
   - Needed: Multiple named project workspaces with different directories
+  - Implementation: Create subdirectories within the global workspace for each project/conversation
 
 * **Project Switching** ❌ (not supported)
   - Current: No UI for switching between projects
   - Needed: Project selector in the sidebar or top navigation
+  - Implementation: Switch the active conversation to one associated with the selected project
 
 * **Project Creation** ❌ (not supported)
   - Current: No dedicated project creation flow
   - Needed: "New Project" button with directory selection
+  - Implementation: Create a new subdirectory in the global workspace with a unique identifier
 
 * **Project Settings** ❌ (not supported)
   - Current: Global settings only
   - Needed: Per-project settings (e.g., runtime configuration, LLM selection)
+  - Implementation: Store settings in a project configuration file
+
+### Alternative Cloud-Based Approach
+
+If implementing the "No Local Directory Mounting" approach:
+
+* **Repository Integration** ❌ (not supported)
+  - Current: Local directory mounting
+  - Needed: Direct integration with GitHub, GitLab, etc.
+  - Implementation: OAuth authentication and API integration
+
+* **Workspace Persistence** ❌ (not supported)
+  - Current: Ephemeral Docker containers
+  - Needed: Persistent storage for each conversation
+  - Implementation: Docker volumes or cloud storage integration
+
+* **File Synchronization** ❌ (not supported)
+  - Current: Manual file upload/download
+  - Needed: Automatic syncing between local and remote
+  - Implementation: Background sync process with conflict resolution
 
 ### Project and Conversation Models
 
@@ -151,13 +174,64 @@ Given the architectural constraints of OpenHands (isolated Docker containers but
 
 ### Technical Implementation Considerations
 
-To implement this improved UX, the following changes would be needed:
+#### For One-to-One Project-Conversation Mapping
 
-1. Modify `AppConfig` to support per-conversation workspace paths
-2. Update the Docker runtime to use different host directories for different conversations
-3. Create a project management layer in the application
-4. Implement native macOS integration using Electron or a similar framework
-5. Design a UI for project switching and management
+To implement the recommended approach with isolated workspaces:
+
+1. **Modify AppConfig**: Update `AppConfig` to support per-conversation workspace paths
+   ```python
+   # Example modification to AppConfig
+   def get_workspace_path_for_conversation(self, conversation_id):
+       return os.path.join(self.workspace_base, f"conversation_{conversation_id}")
+   ```
+
+2. **Update Docker Runtime**: Modify the Docker runtime to use different host directories for different conversations
+   ```python
+   # Example modification to DockerRuntime
+   volumes = {
+       self.config.get_workspace_path_for_conversation(sid): {
+           'bind': self.config.workspace_mount_path_in_sandbox,
+           'mode': 'rw',
+       }
+   }
+   ```
+
+3. **Create Project Management Layer**: Implement a project management system that:
+   - Creates new workspace directories for each conversation
+   - Copies files from source to conversation workspace
+   - Tracks relationships between projects and conversations
+
+4. **Implement Native macOS Integration**: Use Electron or a similar framework to:
+   - Provide native file pickers
+   - Support drag and drop
+   - Integrate with Finder
+   - Add menu bar access
+
+5. **Design UI for Project Management**: Create interfaces for:
+   - Project creation and selection
+   - Workspace directory management
+   - Project settings configuration
+
+#### For No Local Directory Mounting Approach
+
+To implement the cloud-based approach:
+
+1. **Implement Repository Integration**: Add OAuth authentication and API integration with:
+   - GitHub
+   - GitLab
+   - Bitbucket
+   - Other cloud storage providers
+
+2. **Create Persistent Storage System**: Develop a system for:
+   - Creating and managing Docker volumes
+   - Associating volumes with conversations
+   - Persisting data between sessions
+
+3. **Build File Synchronization**: Implement a sync system that:
+   - Detects changes in local and remote repositories
+   - Resolves conflicts
+   - Provides visual diff tools
+   - Automates push/pull operations
 
 ## Conclusion
 
@@ -186,4 +260,47 @@ This approach maintains consistency between filesystem and runtime states, allow
 2. Install different dependencies in different conversations
 3. Run different servers or processes in different conversations
 
-The technical implementation would require modifying the `AppConfig` to support per-conversation workspace paths, creating isolated copies of source directories for each conversation.
+#### Implementation Details
+
+The technical implementation would:
+
+1. **Use Global Workspace as Container**: The current global `workspace` directory would serve as the parent container for all conversation-specific workspaces.
+
+2. **Create Per-Conversation Subdirectories**: Within this global workspace, create subdirectories with names like:
+   - `workspaces/repo_name_sid` (for repository-based projects)
+   - `workspaces/default_sid` (for non-repository projects)
+   - `workspaces/conversation_sid` (generic naming scheme)
+
+3. **Copy Files for Each Conversation**: When a user starts a new conversation, the system would:
+   - Create a new subdirectory with a unique name (using the conversation SID)
+   - Copy the source files from the original location to this new subdirectory
+   - Mount this subdirectory as the workspace for the conversation's Docker container
+
+4. **Modify AppConfig**: Update the configuration to support per-conversation workspace paths.
+
+This approach provides isolation while maintaining a centralized location for managing all conversation workspaces.
+
+### Alternative Thought Experiment: No Local Directory Mounting
+
+What if we don't mount any local directory in the Docker runtime (set it to None)? This creates an interesting scenario:
+
+1. **Ephemeral Workspaces**: Each Docker container would have its own filesystem that exists only for the duration of the container's life.
+
+2. **User Options for Repository Work**:
+   - **Git Clone on Start**: Users would need to clone repositories at the start of each conversation.
+   - **Persistent Volume Mounting**: Instead of mounting local directories, mount persistent Docker volumes.
+   - **Cloud Storage Integration**: Integrate with GitHub, GitLab, or other cloud storage to pull/push code.
+   - **File Upload/Download**: Users would need to upload files to work on them and download results.
+
+3. **Advantages**:
+   - Complete isolation between conversations
+   - No risk of one conversation affecting another
+   - Simpler architecture (no need to manage workspace copies)
+
+4. **Disadvantages**:
+   - More setup work for users (cloning repos each time)
+   - Risk of losing work if not pushed to remote
+   - Less convenient for local development
+   - Slower workflow (need to push/pull changes)
+
+This approach would be more suitable for cloud-based deployments where users primarily work with remote repositories rather than local files.
