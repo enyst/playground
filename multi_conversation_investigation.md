@@ -84,31 +84,42 @@ A Mac desktop client could provide an improved user experience for working with 
 
 ### Project and Conversation Models
 
-There are two potential models for the relationship between projects and conversations:
+Given the architectural constraints of OpenHands (isolated Docker containers but shared host directory), the most consistent model is:
 
-#### Option 1: Project as a Container for Multiple Conversations
-* **Project Definition**: A project corresponds to a specific directory on disk and can contain multiple conversations
-* **Workspace Sharing**: Conversations within the same project share the same workspace directory
-* **Use Case**: Working on different aspects of the same codebase in parallel conversations
-
-#### Option 2: One-to-One Project-Conversation Relationship
+#### One-to-One Project-Conversation Relationship
 * **Project Definition**: Each conversation is its own project with a unique workspace directory
 * **Implementation**: Create isolated copies of source directories in `workspaces/conversation_{sid}`
 * **Use Case**: Complete isolation between different tasks or projects
+* **Advantages**: 
+  - Consistency between filesystem and runtime states
+  - Ability to work on different git branches in different conversations
+  - No unexpected side effects from other conversations
+
+#### Alternative (But Problematic) Approach: Project as a Container
+* **Project Definition**: A project corresponds to a specific directory on disk and contains multiple conversations
+* **Workspace Sharing**: Conversations within the same project share the same workspace directory
+* **Problems**:
+  - Git branch changes in one conversation affect all conversations
+  - File changes are visible across conversations, but runtime changes (installed packages, running servers) are not
+  - Creates confusing inconsistencies in the user experience
 
 ### Conversation Management
 
 * **Project-Based Conversations** ❌ (not supported)
   - Current: All conversations share the same global workspace
-  - Needed: Either option 1 (grouped conversations) or option 2 (1:1 mapping)
+  - Needed: One-to-one mapping between conversations and projects with isolated workspaces
 
 * **Conversation History** ✅ (supported)
   - Current: Conversation history is saved and can be revisited
   - Needed: Organize conversation history by project
 
-* **Conversation Transfer** ❌ (not supported)
-  - Current: No way to move conversations between projects
-  - Needed: Ability to move or copy conversations between projects (only relevant for Option 1)
+* **Project Templates** ❌ (not supported)
+  - Current: No way to create new conversations from templates
+  - Needed: Ability to create new projects based on templates or existing projects
+
+* **Workspace Synchronization** ❌ (not supported)
+  - Current: No way to sync changes between workspaces
+  - Needed: Optional ability to sync changes from one project to another
 
 ### File System Integration
 
@@ -152,20 +163,27 @@ To implement this improved UX, the following changes would be needed:
 
 The investigation confirms that the current OpenHands web UI mounts the same host directory for all conversations, which creates a limitation for users who want to work on multiple projects simultaneously. This is because the workspace configuration is global rather than per-conversation.
 
-A Mac desktop client could address this limitation by implementing one of two project models:
+### Architectural Constraints
 
-### Option 1: Projects as Containers
-- A project corresponds to a specific directory on disk
-- Multiple conversations can exist within a project, sharing the same workspace
-- Users can work on different aspects of the same codebase in parallel conversations
-- Project switching changes the workspace directory for all new conversations
+A critical consideration is that each conversation already runs in its own isolated Docker container sandbox. This means:
 
-### Option 2: One-to-One Project-Conversation Mapping
+1. Each conversation has isolated runtime state (installed packages, running processes)
+2. But all conversations share the same filesystem state (the host directory)
+
+This creates an inconsistency where file changes (including git branch switches) are visible across all conversations, but runtime changes are not.
+
+### Recommended Approach: One-to-One Project-Conversation Mapping
+
+Given the existing architecture, the most consistent approach for a Mac desktop client would be:
+
 - Each conversation is its own project with a unique workspace directory
 - Workspaces are isolated copies of source directories
 - Complete separation between different tasks or projects
 - Simpler mental model: one conversation = one project = one workspace
 
-Both approaches would significantly enhance the usability of OpenHands for users who work on multiple projects, making it a more versatile tool for software development and other tasks that require context switching between different workspaces.
+This approach maintains consistency between filesystem and runtime states, allowing users to:
+1. Work on different git branches in different conversations
+2. Install different dependencies in different conversations
+3. Run different servers or processes in different conversations
 
-The technical implementation would require modifying the `AppConfig` to support either per-project or per-conversation workspace paths, depending on which model is chosen.
+The technical implementation would require modifying the `AppConfig` to support per-conversation workspace paths, creating isolated copies of source directories for each conversation.
