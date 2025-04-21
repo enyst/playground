@@ -1,12 +1,12 @@
 <a name="readme-top"></a>
 
-<div align="center">
+<div align="justify">
   <img src="./docs/static/img/logo.png" alt="Logo" width="200">
-  <h1 align="center">OpenHands: Code Less, Make More</h1>
+  <h1 align="justify">OpenHands: Code Less, Make More</h1>
 </div>
 
 
-<div align="center">
+<div align="justify">
   <a href="https://github.com/All-Hands-AI/OpenHands/graphs/contributors"><img src="https://img.shields.io/github/contributors/All-Hands-AI/OpenHands?style=for-the-badge&color=blue" alt="Contributors"></a>
   <a href="https://github.com/All-Hands-AI/OpenHands/stargazers"><img src="https://img.shields.io/github/stars/All-Hands-AI/OpenHands?style=for-the-badge&color=blue" alt="Stargazers"></a>
   <a href="https://codecov.io/github/All-Hands-AI/OpenHands?branch=main"><img alt="CodeCov" src="https://img.shields.io/codecov/c/github/All-Hands-AI/OpenHands?style=for-the-badge&color=blue"></a>
@@ -110,7 +110,7 @@ See more about the community in [COMMUNITY.md](./COMMUNITY.md) or find details o
 
 See the monthly OpenHands roadmap [here](https://github.com/orgs/All-Hands-AI/projects/1) (updated at the maintainer's meeting at the end of each month).
 
-<p align="center">
+<p align="justify">
   <a href="https://star-history.com/#All-Hands-AI/OpenHands&Date">
     <img src="https://api.star-history.com/svg?repos=All-Hands-AI/OpenHands&type=Date" width="500" alt="Star History Chart">
   </a>
@@ -139,3 +139,4 @@ For a list of open source projects and licenses used in OpenHands, please see ou
       url={https://arxiv.org/abs/2407.16741},
 }
 ```
+
