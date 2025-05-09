@@ -1,0 +1,46 @@
+{
+  "name": "openhands-tab-extension",
+  "displayName": "OpenHands Tab",
+  "description": "Adds a custom OpenHands tab to the VS Code activity bar.",
+  "version": "0.0.1",
+  "publisher": "openhands",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:openhandsView"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "openhands-activitybar",
+          "title": "OpenHands",
+          "icon": "media/hands-monochrome.svg"
+        }
+      ]
+    },
+    "views": {
+      "openhands-activitybar": [
+        {
+          "id": "openhandsView",
+          "name": "OpenHands",
+          "type": "webview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "echo 'No compilation step for now'",
+    "watch": "echo 'No watch step for now'"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  }
+}
