@@ -4,6 +4,11 @@
   "description": "Adds a custom OpenHands tab to the VS Code activity bar.",
   "version": "0.0.1",
   "publisher": "openhands",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/enyst/playground.git",
+    "directory": "openhands/runtime/utils/vscode-extensions/openhands-tab"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
