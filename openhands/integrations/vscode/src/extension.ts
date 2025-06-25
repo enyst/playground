@@ -1,9 +1,12 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import { SocketService } from "./services/socket-service";
+import { VSCodeRuntimeActionHandler } from "./services/vscodeRuntimeActionHandler";
+import { isOpenHandsAction } from "@openhands/types";
 
 // Create output channel for debug logging
-const outputChannel = vscode.window.createOutputChannel("OpenHands Debug");
+const outputChannel = vscode.window.createOutputChannel("OpenHands");
 
 /**
  * This implementation uses VSCode's Shell Integration API.
@@ -218,7 +221,63 @@ function startOpenHandsInTerminal(options: {
   }
 }
 
+// Global service instances
+let socketService: SocketService | null = null;
+let actionHandler: VSCodeRuntimeActionHandler | null = null;
+
 export function activate(context: vscode.ExtensionContext) {
+  outputChannel.appendLine("OpenHands VSCode extension is activating.");
+
+  // Initialize services for runtime execution
+  const config = vscode.workspace.getConfiguration("openhands");
+  const serverUrl = config.get<string>("serverUrl");
+
+  if (serverUrl) {
+    outputChannel.appendLine(`Connecting to OpenHands server at ${serverUrl}`);
+    socketService = new SocketService(serverUrl);
+    actionHandler = new VSCodeRuntimeActionHandler();
+    // TODO: Refactor VSCodeRuntimeActionHandler to accept terminal provider/manager
+    // For now, it will use its own terminal logic for 'run' action.
+    // This will be addressed in the refactoring step.
+    actionHandler.setSocketService(socketService);
+
+    socketService
+      .connect()
+      .then(() => {
+        outputChannel.appendLine(
+          "Successfully connected to OpenHands backend for runtime execution.",
+        );
+        socketService?.onEvent((event) => {
+          if (isOpenHandsAction(event)) {
+            outputChannel.appendLine(
+              `Received action from backend: ${event.action}`,
+            );
+            actionHandler?.handleAction(event);
+          } else {
+            outputChannel.appendLine(
+              `Received non-action event from backend: ${JSON.stringify(event)}`,
+            );
+            // Potentially handle other event types if needed for UI updates in future
+          }
+        });
+      })
+      .catch((error) => {
+        outputChannel.appendLine(
+          `Failed to connect to OpenHands backend: ${error}`,
+        );
+        vscode.window.showErrorMessage(
+          `Failed to connect to OpenHands backend for runtime execution. Please check the server URL and ensure the backend is running. Error: ${error}`,
+        );
+      });
+  } else {
+    outputChannel.appendLine(
+      "OpenHands server URL not configured. Runtime execution features will be disabled.",
+    );
+    vscode.window.showWarningMessage(
+      "OpenHands server URL not configured. Runtime execution features will be disabled. Please set 'openhands.serverUrl' in your settings.",
+    );
+  }
+
   // Clean up terminal tracking when terminals are closed
   const terminalCloseDisposable = vscode.window.onDidCloseTerminal(
     (terminal) => {
@@ -242,15 +301,12 @@ export function activate(context: vscode.ExtensionContext) {
     () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        // No active editor, start conversation without task
         startOpenHandsInTerminal({});
         return;
       }
-
       if (editor.document.isUntitled) {
         const fileContent = editor.document.getText();
         if (!fileContent.trim()) {
-          // Empty untitled file, start conversation without task
           startOpenHandsInTerminal({});
           return;
         }
@@ -267,17 +323,8 @@ export function activate(context: vscode.ExtensionContext) {
   const startWithSelectionContextDisposable = vscode.commands.registerCommand(
     "openhands.startConversationWithSelectionContext",
     () => {
-      outputChannel.appendLine(
-        "DEBUG: startConversationWithSelectionContext command triggered!",
-      );
       const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        // No active editor, start conversation without task
-        startOpenHandsInTerminal({});
-        return;
-      }
-      if (editor.selection.isEmpty) {
-        // No text selected, start conversation without task
+      if (!editor || editor.selection.isEmpty) {
         startOpenHandsInTerminal({});
         return;
       }
@@ -286,9 +333,23 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
   context.subscriptions.push(startWithSelectionContextDisposable);
+
+  // Add services to subscriptions for cleanup on deactivation
+  if (socketService) {
+    context.subscriptions.push({
+      dispose: () => {
+        socketService?.disconnect();
+        outputChannel.appendLine(
+          "OpenHands SocketService disconnected on extension deactivation.",
+        );
+      },
+    });
+  }
+  outputChannel.appendLine("OpenHands VSCode extension activated.");
 }
 
 export function deactivate() {
-  // Clean up resources if needed, though for this simple extension,
-  // VS Code handles terminal disposal.
+  // The socketService.disconnect is handled by its disposable added to context.subscriptions.
+  // Other disposables (commands, terminalCloseDisposable) are also handled by VSCode.
+  outputChannel.appendLine("OpenHands VSCode extension deactivated.");
 }

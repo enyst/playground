@@ -82,20 +82,24 @@ export class VSCodeRuntimeActionHandler {
 
     private sendObservation(event: OpenHandsParsedEvent, observationType: string, content: string, extras: Record<string, unknown> = {}, error: boolean = false): void {
         const observationEvent: OpenHandsObservationEvent<OpenHandsEventType> = {
-            id: Date.now(),
+            id: Date.now(), // Consider using a more robust ID generation if needed
             observation: observationType as OpenHandsEventType,
             content: content,
             extras: extras,
             message: error ? `Error during ${observationType} operation` : `VSCode executed ${observationType} operation`,
-            source: 'environment',
-            cause: -1,
+            source: 'environment', // This should be 'runtime' or similar as per OpenHands conventions for observations from runtime actions
+            cause: -1, // Default, will be overwritten
             timestamp: new Date().toISOString()
         };
-        if ('id' in event && typeof event.id === 'number') {
+        if ('id' in event && typeof event.id === 'number') { // Ensure event.id is a number, or handle string IDs if OpenHandsEvent uses string IDs
             observationEvent.cause = event.id;
         }
 
+
         if (this.socketService) {
+            // The event to be sent should conform to OpenHandsParsedEvent.
+            // This might mean wrapping the observationEvent or ensuring its structure matches.
+            // For now, assuming direct send and that types are compatible or will be adjusted.
             this.socketService.sendEvent(observationEvent as unknown as OpenHandsParsedEvent);
         } else {
             console.error('Cannot send observation: SocketService is not set');
@@ -104,9 +108,12 @@ export class VSCodeRuntimeActionHandler {
     }
 
     private sendErrorObservation(event: OpenHandsParsedEvent, errorMessage: string): void {
-        this.sendObservation(event, 'action' in event ? event.action || 'unknown' : 'unknown', errorMessage, {}, true);
+        const actionType = 'action' in event && typeof event.action === 'string' ? event.action : 'unknown_action_type';
+        this.sendObservation(event, actionType, errorMessage, {}, true);
     }
 
+    // TODO: This method needs to be refactored to use the terminal management from the main extension.ts
+    // For now, it's copied as-is but marked for future refactoring.
     private handleRunAction(event: OpenHandsParsedEvent): void {
         if (!isOpenHandsAction(event) || event.action !== 'run') {
             this.sendErrorObservation(event, 'Invalid event type for run action');
@@ -120,7 +127,7 @@ export class VSCodeRuntimeActionHandler {
         }
 
         // Create or get a terminal for OpenHands commands
-        const terminalName = 'OpenHands Runtime';
+        const terminalName = 'OpenHands Runtime'; // This might conflict/duplicate with launcher's terminal naming
         let terminal = vscode.window.terminals.find(t => t.name === terminalName);
         if (!terminal) {
             terminal = vscode.window.createTerminal(terminalName);
@@ -132,7 +139,8 @@ export class VSCodeRuntimeActionHandler {
 
         // For now, we can't reliably capture terminal output programmatically
         // So we'll send a placeholder observation
-        this.sendObservation(event, 'run', `Command '${command}' sent to terminal. Output will be visible in the '${terminalName}' terminal.`, { command: command, exit_code: 0 });
+        // This needs to be improved to use the new terminal execution logic that can capture output
+        this.sendObservation(event, 'run', `Command '${command}' sent to terminal. Output will be visible in the '${terminalName}' terminal. This is a placeholder observation.`, { command: command, exit_code: 0 });
     }
 
     private async handleReadAction(event: OpenHandsParsedEvent): Promise<void> {
@@ -203,7 +211,7 @@ export class VSCodeRuntimeActionHandler {
             this.sendErrorObservation(event, 'Invalid event type for edit action');
             return;
         }
-        const args = event.args as { path: string; content: string };
+        const args = event.args as { path: string; content: string }; // Assuming 'edit' is a full content replacement for now
         const filePath = args.path;
         const newContent = args.content;
         if (!filePath || newContent === undefined) {
@@ -219,7 +227,7 @@ export class VSCodeRuntimeActionHandler {
 
         try {
             const uri = vscode.Uri.file(sanitizedPath);
-            // Read the current content to potentially show a diff
+            // Read the current content to potentially show a diff or for more complex edits later
             let oldContent = '';
             try {
                 const currentContentBuffer = await vscode.workspace.fs.readFile(uri);
@@ -228,7 +236,7 @@ export class VSCodeRuntimeActionHandler {
                 console.warn(`Could not read current content of ${filePath} for diff, file might not exist yet.`, error);
             }
 
-            // Write the new content
+            // Write the new content (effectively replacing the file content for 'edit' in this basic version)
             const contentBuffer = new TextEncoder().encode(newContent);
             await vscode.workspace.fs.writeFile(uri, contentBuffer);
 
