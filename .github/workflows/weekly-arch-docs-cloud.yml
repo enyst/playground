@@ -32,59 +32,8 @@ jobs:
           echo "It only requires OPENHANDS_API_KEY. LLM keys are not sent via this workflow."
 
       - name: Start Cloud conversation
-        id: start
-        env:
-          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
-          REPO: ${{ github.repository }}
         run: |
-          python - <<'PY'
-import json, os, textwrap
-import requests
-
-BASE = "https://app.all-hands.dev"
-API_KEY = os.environ["OPENHANDS_API_KEY"]
-REPO = os.environ["REPO"]
-
-headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-
-initial_user_msg = textwrap.dedent(
-    """
-    You are an AI software engineer working in this repository. Task:
-    1) Review docs/usage/architecture/backend.mdx and docs/usage/architecture/runtime.mdx.
-    2) Compare to the current codebase (esp. openhands/ and runtime code).
-    3) If material changes occurred since last week:
-       - Update the docs accurately; keep edits minimal and factual with references.
-       - If diagrams are out of date and simple to refresh, update or add a precise TODO.
-       - Open a PR following .github/pull_request_template.md with a clear technical report.
-    4) If nothing meaningful changed, do NOT open a PR; summarize findings in the conversation.
-    """
-)
-
-conversation_instructions = textwrap.dedent(
-    """
-    Rules:
-    - Only modify architecture docs unless necessary.
-    - Make smallest correct changes; keep style consistent.
-    - If opening a PR, follow the PR template and include a technical report.
-    - If no meaningful change, summarize findings only (no PR).
-    """
-)
-
-payload = {
-    "initial_user_msg": initial_user_msg,
-    "repository": REPO,
-    "selected_branch": "main",
-    "conversation_instructions": conversation_instructions,
-}
-
-resp = requests.post(f"{BASE}/api/conversations", headers=headers, json=payload, timeout=60)
-resp.raise_for_status()
-js = resp.json()
-print(json.dumps(js, indent=2))
-print(f"::set-output name=conversation_id::{js.get('conversation_id') or js.get('id')}")
-print(f"::set-output name=conversation_url::https://app.all-hands.dev/conversations/{js.get('conversation_id') or js.get('id')}")
-PY
-
-      - name: Show conversation link
-        run: |
-          echo "Conversation: ${{ steps.start.outputs.conversation_url }}"
+          python scripts/weekly_arch_docs_task.py \
+            --api-key "${{ secrets.OPENHANDS_API_KEY }}" \
+            --repo "${{ github.repository }}" \
+            --branch "main"
