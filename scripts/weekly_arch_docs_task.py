@@ -15,7 +15,16 @@ import json
 import textwrap
 from typing import Optional
 
-from scripts.cloud_api import OpenHandsCloudClient
+import os, sys
+# Ensure repo root and scripts/ are importable whether invoked as a module or script
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+try:
+    from scripts.cloud_api import OpenHandsCloudClient
+except ModuleNotFoundError:
+    from cloud_api import OpenHandsCloudClient
 
 
 def start_weekly_conversation(client: OpenHandsCloudClient, repo: str, branch: str = "main") -> dict:
