@@ -63,10 +63,21 @@ jobs:
             --arg key   "${LLM_API_KEY}" \
             --arg base  "${LLM_BASE_URL:-}" \
             '{ llm_model: ($model|select(. != "")), llm_api_key: $key, llm_base_url: ($base|select(. != "")) }')
-          curl -sS -X POST "$CLOUD_API_URL/api/settings" \
+          resp=$(curl -sS -w "\n%{http_code}\n" -X POST "$CLOUD_API_URL/api/settings" \
             -H "Authorization: Bearer $OPENHANDS_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "$payload" | jq .
+            -H "Accept: application/json" \
+            -d "$payload")
+          code=$(echo "$resp" | tail -n1)
+          body=$(echo "$resp" | sed '$d')
+          echo "[settings] HTTP $code"
+          if echo "$body" | jq . >/dev/null 2>&1; then
+            echo "$body" | jq .
+          else
+            echo "[settings] Non-JSON response (first 500 chars):" >&2
+            echo "$body" | head -c 500 >&2; echo >&2
+            [ "$code" -ge 200 ] && [ "$code" -lt 300 ] || exit 1
+          fi
 
       - name: Start OpenHands Cloud conversation
         id: start
@@ -108,11 +119,21 @@ jobs:
           EOF
 
           data=$(jq -n --arg msg "$PROMPT" --arg repo "${GITHUB_REPOSITORY}" '{ initial_user_msg: $msg, repository: $repo }')
-          resp=$(curl -sS -X POST "$CLOUD_API_URL/api/conversations" \
+          resp=$(curl -sS -w "\n%{http_code}\n" -X POST "$CLOUD_API_URL/api/conversations" \
             -H "Authorization: Bearer $OPENHANDS_API_KEY" \
             -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
             -d "$data")
-          echo "$resp" | jq .
+          code=$(echo "$resp" | tail -n1)
+          body=$(echo "$resp" | sed '$d')
+          echo "[conversations] HTTP $code"
+          if echo "$body" | jq . >/dev/null 2>&1; then
+            echo "$body" | jq .
+          else
+            echo "[conversations] Non-JSON response (first 500 chars):" >&2
+            echo "$body" | head -c 500 >&2; echo >&2
+            exit 1
+          fi
           cid=$(echo "$resp" | jq -r '.conversation_id // .id')
           echo "cid=$cid" >> "$GITHUB_OUTPUT"
           echo "conversation_url=$CLOUD_API_URL/conversations/$cid" >> "$GITHUB_OUTPUT"
