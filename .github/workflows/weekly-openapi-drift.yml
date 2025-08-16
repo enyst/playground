@@ -92,7 +92,7 @@ jobs:
             * Open a Draft Pull Request against the default branch. Ensure the PR follows the repository's PR template by reading the template file(s):
               - Prefer .github/pull_request_template.md if present; otherwise, check common locations like .github/PULL_REQUEST_TEMPLATE/*.md.
               - Include the template content at the top of the PR body.
-              - Immediately after the template content, add a personalized description that begins with: "openhands agent:" and then summarize the drift and the changes you made.
+              - Immediately after the template content, add a personalized description that begins with: "OpenHands agent" and then summarize the drift and the changes you made.
             * If push/PR permissions are unavailable in this environment, prepare a patch and include exact commands for a maintainer to push the branch and open a draft PR, and include those in the report.
           - Always print a final delimited report so the workflow can parse it. The report must include:
             === OPENAPI_DIFF_REPORT_START ===
