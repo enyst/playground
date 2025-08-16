@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          read -r -d '' PROMPT << 'EOF'
+          PROMPT=$(cat << 'EOF'
           You are the OpenHands agent running against the repository provided below.
           Task objective:
           - Run the repository script: python scripts/update_openapi.py --check --output-report openapi_diff.md --output-json openapi_diff.json
@@ -134,7 +134,7 @@ jobs:
             echo "$body" | head -c 500 >&2; echo >&2
             exit 1
           fi
-          cid=$(echo "$resp" | jq -r '.conversation_id // .id')
+          cid=$(echo "$body" | jq -r '.conversation_id // .id')
           echo "cid=$cid" >> "$GITHUB_OUTPUT"
           echo "conversation_url=$CLOUD_API_URL/conversations/$cid" >> "$GITHUB_OUTPUT"
 
@@ -165,7 +165,7 @@ jobs:
         run: |
           set -euo pipefail
           cid="${{ steps.start.outputs.cid }}"
-          resp=$(curl -sS "$CLOUD_API_URL/api/conversations/$cid/events?start_id=0&limit=5000" \
+          resp=$(curl -sS "$CLOUD_API_URL/api/conversations/$cid/events" \
             -H "Authorization: Bearer $OPENHANDS_API_KEY")
           echo "$resp" > events.json
           # Collect assistant messages into a flat file
