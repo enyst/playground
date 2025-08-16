@@ -15,7 +15,8 @@ import json
 import textwrap
 from typing import Optional
 
-import os, sys
+import os
+import sys
 # Ensure repo root and scripts/ are importable whether invoked as a module or script
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
@@ -64,11 +65,11 @@ def main() -> None:
     parser.add_argument("--api-key", required=True, help="OpenHands Cloud API key")
     parser.add_argument("--repo", required=True, help="owner/repo")
     parser.add_argument("--branch", default="main", help="Selected branch")
-    parser.add_argument("--base-url", default=None, help="Override Cloud base URL")
+    parser.add_argument("--base-url", default="https://app.all-hands.dev", help="Override Cloud base URL")
     parser.add_argument("--poll", action="store_true", help="Poll until complete")
     args = parser.parse_args()
 
-    client = OpenHandsCloudClient(api_key=args.api_key, base_url=(args.base_url or "https://app.all-hands.dev"))
+    client = OpenHandsCloudClient(api_key=args.api_key, base_url=args.base_url)
     js = start_weekly_conversation(client, repo=args.repo, branch=args.branch)
 
     conv_id = js.get("conversation_id") or js.get("id")
