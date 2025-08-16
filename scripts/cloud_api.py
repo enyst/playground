@@ -65,33 +65,21 @@ class OpenHandsCloudClient:
         Only fields that are not None are included in the request body.
         """
         url = f"{self.base_url}/api/settings"
-        body: Dict[str, Any] = {}
-
-        if language is not None:
-            body["language"] = language
-        if agent is not None:
-            body["agent"] = agent
-        if security_analyzer is not None:
-            body["security_analyzer"] = security_analyzer
-        if confirmation_mode is not None:
-            body["confirmation_mode"] = confirmation_mode
-        if llm_model is not None:
-            body["llm_model"] = llm_model
-        if llm_api_key is not None:
-            body["llm_api_key"] = llm_api_key
-        if llm_base_url is not None:
-            body["llm_base_url"] = llm_base_url
-        if remote_runtime_resource_factor is not None:
-            body["remote_runtime_resource_factor"] = remote_runtime_resource_factor
-        if enable_default_condenser is not None:
-            body["enable_default_condenser"] = enable_default_condenser
-        if enable_sound_notifications is not None:
-            body["enable_sound_notifications"] = enable_sound_notifications
-        if user_consents_to_analytics is not None:
-            body["user_consents_to_analytics"] = user_consents_to_analytics
-        if provider_tokens is not None:
-            # Use the provider_tokens field as per API docs if needed.
-            body["provider_tokens"] = provider_tokens
+        params: Dict[str, Any] = {
+            "language": language,
+            "agent": agent,
+            "security_analyzer": security_analyzer,
+            "confirmation_mode": confirmation_mode,
+            "llm_model": llm_model,
+            "llm_api_key": llm_api_key,
+            "llm_base_url": llm_base_url,
+            "remote_runtime_resource_factor": remote_runtime_resource_factor,
+            "enable_default_condenser": enable_default_condenser,
+            "enable_sound_notifications": enable_sound_notifications,
+            "user_consents_to_analytics": user_consents_to_analytics,
+            "provider_tokens": provider_tokens,
+        }
+        body: Dict[str, Any] = {k: v for k, v in params.items() if v is not None}
 
         resp = requests.post(url, headers=self._headers(), json=body, timeout=60)
         resp.raise_for_status()
@@ -111,18 +99,15 @@ class OpenHandsCloudClient:
     ) -> Dict[str, Any]:
         url = f"{self.base_url}/api/conversations"
         body: Dict[str, Any] = {"initial_user_msg": initial_user_msg}
-        if repository:
-            body["repository"] = repository
-        if git_provider:
-            body["git_provider"] = git_provider
-        if selected_branch:
-            body["selected_branch"] = selected_branch
-        if conversation_instructions:
-            body["conversation_instructions"] = conversation_instructions
-        if image_urls:
-            body["image_urls"] = image_urls
-        if replay_json:
-            body["replay_json"] = replay_json
+        optional_params = {
+            "repository": repository,
+            "git_provider": git_provider,
+            "selected_branch": selected_branch,
+            "conversation_instructions": conversation_instructions,
+            "image_urls": image_urls,
+            "replay_json": replay_json,
+        }
+        body.update({k: v for k, v in optional_params.items() if v})
 
         resp = requests.post(url, headers=self._headers(), json=body, timeout=60)
         resp.raise_for_status()

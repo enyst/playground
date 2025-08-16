@@ -42,7 +42,7 @@ def parse_provider_tokens(items: list[str]) -> Dict[str, str]:
         if "=" not in item:
             raise ValueError(f"Invalid --provider-token '{item}', expected key=value")
         k, v = item.split("=", 1)
-        out[k.strip()] = v
+        out[k.strip()] = v.strip()
     return out
 
 
