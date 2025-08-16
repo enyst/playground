@@ -30,7 +30,6 @@ jobs:
       - name: Print plan
         run: |
           echo "This workflow starts an OpenHands Cloud conversation to audit architecture docs weekly."
-          echo "It only requires OPENHANDS_API_KEY. LLM keys are not sent via this workflow."
 
       - name: Start Cloud conversation
         run: |
