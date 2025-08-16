@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Check required secrets
         env:
-          OPENHANDS_CLOUD_API_KEY: ${{ secrets.OPENHANDS_CLOUD_API_KEY }}
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
@@ -26,8 +26,8 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          if [ -z "${OPENHANDS_CLOUD_API_KEY:-}" ]; then
-            echo "Error: Required secret OPENHANDS_CLOUD_API_KEY is not set." >&2
+          if [ -z "${OPENHANDS_API_KEY:-}" ]; then
+            echo "Error: Required secret OPENHANDS_API_KEY is not set." >&2
             missing=1
           fi
           if [ -z "${LLM_API_KEY:-}" ]; then
@@ -46,7 +46,7 @@ jobs:
 
       - name: Configure LLM settings in OpenHands Cloud
         env:
-          OPENHANDS_CLOUD_API_KEY: ${{ secrets.OPENHANDS_CLOUD_API_KEY }}
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
@@ -59,14 +59,14 @@ jobs:
             --arg base  "${LLM_BASE_URL:-}" \
             '{ llm_model: ($model|select(. != "")), llm_api_key: $key, llm_base_url: ($base|select(. != "")) }')
           curl -sS -X POST "$CLOUD_API_URL/api/settings" \
-            -H "Authorization: Bearer $OPENHANDS_CLOUD_API_KEY" \
+            -H "Authorization: Bearer $OPENHANDS_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$payload" | jq .
 
       - name: Start OpenHands Cloud conversation
         id: start
         env:
-          OPENHANDS_CLOUD_API_KEY: ${{ secrets.OPENHANDS_CLOUD_API_KEY }}
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -104,7 +104,7 @@ jobs:
 
           data=$(jq -n --arg msg "$PROMPT" --arg repo "${GITHUB_REPOSITORY}" '{ initial_user_msg: $msg, repository: $repo }')
           resp=$(curl -sS -X POST "$CLOUD_API_URL/api/conversations" \
-            -H "Authorization: Bearer $OPENHANDS_CLOUD_API_KEY" \
+            -H "Authorization: Bearer $OPENHANDS_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$data")
           echo "$resp" | jq .
@@ -114,7 +114,7 @@ jobs:
 
       - name: Wait for conversation to complete
         env:
-          OPENHANDS_CLOUD_API_KEY: ${{ secrets.OPENHANDS_CLOUD_API_KEY }}
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -123,7 +123,7 @@ jobs:
           # Wait up to ~120 minutes (240 * 30s)
           for i in $(seq 1 240); do
             status=$(curl -sS -X GET "$CLOUD_API_URL/api/conversations/$cid" \
-              -H "Authorization: Bearer $OPENHANDS_CLOUD_API_KEY" | jq -r '.status')
+              -H "Authorization: Bearer $OPENHANDS_API_KEY" | jq -r '.status')
             echo "Status: $status"
             if [ "$status" != "RUNNING" ]; then
               break
@@ -134,13 +134,13 @@ jobs:
       - name: Fetch events and extract report
         id: extract
         env:
-          OPENHANDS_CLOUD_API_KEY: ${{ secrets.OPENHANDS_CLOUD_API_KEY }}
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           cid="${{ steps.start.outputs.cid }}"
           resp=$(curl -sS "$CLOUD_API_URL/api/conversations/$cid/events?start_id=0&limit=5000" \
-            -H "Authorization: Bearer $OPENHANDS_CLOUD_API_KEY")
+            -H "Authorization: Bearer $OPENHANDS_API_KEY")
           echo "$resp" > events.json
           # Collect assistant messages into a flat file
           echo "$resp" | jq -r '.events[] | select(.role=="assistant" or .role=="system" or .role=="tool").content // empty' > msgs.txt || true
