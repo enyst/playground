@@ -17,23 +17,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check required secrets
+        env:
+          OPENHANDS_CLOUD_API_KEY: ${{ secrets.OPENHANDS_CLOUD_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         shell: bash
         run: |
           set -euo pipefail
           missing=0
-          for v in OPENHANDS_CLOUD_API_KEY LLM_API_KEY; do
-            if [ -z "${{ secrets[format('{0}', v)] }}" ]; then
-              echo "Error: Required secret $v is not set." >&2
-              missing=1
-            fi
-          done
+          if [ -z "${OPENHANDS_CLOUD_API_KEY:-}" ]; then
+            echo "Error: Required secret OPENHANDS_CLOUD_API_KEY is not set." >&2
+            missing=1
+          fi
+          if [ -z "${LLM_API_KEY:-}" ]; then
+            echo "Error: Required secret LLM_API_KEY is not set." >&2
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
-          if [ -z "${{ secrets.LLM_MODEL }}" ]; then
+          if [ -z "${LLM_MODEL:-}" ]; then
             echo "Warning: LLM_MODEL not set, Cloud will use default model if applicable."
           fi
-          if [ -z "${{ secrets.LLM_BASE_URL }}" ]; then
+          if [ -z "${LLM_BASE_URL:-}" ]; then
             echo "Warning: LLM_BASE_URL not set, using provider default endpoint."
           fi
 
