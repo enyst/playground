@@ -17,6 +17,7 @@ from typing import Optional
 
 import os
 import sys
+import requests
 # Ensure repo root and scripts/ are importable whether invoked as a module or script
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
@@ -70,7 +71,22 @@ def main() -> None:
     args = parser.parse_args()
 
     client = OpenHandsCloudClient(api_key=args.api_key, base_url=args.base_url)
-    js = start_weekly_conversation(client, repo=args.repo, branch=args.branch)
+    try:
+        js = start_weekly_conversation(client, repo=args.repo, branch=args.branch)
+    except requests.HTTPError as e:
+        resp = getattr(e, "response", None)
+        print("ERROR: OpenHands Cloud API request failed.", file=sys.stderr)
+        if resp is not None:
+            print(f"Status: {resp.status_code}", file=sys.stderr)
+            try:
+                err_json = resp.json()
+                print(json.dumps(err_json, indent=2), file=sys.stderr)
+            except Exception:
+                text = resp.text
+                print(text[:4000], file=sys.stderr)
+        else:
+            print(str(e), file=sys.stderr)
+        raise
 
     conv_id = js.get("conversation_id") or js.get("id")
     url = f"{client.base_url}/conversations/{conv_id}" if conv_id else "(no id)"
