@@ -42,6 +42,7 @@ class OpenHandsCloudClient:
         self,
         *,
         llm_model: Optional[str] = None,
+        llm_api_key: Optional[str] = None,
         llm_base_url: Optional[str] = None,
         provider_tokens: Optional[Dict[str, str]] = None,
         confirmation_mode: Optional[bool] = None,
@@ -56,8 +57,10 @@ class OpenHandsCloudClient:
         """
         Store user settings for the Cloud account.
 
-        IMPORTANT: We do NOT pass LLM API keys here on purpose.
-        If provider tokens need to be set, supply them via provider_tokens.
+        Notes:
+        - LLM credentials: pass llm_api_key (and optionally llm_model/llm_base_url).
+        - Provider tokens: provider_tokens is for Git providers or other integrations
+          (e.g., GitHub/GitLab/Bitbucket/Jira), not LLM provider API keys.
 
         Only fields that are not None are included in the request body.
         """
@@ -74,6 +77,8 @@ class OpenHandsCloudClient:
             body["confirmation_mode"] = confirmation_mode
         if llm_model is not None:
             body["llm_model"] = llm_model
+        if llm_api_key is not None:
+            body["llm_api_key"] = llm_api_key
         if llm_base_url is not None:
             body["llm_base_url"] = llm_base_url
         if remote_runtime_resource_factor is not None:
