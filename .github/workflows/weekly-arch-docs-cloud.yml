@@ -1,4 +1,5 @@
 name: Weekly OpenHands Architecture Docs Audit (Cloud)
+# Model: GPT-5
 
 on:
   schedule:
@@ -33,7 +34,9 @@ jobs:
 
       - name: Start Cloud conversation
         run: |
+          set -e
           python scripts/weekly_arch_docs_task.py \
             --api-key "${{ secrets.OPENHANDS_API_KEY }}" \
             --repo "${{ github.repository }}" \
-            --branch "main"
+            --branch "main" \
+            --poll
