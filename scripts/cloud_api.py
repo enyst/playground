@@ -121,12 +121,9 @@ class OpenHandsCloudClient:
         conversation_id: str,
         *,
         timeout_s: int = 1800,  # 30 minutes
-        poll_interval_s: int = 15,
+        poll_interval_s: int = 300,  # 5 minutes
         terminal_statuses: tuple[str, ...] = (
-            'COMPLETED',
-            'FAILED',
-            'STOPPED',
-            'PAUSED',
+            'STOPPED',  # Conversation finished (success or failure)
         ),
         progress_callback: callable | None = None,
     ) -> str:
@@ -153,7 +150,8 @@ class OpenHandsCloudClient:
         while time.time() < deadline:
             try:
                 info = self.get_conversation(conversation_id)
-                status = str(info.get('status') or info.get('Status') or '').upper()
+                # Status comes from ConversationStatus enum in the API response
+                status = str(info.get('status', '')).upper()
 
                 if status:
                     last_status = status
