@@ -14,7 +14,7 @@ on:
         type: string
         default: 'main'
       poll:
-        description: 'Poll until conversation completes'
+        description: 'Poll until conversation stops'
         required: false
         type: boolean
         default: false

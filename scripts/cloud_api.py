@@ -145,6 +145,11 @@ class OpenHandsCloudAPI:
                 if status == 'STOPPED':
                     return conversation
 
+                # Also stop if conversation is in an error state
+                if status in ['FAILED', 'ERROR', 'CANCELLED']:
+                    print(f'⚠️  Conversation ended with status: {status}')
+                    return conversation
+
                 print(
                     f'Conversation {conversation_id} status: {status}. Waiting {poll_interval}s...'
                 )

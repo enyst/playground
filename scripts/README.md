@@ -65,4 +65,5 @@ The `OpenHandsCloudAPI` class provides methods for:
 - `create_conversation()` - Start new conversations
 - `get_conversation()` - Get conversation status
 - `get_trajectory()` - Get conversation event history
-- `poll_until_complete()` - Wait for conversation completion
+- `poll_until_stopped()` - Wait for conversation to stop
+- `post_github_comment()` - Post comments to GitHub issues
