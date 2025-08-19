@@ -48,14 +48,18 @@ def start_new_conversation(
     selected_branch: Optional[str] = None,
     api_key: Optional[str] = None,
     poll: bool = False,
+    prompt_file: Optional[str] = None,
+    custom_prompt: Optional[str] = None,
 ) -> str:
-    """Start a new conversation using the new_conversation.j2 template.
+    """Start a new conversation with customizable prompts.
 
     Args:
         repository: Git repository name in format "owner/repo" (optional)
         selected_branch: Git branch to use (optional)
         api_key: OpenHands API key (optional, will use env var if not provided)
         poll: Whether to poll until conversation stops
+        prompt_file: Prompt template file to use (optional, defaults to new_conversation.j2)
+        custom_prompt: Custom prompt text (optional, overrides prompt_file)
 
     Returns:
         Conversation ID
@@ -66,19 +70,30 @@ def start_new_conversation(
     client = None
     github_token = os.getenv('GITHUB_TOKEN')
 
-    # Load the prompt template
-    script_dir = Path(__file__).parent
-    prompts_dir = script_dir / 'prompts'
+    # Determine the prompt to use
+    if custom_prompt:
+        # Use custom prompt directly
+        initial_message = custom_prompt
+        print(f'Using custom prompt: {custom_prompt[:50]}...')
+    else:
+        # Use prompt file (default to new_conversation.j2)
+        if not prompt_file:
+            prompt_file = 'new_conversation.j2'
 
-    if not (prompts_dir / 'new_conversation.j2').exists():
-        print('❌ Error: new_conversation.j2 template not found')
-        sys.exit(1)
+        script_dir = Path(__file__).parent
+        prompts_dir = script_dir / 'prompts'
+        prompt_path = prompts_dir / prompt_file
 
-    env = Environment(loader=FileSystemLoader(prompts_dir))
-    template = env.get_template('new_conversation.j2')
+        if not prompt_path.exists():
+            print(f'❌ Error: Prompt file {prompt_file} not found in {prompts_dir}')
+            sys.exit(1)
 
-    # Render the template (currently no variables, but ready for future expansion)
-    initial_message = template.render()
+        env = Environment(loader=FileSystemLoader(prompts_dir))
+        template = env.get_template(prompt_file)
+
+        # Render the template (currently no variables, but ready for future expansion)
+        initial_message = template.render()
+        print(f'Using prompt file: {prompt_file}')
 
     try:
         client = OpenHandsCloudAPI(api_key=api_key)
@@ -161,12 +176,18 @@ def main():
     # Start new conversation command
     convo_parser = subparsers.add_parser(
         'new-conversation',
-        help='Start a new conversation using new_conversation.j2 template',
+        help='Start a new conversation with customizable prompts',
     )
     convo_parser.add_argument(
         '--repository', help="Git repository name in format 'owner/repo'"
     )
     convo_parser.add_argument('--branch', help='Git branch to use')
+    convo_parser.add_argument(
+        '--prompt-file', help='Prompt template file to use (e.g., new_conversation.j2)'
+    )
+    convo_parser.add_argument(
+        '--custom-prompt', help='Custom prompt text (overrides --prompt-file)'
+    )
     convo_parser.add_argument(
         '--api-key', help='OpenHands API key (defaults to OPENHANDS_API_KEY env var)'
     )
@@ -205,6 +226,8 @@ def main():
             selected_branch=args.branch,
             api_key=args.api_key,
             poll=args.poll,
+            prompt_file=args.prompt_file,
+            custom_prompt=args.custom_prompt,
         )
 
     elif args.command == 'configure-and-start':
@@ -214,6 +237,8 @@ def main():
             selected_branch=args.branch,
             api_key=args.api_key,
             poll=args.poll,
+            prompt_file=getattr(args, 'prompt_file', None),
+            custom_prompt=getattr(args, 'custom_prompt', None),
         )
 
 
