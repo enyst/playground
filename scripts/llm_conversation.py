@@ -99,7 +99,7 @@ def start_new_conversation(
         # Post success comment to GitHub issue
         if github_token:
             try:
-                comment = f'Conversation started, see it here: {conversation_link}'
+                comment = f'Conversation started, see it [here]({conversation_link})'
                 client.post_github_comment(
                     'enyst/playground', 95, comment, github_token
                 )
