@@ -123,14 +123,14 @@ class OpenHandsCloudAPI:
         return response.json()
 
     def poll_until_complete(
-        self, conversation_id: str, timeout: int = 3600, poll_interval: int = 30
+        self, conversation_id: str, timeout: int = 1200, poll_interval: int = 300
     ) -> dict[str, Any]:
         """Poll conversation until it completes or times out.
 
         Args:
             conversation_id: The conversation ID
-            timeout: Maximum time to wait in seconds (default: 1 hour)
-            poll_interval: Time between polls in seconds (default: 30 seconds)
+            timeout: Maximum time to wait in seconds (default: 20 minutes)
+            poll_interval: Time between polls in seconds (default: 5 minutes)
 
         Returns:
             Final conversation status
@@ -138,16 +138,22 @@ class OpenHandsCloudAPI:
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            conversation = self.get_conversation(conversation_id)
-            status = conversation.get('status', '').upper()
+            try:
+                conversation = self.get_conversation(conversation_id)
+                status = conversation.get('status', '').upper()
 
-            if status in ['COMPLETED', 'FAILED', 'STOPPED']:
-                return conversation
+                if status in ['COMPLETED', 'FAILED', 'STOPPED']:
+                    return conversation
 
-            print(
-                f'Conversation {conversation_id} status: {status}. Waiting {poll_interval}s...'
-            )
-            time.sleep(poll_interval)
+                print(
+                    f'Conversation {conversation_id} status: {status}. Waiting {poll_interval}s...'
+                )
+                time.sleep(poll_interval)
+
+            except Exception as e:
+                print(f'Error polling conversation {conversation_id}: {e}')
+                print('Stopping polling due to error.')
+                raise
 
         raise TimeoutError(
             f'Conversation {conversation_id} did not complete within {timeout} seconds'
