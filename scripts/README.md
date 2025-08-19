@@ -49,6 +49,7 @@ python llm_conversation.py configure-and-start --repository owner/repo --poll
 ## Environment Variables
 
 - `OPENHANDS_API_KEY` - Required. Your OpenHands Cloud API key
+- `GITHUB_TOKEN` - Optional. For GitHub issue commenting (automatically provided in GitHub Actions)
 - `LLM_MODEL` - Required for LLM configuration. The model to use
 - `LLM_BASE_URL` - Optional. Custom base URL for LLM API
 - `LLM_API_KEY` - Optional. API key for the LLM provider
