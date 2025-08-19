@@ -63,6 +63,7 @@ def start_new_conversation(
     print('Starting new conversation...')
 
     conversation_id = None
+    client = None
     github_token = os.getenv('GITHUB_TOKEN')
 
     # Load the prompt template
@@ -117,7 +118,7 @@ def start_new_conversation(
     except TimeoutError as e:
         print(f'⏰ Timeout: {e}')
         # Post timeout comment to GitHub issue
-        if github_token and conversation_id:
+        if github_token and conversation_id and client:
             try:
                 comment = 'Conversation timed out while polling'
                 client.post_github_comment(
@@ -130,7 +131,7 @@ def start_new_conversation(
     except Exception as e:
         print(f'❌ Error starting conversation: {e}')
         # Post error comment to GitHub issue
-        if github_token:
+        if github_token and client:
             try:
                 comment = 'Got an error while starting conversation'
                 client.post_github_comment(
