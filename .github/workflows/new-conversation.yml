@@ -13,6 +13,20 @@ on:
         required: false
         type: string
         default: 'main'
+      prompt_file:
+        description: 'Choose a prompt template'
+        required: false
+        type: choice
+        default: 'new_conversation.j2'
+        options:
+          - 'new_conversation.j2'
+          - 'debug_issue.j2'
+          - 'code_review.j2'
+          - 'feature_implementation.j2'
+      custom_prompt:
+        description: 'Custom prompt text (overrides prompt file if provided)'
+        required: false
+        type: string
       poll:
         description: 'Poll until conversation stops'
         required: false
@@ -49,6 +63,8 @@ jobs:
           # Use defaults if inputs are empty
           REPO="${{ inputs.repository }}"
           BRANCH="${{ inputs.branch }}"
+          PROMPT_FILE="${{ inputs.prompt_file }}"
+          CUSTOM_PROMPT="${{ inputs.custom_prompt }}"
 
           if [ -z "$REPO" ]; then
             REPO="All-Hands-AI/OpenHands"
@@ -58,8 +74,21 @@ jobs:
             BRANCH="main"
           fi
 
+          if [ -z "$PROMPT_FILE" ]; then
+            PROMPT_FILE="new_conversation.j2"
+          fi
+
           # Build command with parameters
           CMD="python llm_conversation.py new-conversation --repository '$REPO' --branch '$BRANCH'"
+
+          # Add prompt parameters
+          if [ -n "$CUSTOM_PROMPT" ]; then
+            # Use custom prompt (takes precedence)
+            CMD="$CMD --custom-prompt '$CUSTOM_PROMPT'"
+          else
+            # Use prompt file
+            CMD="$CMD --prompt-file '$PROMPT_FILE'"
+          fi
 
           if [ "${{ inputs.poll }}" = "true" ]; then
             CMD="$CMD --poll"
