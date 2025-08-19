@@ -1,0 +1,66 @@
+name: Start New OpenHands Conversation
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository to work with (owner/repo format)'
+        required: false
+        type: string
+        default: ''
+      branch:
+        description: 'Git branch to use'
+        required: false
+        type: string
+        default: ''
+      poll:
+        description: 'Poll until conversation completes'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  start-conversation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests jinja2
+
+      - name: Start new conversation
+        env:
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+        run: |
+          cd scripts
+
+          # Build command with optional parameters
+          CMD="python llm_conversation.py new-conversation"
+
+          if [ -n "${{ inputs.repository }}" ]; then
+            CMD="$CMD --repository '${{ inputs.repository }}'"
+          fi
+
+          if [ -n "${{ inputs.branch }}" ]; then
+            CMD="$CMD --branch '${{ inputs.branch }}'"
+          fi
+
+          if [ "${{ inputs.poll }}" = "true" ]; then
+            CMD="$CMD --poll"
+          fi
+
+          echo "Running: $CMD"
+          eval $CMD
+
+      - name: Output results
+        run: |
+          echo "✅ New conversation started successfully!"
+          echo "Check the workflow logs above for the conversation ID and link."
