@@ -39,6 +39,7 @@ jobs:
       - name: Start new conversation
         env:
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd scripts
 
