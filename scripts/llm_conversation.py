@@ -55,12 +55,15 @@ def start_new_conversation(
         repository: Git repository name in format "owner/repo" (optional)
         selected_branch: Git branch to use (optional)
         api_key: OpenHands API key (optional, will use env var if not provided)
-        poll: Whether to poll until conversation completes
+        poll: Whether to poll until conversation stops
 
     Returns:
         Conversation ID
     """
     print('Starting new conversation...')
+
+    conversation_id = None
+    github_token = os.getenv('GITHUB_TOKEN')
 
     # Load the prompt template
     script_dir = Path(__file__).parent
@@ -85,22 +88,56 @@ def start_new_conversation(
         )
 
         conversation_id = response['conversation_id']
+        conversation_link = f'https://app.all-hands.dev/conversations/{conversation_id}'
+
         print('✅ Conversation started successfully!')
         print(f'   Conversation ID: {conversation_id}')
         print(f'   Status: {response.get("status", "unknown")}')
-        print(f'   Link: https://app.all-hands.dev/conversations/{conversation_id}')
+        print(f'   Link: {conversation_link}')
+
+        # Post success comment to GitHub issue
+        if github_token:
+            try:
+                comment = f'Conversation started, see it here: {conversation_link}'
+                client.post_github_comment(
+                    'enyst/playground', 95, comment, github_token
+                )
+            except Exception as e:
+                print(f'⚠️  Could not post to GitHub issue: {e}')
 
         if poll:
-            print('\n🔄 Polling for completion...')
-            final_status = client.poll_until_complete(conversation_id)
+            print('\n🔄 Polling until conversation stops...')
+            final_status = client.poll_until_stopped(conversation_id)
             print(
-                f'✅ Conversation completed with status: {final_status.get("status", "unknown")}'
+                f'✅ Conversation stopped with status: {final_status.get("status", "unknown")}'
             )
 
         return conversation_id
 
+    except TimeoutError as e:
+        print(f'⏰ Timeout: {e}')
+        # Post timeout comment to GitHub issue
+        if github_token and conversation_id:
+            try:
+                comment = 'Conversation timed out while polling'
+                client.post_github_comment(
+                    'enyst/playground', 95, comment, github_token
+                )
+            except Exception:
+                pass  # Don't fail on comment posting
+        sys.exit(1)
+
     except Exception as e:
         print(f'❌ Error starting conversation: {e}')
+        # Post error comment to GitHub issue
+        if github_token:
+            try:
+                comment = 'Got an error while starting conversation'
+                client.post_github_comment(
+                    'enyst/playground', 95, comment, github_token
+                )
+            except Exception:
+                pass  # Don't fail on comment posting
         sys.exit(1)
 
 
@@ -133,7 +170,7 @@ def main():
         '--api-key', help='OpenHands API key (defaults to OPENHANDS_API_KEY env var)'
     )
     convo_parser.add_argument(
-        '--poll', action='store_true', help='Poll until conversation completes'
+        '--poll', action='store_true', help='Poll until conversation stops'
     )
 
     # Combined command
@@ -149,7 +186,7 @@ def main():
         '--api-key', help='OpenHands API key (defaults to OPENHANDS_API_KEY env var)'
     )
     combined_parser.add_argument(
-        '--poll', action='store_true', help='Poll until conversation completes'
+        '--poll', action='store_true', help='Poll until conversation stops'
     )
 
     args = parser.parse_args()

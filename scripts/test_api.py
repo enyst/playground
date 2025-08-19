@@ -44,7 +44,8 @@ def test_api_methods_structure():
     assert hasattr(client, 'create_conversation')
     assert hasattr(client, 'get_conversation')
     assert hasattr(client, 'get_trajectory')
-    assert hasattr(client, 'poll_until_complete')
+    assert hasattr(client, 'poll_until_stopped')
+    assert hasattr(client, 'post_github_comment')
     print('✅ All expected methods exist')
 
     # Check method signatures (basic check)

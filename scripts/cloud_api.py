@@ -122,10 +122,10 @@ class OpenHandsCloudAPI:
         response.raise_for_status()
         return response.json()
 
-    def poll_until_complete(
+    def poll_until_stopped(
         self, conversation_id: str, timeout: int = 1200, poll_interval: int = 300
     ) -> dict[str, Any]:
-        """Poll conversation until it completes or times out.
+        """Poll conversation until it stops or times out.
 
         Args:
             conversation_id: The conversation ID
@@ -142,7 +142,7 @@ class OpenHandsCloudAPI:
                 conversation = self.get_conversation(conversation_id)
                 status = conversation.get('status', '').upper()
 
-                if status in ['COMPLETED', 'FAILED', 'STOPPED']:
+                if status == 'STOPPED':
                     return conversation
 
                 print(
@@ -156,5 +156,29 @@ class OpenHandsCloudAPI:
                 raise
 
         raise TimeoutError(
-            f'Conversation {conversation_id} did not complete within {timeout} seconds'
+            f'Conversation {conversation_id} did not stop within {timeout} seconds'
         )
+
+    def post_github_comment(
+        self, repo: str, issue_number: int, comment: str, token: str
+    ) -> None:
+        """Post a comment to a GitHub issue.
+
+        Args:
+            repo: Repository in format 'owner/repo'
+            issue_number: Issue number
+            comment: Comment text
+            token: GitHub token
+        """
+        import requests
+
+        url = f'https://api.github.com/repos/{repo}/issues/{issue_number}/comments'
+        headers = {
+            'Authorization': f'token {token}',
+            'Accept': 'application/vnd.github.v3+json',
+        }
+        data = {'body': comment}
+
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        print(f'✅ Posted comment to GitHub issue #{issue_number}')
