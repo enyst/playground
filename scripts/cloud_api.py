@@ -116,6 +116,12 @@ class OpenHandsCloudClient:
         )
         return self._handle_response(response)
 
+    def get_trajectory(self, conversation_id: str) -> dict[str, Any]:
+        """Get conversation trajectory (full event history)."""
+        url = f'{self.base_url}/api/conversations/{conversation_id}/trajectory'
+        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        return self._handle_response(response)
+
     def poll_until_complete(
         self,
         conversation_id: str,

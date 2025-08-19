@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import jinja2
-from cloud_api import CloudAPIError, OpenHandsCloudClient
+from .cloud_api import CloudAPIError, OpenHandsCloudClient
 
 # Configure logging
 logging.basicConfig(
@@ -51,19 +51,22 @@ def load_prompt_template(template_name: str, **kwargs) -> str:
 
 
 def extract_report_from_events(
-    events_data: dict[str, Any], report_markers: tuple[str, str]
+    trajectory_data: dict[str, Any], report_markers: tuple[str, str]
 ) -> str | None:
-    """Extract delimited report from conversation events."""
+    """Extract delimited report from conversation trajectory."""
     try:
         start_marker, end_marker = report_markers
 
-        # Collect all assistant/system/tool messages
+        # Collect all agent messages and observation content
         messages = []
-        for event in events_data.get('events', []):
-            if event.get('role') in ('assistant', 'system', 'tool'):
-                content = event.get('content', '')
-                if content:
-                    messages.append(content)
+        for event in trajectory_data.get('trajectory', []):
+            # Get message from actions (agent messages)
+            if event.get('source') == 'agent' and event.get('message'):
+                messages.append(event.get('message', ''))
+            
+            # Get content from observations (tool outputs, etc.)
+            elif event.get('content'):
+                messages.append(event.get('content', ''))
 
         # Join all messages and look for report
         full_text = '\n'.join(messages)
@@ -75,11 +78,11 @@ def extract_report_from_events(
         if match:
             return match.group(1).strip()
 
-        logger.warning('Report markers not found in conversation events')
+        logger.warning('Report markers not found in conversation trajectory')
         return None
 
     except Exception as e:
-        logger.error(f'Failed to extract report from events: {e}')
+        logger.error(f'Failed to extract report from trajectory: {e}')
         return None
 
 
@@ -156,17 +159,18 @@ def run_architecture_audit(
         result['status'] = final_status
         logger.info(f'Conversation completed with status: {final_status}')
 
-        # Get events and extract any findings
-        logger.info('Fetching conversation events...')
-        events = client.get_conversation_events(conversation_id, limit=5000)
+        # Get trajectory and extract any findings
+        logger.info('Fetching conversation trajectory...')
+        trajectory_data = client.get_trajectory(conversation_id)
+        trajectory = trajectory_data.get('trajectory', [])
 
         # For architecture audit, we don't have specific report markers,
         # so we'll just collect the last few assistant messages as summary
         assistant_messages = []
-        for event in events.get('events', []):
-            if event.get('role') == 'assistant':
-                content = event.get('content', '')
-                if content:
+        for event in trajectory:
+            if event.get('source') == 'agent' and event.get('message'):
+                content = event.get('message', '')
+                if content and isinstance(content, str):
                     assistant_messages.append(content)
 
         if assistant_messages:
@@ -270,13 +274,13 @@ def run_openapi_drift_check(
         result['status'] = final_status
         logger.info(f'Conversation completed with status: {final_status}')
 
-        # Get events and extract report
-        logger.info('Fetching conversation events...')
-        events = client.get_conversation_events(conversation_id, limit=5000)
+        # Get trajectory and extract report
+        logger.info('Fetching conversation trajectory...')
+        trajectory_data = client.get_trajectory(conversation_id)
 
         # Extract the delimited report
         report = extract_report_from_events(
-            events,
+            trajectory_data,
             ('=== OPENAPI_DIFF_REPORT_START ===', '=== OPENAPI_DIFF_REPORT_END ==='),
         )
 
