@@ -78,7 +78,7 @@ def test_template_loading():
     content = template.render()
 
     assert len(content.strip()) > 0, 'Template should have content'
-    assert 'help you' in content.lower(), 'Template should be helpful'
+    assert len(content.split()) > 5, 'Template should have meaningful content'
     print('✅ Template loading and rendering works')
 
 

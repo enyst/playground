@@ -7,12 +7,12 @@ on:
         description: 'Repository to work with (owner/repo format)'
         required: false
         type: string
-        default: ''
+        default: 'All-Hands-AI/OpenHands'
       branch:
         description: 'Git branch to use'
         required: false
         type: string
-        default: ''
+        default: 'main'
       poll:
         description: 'Poll until conversation completes'
         required: false
@@ -42,21 +42,26 @@ jobs:
         run: |
           cd scripts
 
-          # Build command with optional parameters
-          CMD="python llm_conversation.py new-conversation"
+          # Use defaults if inputs are empty
+          REPO="${{ inputs.repository }}"
+          BRANCH="${{ inputs.branch }}"
 
-          if [ -n "${{ inputs.repository }}" ]; then
-            CMD="$CMD --repository '${{ inputs.repository }}'"
+          if [ -z "$REPO" ]; then
+            REPO="All-Hands-AI/OpenHands"
           fi
 
-          if [ -n "${{ inputs.branch }}" ]; then
-            CMD="$CMD --branch '${{ inputs.branch }}'"
+          if [ -z "$BRANCH" ]; then
+            BRANCH="main"
           fi
+
+          # Build command with parameters
+          CMD="python llm_conversation.py new-conversation --repository '$REPO' --branch '$BRANCH'"
 
           if [ "${{ inputs.poll }}" = "true" ]; then
             CMD="$CMD --poll"
           fi
 
+          echo "Starting conversation for repository: $REPO (branch: $BRANCH)"
           echo "Running: $CMD"
           eval $CMD
 
