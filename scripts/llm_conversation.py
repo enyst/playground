@@ -30,7 +30,7 @@ def configure_llm_settings(api_key: Optional[str] = None) -> None:
 
     try:
         client = OpenHandsCloudAPI(api_key=api_key)
-        response = client.store_llm_settings(
+        client.store_llm_settings(
             llm_model=llm_model, llm_base_url=llm_base_url, llm_api_key=llm_api_key
         )
         print(f'✅ LLM settings configured successfully: {llm_model}')
@@ -48,6 +48,8 @@ def start_new_conversation(
     poll: bool = False,
     prompt_file: Optional[str] = None,
     custom_prompt: Optional[str] = None,
+    comment_repo: Optional[str] = None,
+    comment_issue: Optional[int] = None,
 ) -> str:
     """Start a new conversation with customizable prompts.
 
@@ -58,6 +60,8 @@ def start_new_conversation(
         poll: Whether to poll until conversation stops
         prompt_file: Prompt template file to use (optional, defaults to new_conversation.j2)
         custom_prompt: Custom prompt text (optional, overrides prompt_file)
+        comment_repo: Repository to comment on in format "owner/repo" (optional)
+        comment_issue: Issue/PR number to comment on (optional)
 
     Returns:
         Conversation ID
@@ -102,19 +106,19 @@ def start_new_conversation(
         )
 
         conversation_id = response['conversation_id']
-        conversation_link = f'https://app.all-hands.dev/conversations/{conversation_id}'
+        conversation_link = f'{client.base_url}/conversations/{conversation_id}'
 
         print('✅ Conversation started successfully!')
         print(f'   Conversation ID: {conversation_id}')
         print(f'   Status: {response.get("status", "unknown")}')
         print(f'   Link: {conversation_link}')
 
-        # Post success comment to GitHub issue
-        if github_token:
+        # Post success comment to GitHub issue (only if explicitly requested)
+        if github_token and comment_repo and comment_issue is not None:
             try:
                 comment = f'Conversation started, see it [here]({conversation_link})'
                 client.post_github_comment(
-                    'enyst/playground', 95, comment, github_token
+                    comment_repo, int(comment_issue), comment, github_token
                 )
             except Exception as e:
                 print(f'⚠️  Could not post to GitHub issue: {e}')
@@ -130,12 +134,18 @@ def start_new_conversation(
 
     except TimeoutError as e:
         print(f'⏰ Timeout: {e}')
-        # Post timeout comment to GitHub issue
-        if github_token and conversation_id and client:
+        # Post timeout comment to GitHub issue (only if explicitly requested)
+        if (
+            github_token
+            and conversation_id
+            and client
+            and comment_repo
+            and comment_issue is not None
+        ):
             try:
                 comment = 'Conversation timed out while polling'
                 client.post_github_comment(
-                    'enyst/playground', 95, comment, github_token
+                    comment_repo, int(comment_issue), comment, github_token
                 )
             except Exception:
                 pass  # Don't fail on comment posting
@@ -143,12 +153,12 @@ def start_new_conversation(
 
     except Exception as e:
         print(f'❌ Error starting conversation: {e}')
-        # Post error comment to GitHub issue
-        if github_token and client:
+        # Post error comment to GitHub issue (only if explicitly requested)
+        if github_token and client and comment_repo and comment_issue is not None:
             try:
                 comment = 'Got an error while starting conversation'
                 client.post_github_comment(
-                    'enyst/playground', 95, comment, github_token
+                    comment_repo, int(comment_issue), comment, github_token
                 )
             except Exception:
                 pass  # Don't fail on comment posting
@@ -192,6 +202,15 @@ def main():
     convo_parser.add_argument(
         '--poll', action='store_true', help='Poll until conversation stops'
     )
+    convo_parser.add_argument(
+        '--comment-repo',
+        help="Repository to comment on in format 'owner/repo' (optional)",
+    )
+    convo_parser.add_argument(
+        '--comment-issue',
+        type=int,
+        help='Issue/PR number to comment on (optional)',
+    )
 
     # Combined command
     combined_parser = subparsers.add_parser(
@@ -207,6 +226,23 @@ def main():
     )
     combined_parser.add_argument(
         '--poll', action='store_true', help='Poll until conversation stops'
+    )
+    combined_parser.add_argument(
+        '--prompt-file',
+        help='Prompt template file to use (e.g., new_conversation.j2)',
+    )
+    combined_parser.add_argument(
+        '--custom-prompt',
+        help='Custom prompt text (overrides --prompt-file)',
+    )
+    combined_parser.add_argument(
+        '--comment-repo',
+        help="Repository to comment on in format 'owner/repo' (optional)",
+    )
+    combined_parser.add_argument(
+        '--comment-issue',
+        type=int,
+        help='Issue/PR number to comment on (optional)',
     )
 
     args = parser.parse_args()
@@ -226,6 +262,8 @@ def main():
             poll=args.poll,
             prompt_file=args.prompt_file,
             custom_prompt=args.custom_prompt,
+            comment_repo=getattr(args, 'comment_repo', None),
+            comment_issue=getattr(args, 'comment_issue', None),
         )
 
     elif args.command == 'configure-and-start':
@@ -237,6 +275,8 @@ def main():
             poll=args.poll,
             prompt_file=getattr(args, 'prompt_file', None),
             custom_prompt=getattr(args, 'custom_prompt', None),
+            comment_repo=getattr(args, 'comment_repo', None),
+            comment_issue=getattr(args, 'comment_issue', None),
         )
 
 

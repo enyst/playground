@@ -38,7 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
 
     steps:
       - name: Checkout repository
@@ -56,9 +55,8 @@ jobs:
       - name: Start new conversation
         env:
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Automatically provided by GitHub Actions
+        working-directory: scripts
         run: |
-          cd scripts
 
           # Use defaults if inputs are empty
           REPO="${{ inputs.repository }}"
@@ -78,25 +76,16 @@ jobs:
             PROMPT_FILE="new_conversation.j2"
           fi
 
-          # Build command with parameters
-          CMD="python llm_conversation.py new-conversation --repository '$REPO' --branch '$BRANCH'"
-
-          # Add prompt parameters
-          if [ -n "$CUSTOM_PROMPT" ]; then
-            # Use custom prompt (takes precedence)
-            CMD="$CMD --custom-prompt '$CUSTOM_PROMPT'"
-          else
-            # Use prompt file
-            CMD="$CMD --prompt-file '$PROMPT_FILE'"
-          fi
-
-          if [ "${{ inputs.poll }}" = "true" ]; then
-            CMD="$CMD --poll"
-          fi
-
           echo "Starting conversation for repository: $REPO (branch: $BRANCH)"
-          echo "Running: $CMD"
-          eval $CMD
+          ARGS=( "new-conversation" "--repository" "$REPO" "--branch" "$BRANCH" )
+          if [ -n "$CUSTOM_PROMPT" ]; then
+            ARGS+=( "--custom-prompt" "$CUSTOM_PROMPT" )
+          else
+            ARGS+=( "--prompt-file" "$PROMPT_FILE" )
+          fi
+          if [ "${{ inputs.poll }}" = "true" ]; then ARGS+=( "--poll" ); fi
+          echo "Running: python llm_conversation.py ${ARGS[*]}"
+          python llm_conversation.py "${ARGS[@]}"
 
       - name: Output results
         run: |
