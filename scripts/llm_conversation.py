@@ -36,8 +36,6 @@ def configure_llm_settings(api_key: Optional[str] = None) -> None:
         print(f'✅ LLM settings configured successfully: {llm_model}')
         if llm_base_url:
             print(f'   Base URL: {llm_base_url}')
-        print(f'   Response: {response}')
-
     except Exception as e:
         print(f'❌ Error configuring LLM settings: {e}')
         sys.exit(1)
