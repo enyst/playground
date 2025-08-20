@@ -12,7 +12,7 @@ class OpenHandsCloudAPI:
     """Client for interacting with OpenHands Cloud API."""
 
     def __init__(
-        self, api_key: Optional[str] = None, base_url: str = "https://app.all-hands.dev"
+        self, api_key: Optional[str] = None, base_url: str = 'https://app.all-hands.dev'
     ):
         """Initialize the API client.
 
@@ -20,18 +20,18 @@ class OpenHandsCloudAPI:
             api_key: OpenHands API key. If not provided, will use OPENHANDS_API_KEY env var.
             base_url: Base URL for the OpenHands Cloud API.
         """
-        self.api_key = api_key or os.getenv("OPENHANDS_API_KEY")
+        self.api_key = api_key or os.getenv('OPENHANDS_API_KEY')
         if not self.api_key:
             raise ValueError(
-                "API key is required. Set OPENHANDS_API_KEY environment variable or pass api_key parameter."
+                'API key is required. Set OPENHANDS_API_KEY environment variable or pass api_key parameter.'
             )
 
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip('/')
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json',
             }
         )
 
@@ -51,15 +51,15 @@ class OpenHandsCloudAPI:
         Returns:
             Response from the settings API
         """
-        settings_data = {"llm_model": llm_model}
+        settings_data = {'llm_model': llm_model}
 
         if llm_base_url:
-            settings_data["llm_base_url"] = llm_base_url
+            settings_data['llm_base_url'] = llm_base_url
         if llm_api_key:
-            settings_data["llm_api_key"] = llm_api_key
+            settings_data['llm_api_key'] = llm_api_key
 
         response = self.session.post(
-            f"{self.base_url}/api/settings", json=settings_data
+            f'{self.base_url}/api/settings', json=settings_data
         )
         response.raise_for_status()
         return response.json()
@@ -80,15 +80,15 @@ class OpenHandsCloudAPI:
         Returns:
             Response containing conversation_id and status
         """
-        conversation_data = {"initial_user_msg": initial_user_msg}
+        conversation_data = {'initial_user_msg': initial_user_msg}
 
         if repository:
-            conversation_data["repository"] = repository
+            conversation_data['repository'] = repository
         if selected_branch:
-            conversation_data["selected_branch"] = selected_branch
+            conversation_data['selected_branch'] = selected_branch
 
         response = self.session.post(
-            f"{self.base_url}/api/conversations", json=conversation_data
+            f'{self.base_url}/api/conversations', json=conversation_data
         )
         response.raise_for_status()
         return response.json()
@@ -98,7 +98,7 @@ class OpenHandsCloudAPI:
         main_prompt_path: str,
         repository: Optional[str] = None,
         append_common_tail: bool = True,
-        common_tail_path: str = "scripts/prompts/common_tail.j2",
+        common_tail_path: str = 'scripts/prompts/common_tail.j2',
     ) -> dict[str, Any]:
         """Create a conversation by reading a prompt file and optional common tail.
 
@@ -111,7 +111,7 @@ class OpenHandsCloudAPI:
         main_text = Path(main_prompt_path).read_text()
         if append_common_tail and Path(common_tail_path).exists():
             tail = Path(common_tail_path).read_text()
-            initial_user_msg = f"{main_text}\n\n{tail}"
+            initial_user_msg = f'{main_text}\n\n{tail}'
         else:
             initial_user_msg = main_text
         return self.create_conversation(
@@ -129,7 +129,7 @@ class OpenHandsCloudAPI:
             Conversation details including status
         """
         response = self.session.get(
-            f"{self.base_url}/api/conversations/{conversation_id}"
+            f'{self.base_url}/api/conversations/{conversation_id}'
         )
         response.raise_for_status()
         return response.json()
@@ -144,7 +144,7 @@ class OpenHandsCloudAPI:
             Trajectory data with events
         """
         response = self.session.get(
-            f"{self.base_url}/api/conversations/{conversation_id}/trajectory"
+            f'{self.base_url}/api/conversations/{conversation_id}/trajectory'
         )
         response.raise_for_status()
         return response.json()
@@ -167,28 +167,28 @@ class OpenHandsCloudAPI:
         while time.time() - start_time < timeout:
             try:
                 conversation = self.get_conversation(conversation_id)
-                status = conversation.get("status", "").upper()
+                status = conversation.get('status', '').upper()
 
-                if status == "STOPPED":
+                if status == 'STOPPED':
                     return conversation
 
                 # Also stop if conversation is in an error state
-                if status in ["FAILED", "ERROR", "CANCELLED"]:
-                    print(f"⚠️  Conversation ended with status: {status}")
+                if status in ['FAILED', 'ERROR', 'CANCELLED']:
+                    print(f'⚠️  Conversation ended with status: {status}')
                     return conversation
 
                 print(
-                    f"Conversation {conversation_id} status: {status}. Waiting {poll_interval}s..."
+                    f'Conversation {conversation_id} status: {status}. Waiting {poll_interval}s...'
                 )
                 time.sleep(poll_interval)
 
             except Exception as e:
-                print(f"Error polling conversation {conversation_id}: {e}")
-                print("Stopping polling due to error.")
+                print(f'Error polling conversation {conversation_id}: {e}')
+                print('Stopping polling due to error.')
                 raise
 
         raise TimeoutError(
-            f"Conversation {conversation_id} did not stop within {timeout} seconds"
+            f'Conversation {conversation_id} did not stop within {timeout} seconds'
         )
 
     def post_github_comment(
@@ -202,13 +202,13 @@ class OpenHandsCloudAPI:
             comment: Comment text
             token: GitHub token
         """
-        url = f"https://api.github.com/repos/{repo}/issues/{issue_number}/comments"
+        url = f'https://api.github.com/repos/{repo}/issues/{issue_number}/comments'
         headers = {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json",
+            'Authorization': f'token {token}',
+            'Accept': 'application/vnd.github.v3+json',
         }
-        data = {"body": comment}
+        data = {'body': comment}
 
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
-        print(f"✅ Posted comment to GitHub issue #{issue_number}")
+        print(f'✅ Posted comment to GitHub issue #{issue_number}')
