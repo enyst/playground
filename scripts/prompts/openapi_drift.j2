@@ -1,0 +1,33 @@
+You are the OpenHands agent running against the repository provided below.
+
+Task objective:
+- Run the repository script: python scripts/update_openapi.py --check --output-report openapi_diff.md --output-json openapi_diff.json
+- If the script is missing, perform the following fallback:
+  * Import the FastAPI app from openhands.server.app (variable name: app) and generate the live OpenAPI via app.openapi().
+  * Load the repository's documented OpenAPI from docs/openapi.json.
+  * Apply the same path-exclusion logic specified by scripts/update_openapi.py if present. If not present, use a conservative default exclude list for purely-internal or health endpoints (e.g., /alive, /health, /server_info, /mcp/**, /api/options/**). The script, if present, has the final authority for exclusions.
+  * Compute a structured diff: added/removed/changed paths/methods, and salient schema differences, focusing on changes that would affect API consumers.
+  * Write outputs to openapi_diff.json (structured) and openapi_diff.md (human-readable summary).
+- Review the diff and determine if any differences require changes for API users (e.g., documented routes missing/incorrect vs server, breaking response shape changes, or authentication/required parameter changes). If yes:
+  * Create a new git branch (e.g., chore/openapi-drift-{{ date_suffix }}), make minimal changes to fix the discrepancies (typically docs/openapi.json and related docs such as docs/usage/cloud/cloud-api.mdx). If server is incorrect, propose minimal server fixes.
+  * Commit with a clear message like: "chore(docs): sync OpenAPI spec with server (weekly drift)".
+  * Open a Draft Pull Request against the default branch. Ensure the PR follows the repository's PR template by reading the template file(s):
+    - Prefer .github/pull_request_template.md if present; otherwise, check common locations like .github/PULL_REQUEST_TEMPLATE/*.md.
+    - Include the template content at the top of the PR body.
+    - Immediately after the template content, add a personalized description that begins with: "openhands agent:" and then summarize the drift and the changes you made.
+  * If push/PR permissions are unavailable in this environment, prepare a patch and include exact commands for a maintainer to push the branch and open a draft PR, and include those in the report.
+- Always print a final delimited report so the workflow can parse it. The report must include:
+  === OPENAPI_DIFF_REPORT_START ===
+  Executive Summary ...
+  (Include the contents of openapi_diff.md if it exists)
+  drift_detected: {{ "true" if drift_detected else "false" }}
+  pr_url: {{ pr_url or "" }}
+  pr_number: {{ pr_number or "" }}
+  === OPENAPI_DIFF_REPORT_END ===
+
+Notes:
+- Work only within this repository context.
+- Do NOT expose or print any secrets.
+
+Repository: {{ repository }}
+Branch: {{ branch }}
