@@ -1,0 +1,49 @@
+# Example GitHub workflow for using the LLM conversation scripts
+# This is NOT active yet - just an example for future reference
+
+name: OpenHands LLM Conversation Example
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository to work with (owner/repo)'
+        required: false
+        type: string
+      branch:
+        description: 'Branch to use'
+        required: false
+        type: string
+      poll:
+        description: 'Poll until conversation completes'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  llm-conversation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install requests jinja2
+
+      - name: Configure LLM and start conversation
+        env:
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          cd scripts
+          python llm_conversation.py configure-and-start \
+            ${{ inputs.repository && format('--repository {0}', inputs.repository) || '' }} \
+            ${{ inputs.branch && format('--branch {0}', inputs.branch) || '' }} \
+            ${{ inputs.poll && '--poll' || '' }}
