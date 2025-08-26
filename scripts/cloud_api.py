@@ -149,6 +149,54 @@ class OpenHandsCloudAPI:
         response.raise_for_status()
         return response.json()
 
+    def get_events(
+        self,
+        conversation_id: str,
+        start_id: int = 0,
+        end_id: Optional[int] = None,
+        reverse: bool = False,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Get events from a conversation with filtering and pagination.
+
+        Args:
+            conversation_id: The conversation ID
+            start_id: Starting ID in the event stream (default: 0)
+            end_id: Ending ID in the event stream (optional)
+            reverse: Whether to retrieve events in reverse order (default: False)
+            limit: Maximum number of events to return, 1-100 (default: 20)
+
+        Returns:
+            Events data with pagination info
+
+        Examples:
+            # Get latest 50 events in reverse order
+            api.get_events(conv_id, reverse=True, limit=50)
+            
+            # Get events in a specific range (e.g., events 800-900)
+            api.get_events(conv_id, start_id=800, end_id=900, limit=100)
+            
+            # Find condensation events in recent history
+            events = api.get_events(conv_id, start_id=800, end_id=900, limit=100)
+            condensations = [e for e in events['events'] 
+                           if e.get('source') == 'agent' and 
+                              e.get('action') == 'condensation']
+        """
+        params = {
+            'start_id': start_id,
+            'reverse': str(reverse).lower(),
+            'limit': limit,
+        }
+        if end_id is not None:
+            params['end_id'] = end_id
+
+        response = self.session.get(
+            f'{self.base_url}/api/conversations/{conversation_id}/events',
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def poll_until_stopped(
         self, conversation_id: str, timeout: int = 1200, poll_interval: int = 300
     ) -> dict[str, Any]:
