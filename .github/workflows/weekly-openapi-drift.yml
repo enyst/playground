@@ -43,9 +43,3 @@ jobs:
             --repository "${{ github.repository }}" \
             --branch "main"
 
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: openapi-drift-results
-          path: openapi_drift_result.json
