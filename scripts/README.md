@@ -22,7 +22,7 @@ Clean, reusable OpenHands API client with:
 - Authentication testing
 - Conversation management
 - Event polling with progress callbacks
-- Comprehensive timeout and error recovery
+- Timeout handling and error recovery
 
 ### `cron_agents.py`
 Main module containing two weekly task functions:
