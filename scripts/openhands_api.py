@@ -1,7 +1,7 @@
 """
-OpenHands Cloud API client.
+OpenHands API client.
 
-Clean, minimal Python wrapper around OpenHands Cloud endpoints.
+Clean, minimal Python wrapper around OpenHands API endpoints.
 Handles authentication and provides structured error reporting.
 """
 
@@ -17,8 +17,8 @@ import requests
 DEFAULT_BASE_URL = 'https://app.all-hands.dev'
 
 
-class CloudAPIError(Exception):
-    """Exception raised for Cloud API errors."""
+class OpenHandsAPIError(Exception):
+    """Exception raised for OpenHands API errors."""
 
     def __init__(
         self,
@@ -32,8 +32,8 @@ class CloudAPIError(Exception):
 
 
 @dataclass
-class OpenHandsCloudClient:
-    """OpenHands Cloud API client with clean error handling."""
+class OpenHandsAPIClient:
+    """OpenHands API client with clean error handling."""
 
     api_key: str
     base_url: str = DEFAULT_BASE_URL
@@ -63,11 +63,11 @@ class OpenHandsCloudClient:
                 # If we can't parse JSON, include raw response text
                 error_msg += f' - {response.text[:500]}'
 
-            raise CloudAPIError(
+            raise OpenHandsAPIError(
                 error_msg, status_code=response.status_code, response_text=response.text
             ) from e
         except requests.RequestException as e:
-            raise CloudAPIError(f'Request failed: {e}') from e
+            raise OpenHandsAPIError(f'Request failed: {e}') from e
 
         # Success path
         if not response.content:
@@ -77,13 +77,13 @@ class OpenHandsCloudClient:
             try:
                 return response.json()
             except (ValueError, json.JSONDecodeError) as e:
-                raise CloudAPIError(
+                raise OpenHandsAPIError(
                     'Invalid JSON in response.',
                     status_code=response.status_code,
                     response_text=response.text,
                 ) from e
 
-        raise CloudAPIError(
+        raise OpenHandsAPIError(
             f"Expected JSON response, got Content-Type: {content_type!r}",
             status_code=response.status_code,
             response_text=response.text,
@@ -172,7 +172,7 @@ class OpenHandsCloudClient:
             Final status string
 
         Raises:
-            CloudAPIError: If polling fails or times out
+            OpenHandsAPIError: If polling fails or times out
         """
         deadline = time.time() + timeout_s
         start_time = time.time()
@@ -194,7 +194,7 @@ class OpenHandsCloudClient:
                 if status in terminal_statuses:
                     return status
 
-            except CloudAPIError as e:
+            except OpenHandsAPIError as e:
                 # Log the error but continue polling unless it's a permanent failure
                 if e.status_code and e.status_code < 500:
                     # Client error - likely permanent, stop polling
@@ -207,6 +207,6 @@ class OpenHandsCloudClient:
 
         # Timeout reached
         elapsed = time.time() - start_time
-        raise CloudAPIError(
+        raise OpenHandsAPIError(
             f'Polling timeout after {elapsed:.1f}s. Last status: {last_status}'
         )

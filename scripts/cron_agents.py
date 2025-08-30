@@ -1,5 +1,5 @@
 """
-OpenHands Cron Agents - Weekly automated tasks using OpenHands Cloud.
+OpenHands Cron Agents - Weekly automated tasks using the OpenHands API.
 
 This module contains the main functions for running weekly automated tasks:
 1. Architecture documentation audit
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import jinja2
-from cloud_api import CloudAPIError, OpenHandsCloudClient
+from openhands_api import OpenHandsAPIError, OpenHandsAPIClient
 
 # Configure logging
 logging.basicConfig(
@@ -120,7 +120,7 @@ def run_architecture_audit(
         logger.info(f'Starting architecture audit for {repository}:{branch}')
 
         # Initialize client
-        client = OpenHandsCloudClient(api_key=api_key, base_url=base_url)
+        client = OpenHandsAPIClient(api_key=api_key, base_url=base_url)
 
         # Test authentication
         logger.info('Testing authentication...')
@@ -146,7 +146,7 @@ def run_architecture_audit(
             'id'
         )
         if not conversation_id:
-            raise CloudAPIError('No conversation ID returned from API')
+            raise OpenHandsAPIError('No conversation ID returned from API')
 
         result['conversation_id'] = conversation_id
         result['conversation_url'] = f'{base_url}/conversations/{conversation_id}'
@@ -188,8 +188,8 @@ def run_architecture_audit(
         logger.error(error_msg)
         result['error'] = error_msg
 
-        # Include more details for CloudAPIError
-        if isinstance(e, CloudAPIError):
+        # Include more details for OpenHandsAPIError
+        if isinstance(e, OpenHandsAPIError):
             if e.status_code:
                 result['error'] += f' (HTTP {e.status_code})'
             if e.response_text:
@@ -228,7 +228,7 @@ def run_openapi_drift_check(
         logger.info(f'Starting OpenAPI drift check for {repository}:{branch}')
 
         # Initialize client
-        client = OpenHandsCloudClient(api_key=api_key, base_url=base_url)
+        client = OpenHandsAPIClient(api_key=api_key, base_url=base_url)
 
         # Test authentication
         logger.info('Testing authentication...')
@@ -261,7 +261,7 @@ def run_openapi_drift_check(
             'id'
         )
         if not conversation_id:
-            raise CloudAPIError('No conversation ID returned from API')
+            raise OpenHandsAPIError('No conversation ID returned from API')
 
         result['conversation_id'] = conversation_id
         result['conversation_url'] = f'{base_url}/conversations/{conversation_id}'
@@ -315,8 +315,8 @@ def run_openapi_drift_check(
         logger.error(error_msg)
         result['error'] = error_msg
 
-        # Include more details for CloudAPIError
-        if isinstance(e, CloudAPIError):
+        # Include more details for OpenHandsAPIError
+        if isinstance(e, OpenHandsAPIError):
             if e.status_code:
                 result['error'] += f' (HTTP {e.status_code})'
             if e.response_text:
@@ -334,7 +334,7 @@ def main():
     parser.add_argument('--repository', required=True, help='Repository (owner/repo)')
     parser.add_argument('--branch', default='main', help='Branch to work on')
     parser.add_argument(
-        '--base-url', default='https://app.all-hands.dev', help='Cloud API base URL'
+        '--base-url', default='https://app.all-hands.dev', help='OpenHands API base URL'
     )
     parser.add_argument(
         '--timeout', type=int, default=1800, help='Polling timeout in seconds'

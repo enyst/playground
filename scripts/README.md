@@ -1,12 +1,12 @@
 # OpenHands Cron Agents
 
-This directory contains the implementation of automated weekly tasks using OpenHands Cloud API.
+This directory contains the implementation of automated weekly tasks using the OpenHands API.
 
 ## Structure
 
 ```
 scripts/
-├── cloud_api.py           # Clean OpenHands Cloud API client
+├── openhands_api.py       # Clean OpenHands API client
 ├── cron_agents.py         # Main task functions with CLI
 ├── prompts/               # Jinja2 prompt templates
 │   ├── architecture_audit.j2
@@ -16,9 +16,9 @@ scripts/
 
 ## Components
 
-### `cloud_api.py`
-Clean, reusable OpenHands Cloud API client with:
-- Structured error handling with `CloudAPIError`
+### `openhands_api.py`
+Clean, reusable OpenHands API client with:
+- Structured error handling with `OpenHandsAPIError`
 - Authentication testing
 - Conversation management
 - Event polling with progress callbacks
@@ -92,7 +92,7 @@ The implementation provides comprehensive error reporting:
 ## Security Model
 
 - Only requires `OPENHANDS_API_KEY` in CI/workflows
-- LLM provider settings managed in OpenHands Cloud account
+- LLM provider settings managed in your OpenHands account
 - No sensitive data logged or exposed
 - Clean separation between authentication and task logic
 
