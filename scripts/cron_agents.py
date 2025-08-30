@@ -62,8 +62,9 @@ def extract_report_from_events(
         # Collect all agent messages and observation content
         messages = []
         for event in trajectory_data.get('trajectory', []):
+            src = str(event.get('source', '')).lower()
             # Get message from actions (agent messages)
-            if event.get('source') == 'agent' and event.get('message'):
+            if src == 'agent' and event.get('message'):
                 messages.append(event.get('message', ''))
 
             # Get content from observations (tool outputs, etc.)
