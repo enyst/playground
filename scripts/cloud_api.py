@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from typing import Any
+import json
 
 import requests
 
@@ -37,12 +38,17 @@ class OpenHandsCloudClient:
     api_key: str
     base_url: str = DEFAULT_BASE_URL
     timeout: int = 60
+    session: requests.Session | None = None
 
-    def _headers(self) -> dict[str, str]:
-        return {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+    def __post_init__(self) -> None:
+        # Initialize a persistent session for connection reuse and centralized headers
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json',
+            }
+        )
 
     def _handle_response(self, response: requests.Response) -> dict[str, Any]:
         """Handle API response with structured error reporting."""
@@ -55,7 +61,7 @@ class OpenHandsCloudClient:
                 error_data = response.json()
                 if isinstance(error_data, dict) and 'detail' in error_data:
                     error_msg += f' - {error_data["detail"]}'
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 # If we can't parse JSON, include raw response text
                 error_msg += f' - {response.text[:500]}'
 
@@ -68,7 +74,8 @@ class OpenHandsCloudClient:
     def test_auth(self) -> dict[str, Any]:
         """Test authentication by calling server_info endpoint."""
         url = f'{self.base_url}/api/server_info'
-        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        assert self.session is not None
+        response = self.session.get(url, timeout=self.timeout)
         return self._handle_response(response)
 
     def create_conversation(
@@ -94,15 +101,15 @@ class OpenHandsCloudClient:
         }
         body.update({k: v for k, v in optional_params.items() if v})
 
-        response = requests.post(
-            url, headers=self._headers(), json=body, timeout=self.timeout
-        )
+        assert self.session is not None
+        response = self.session.post(url, json=body, timeout=self.timeout)
         return self._handle_response(response)
 
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
         """Get conversation details."""
         url = f'{self.base_url}/api/conversations/{conversation_id}'
-        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        assert self.session is not None
+        response = self.session.get(url, timeout=self.timeout)
         return self._handle_response(response)
 
     def get_conversation_events(
@@ -111,15 +118,15 @@ class OpenHandsCloudClient:
         """Get conversation events."""
         url = f'{self.base_url}/api/conversations/{conversation_id}/events'
         params = {'start_id': start_id, 'limit': limit}
-        response = requests.get(
-            url, headers=self._headers(), params=params, timeout=self.timeout
-        )
+        assert self.session is not None
+        response = self.session.get(url, params=params, timeout=self.timeout)
         return self._handle_response(response)
 
     def get_trajectory(self, conversation_id: str) -> dict[str, Any]:
         """Get conversation trajectory (full event history)."""
         url = f'{self.base_url}/api/conversations/{conversation_id}/trajectory'
-        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        assert self.session is not None
+        response = self.session.get(url, timeout=self.timeout)
         return self._handle_response(response)
 
     def poll_until_complete(
