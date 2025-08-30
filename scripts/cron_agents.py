@@ -16,6 +16,8 @@ import json
 import logging
 import re
 import sys
+import os
+
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -328,7 +330,7 @@ def main():
     parser.add_argument(
         'task', choices=['architecture-audit', 'openapi-drift'], help='Task to run'
     )
-    parser.add_argument('--api-key', required=True, help='OpenHands Cloud API key')
+    parser.add_argument('--api-key', required=False, help='OpenHands Cloud API key (or use OPENHANDS_API_KEY env)')
     parser.add_argument('--repository', required=True, help='Repository (owner/repo)')
     parser.add_argument('--branch', default='main', help='Branch to work on')
     parser.add_argument(
@@ -341,10 +343,16 @@ def main():
 
     args = parser.parse_args()
 
+    # Prefer env var if present to avoid passing secrets via CLI
+    api_key = args.api_key or os.environ.get('OPENHANDS_API_KEY')
+    if not api_key:
+        logger.error('Missing API key: provide --api-key or set OPENHANDS_API_KEY')
+        sys.exit(2)
+
     # Run the appropriate task
     if args.task == 'architecture-audit':
         result = run_architecture_audit(
-            api_key=args.api_key,
+            api_key=api_key,
             repository=args.repository,
             branch=args.branch,
             base_url=args.base_url,
@@ -352,7 +360,7 @@ def main():
         )
     elif args.task == 'openapi-drift':
         result = run_openapi_drift_check(
-            api_key=args.api_key,
+            api_key=api_key,
             repository=args.repository,
             branch=args.branch,
             base_url=args.base_url,

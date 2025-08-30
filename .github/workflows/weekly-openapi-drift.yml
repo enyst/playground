@@ -34,10 +34,9 @@ jobs:
       - name: Run OpenAPI drift check
         env:
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+        working-directory: scripts
         run: |
-          cd scripts
           python cron_agents.py openapi-drift \
-            --api-key "$OPENHANDS_API_KEY" \
             --repository "${{ github.repository }}" \
             --branch "main" \
             --output ../openapi_drift_result.json
