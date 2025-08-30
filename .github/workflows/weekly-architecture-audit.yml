@@ -43,4 +43,3 @@ jobs:
           python cron_agents.py architecture-audit \
             --repository "${{ github.repository }}" \
             --branch "main"
-

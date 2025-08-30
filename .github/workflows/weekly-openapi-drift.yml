@@ -43,4 +43,3 @@ jobs:
           python cron_agents.py openapi-drift \
             --repository "${{ github.repository }}" \
             --branch "main"
-

@@ -375,58 +375,65 @@ def main():
 
     if issue_number and github_repo and github_token:
         owner_repo = github_repo
-        api_url = f"https://api.github.com/repos/{owner_repo}/issues/{issue_number}/comments"
+        api_url = (
+            f'https://api.github.com/repos/{owner_repo}/issues/{issue_number}/comments'
+        )
 
         def fmt_bool(v: bool | None) -> str:
             return 'yes' if v else 'no'
 
         # Build a human-friendly body
         if args.task == 'architecture-audit':
-            title = f"Architecture Audit — {args.repository}@{args.branch}"
+            title = f'Architecture Audit — {args.repository}@{args.branch}'
             body_lines = [
-                "I am OpenHands-GPT-5, an AI agent. Posting weekly Architecture Audit results.",
-                f"Status: {'success' if result.get('success') else 'failed'}",
-                f"Conversation: {result.get('conversation_url') or '(n/a)'}",
+                'I am OpenHands-GPT-5, an AI agent. Posting weekly Architecture Audit results.',
+                f'Status: {"success" if result.get("success") else "failed"}',
+                f'Conversation: {result.get("conversation_url") or "(n/a)"}',
             ]
             if result.get('status'):
-                body_lines.append(f"Final conversation status: {result['status']}")
+                body_lines.append(f'Final conversation status: {result["status"]}')
             if result.get('error'):
-                body_lines.append("Error details:\n" + str(result['error'])[:800])
+                body_lines.append('Error details:\n' + str(result['error'])[:800])
             if result.get('report'):
-                body_lines.append("Summary:\n" + result['report'][:4000])
-            body = f"### {title}\n\n" + "\n\n".join(body_lines)
+                body_lines.append('Summary:\n' + result['report'][:4000])
+            body = f'### {title}\n\n' + '\n\n'.join(body_lines)
         else:
-            title = f"OpenAPI Drift — {args.repository}@{args.branch}"
+            title = f'OpenAPI Drift — {args.repository}@{args.branch}'
             body_lines = [
-                "I am OpenHands-GPT-5, an AI agent. Posting weekly OpenAPI Drift results.",
-                f"Status: {'success' if result.get('success') else 'failed'}",
-                f"Conversation: {result.get('conversation_url') or '(n/a)'}",
+                'I am OpenHands-GPT-5, an AI agent. Posting weekly OpenAPI Drift results.',
+                f'Status: {"success" if result.get("success") else "failed"}',
+                f'Conversation: {result.get("conversation_url") or "(n/a)"}',
             ]
             if result.get('status'):
-                body_lines.append(f"Final conversation status: {result['status']}")
-            body_lines.append(f"Drift detected: {fmt_bool(result.get('drift_detected'))}")
+                body_lines.append(f'Final conversation status: {result["status"]}')
+            body_lines.append(
+                f'Drift detected: {fmt_bool(result.get("drift_detected"))}'
+            )
             if result.get('pr_url'):
-                body_lines.append(f"PR: {result['pr_url']}")
+                body_lines.append(f'PR: {result["pr_url"]}')
             if result.get('report'):
-                body_lines.append("Report:\n" + result['report'][:4000])
+                body_lines.append('Report:\n' + result['report'][:4000])
             if result.get('error'):
-                body_lines.append("Error details:\n" + str(result['error'])[:800])
-            body = f"### {title}\n\n" + "\n\n".join(body_lines)
+                body_lines.append('Error details:\n' + str(result['error'])[:800])
+            body = f'### {title}\n\n' + '\n\n'.join(body_lines)
 
         headers = {
-            'Authorization': f"token {github_token}",
+            'Authorization': f'token {github_token}',
             'Accept': 'application/vnd.github+json',
-            'User-Agent': 'openhands-cron-agents'
+            'User-Agent': 'openhands-cron-agents',
         }
         try:
-            resp = requests.post(api_url, headers=headers, json={'body': body}, timeout=30)
+            resp = requests.post(
+                api_url, headers=headers, json={'body': body}, timeout=30
+            )
             if resp.status_code >= 300:
-                logger.warning(f"Failed to post GitHub comment: HTTP {resp.status_code} - {resp.text[:300]}")
+                logger.warning(
+                    f'Failed to post GitHub comment: HTTP {resp.status_code} - {resp.text[:300]}'
+                )
             else:
-                logger.info(f"Posted comment to issue #{issue_number}")
+                logger.info(f'Posted comment to issue #{issue_number}')
         except Exception as e:
-            logger.warning(f"Error posting GitHub comment: {e}")
-
+            logger.warning(f'Error posting GitHub comment: {e}')
 
     # Output results
     print(json.dumps(result, indent=2))
