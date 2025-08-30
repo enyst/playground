@@ -84,7 +84,7 @@ class OpenHandsAPIClient:
                 ) from e
 
         raise OpenHandsAPIError(
-            f"Expected JSON response, got Content-Type: {content_type!r}",
+            f'Expected JSON response, got Content-Type: {content_type!r}',
             status_code=response.status_code,
             response_text=response.text,
         )

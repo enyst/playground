@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import jinja2
-from openhands_api import OpenHandsAPIError, OpenHandsAPIClient
+from openhands_api import OpenHandsAPIClient, OpenHandsAPIError
 
 # Configure logging
 logging.basicConfig(
@@ -90,8 +90,6 @@ def extract_report_from_events(
 def progress_callback(status: str, elapsed_time: float) -> None:
     """Progress callback for polling."""
     logger.info(f'Status: {status} (elapsed: {elapsed_time:.1f}s)')
-
-
 
 
 def run_architecture_audit(
