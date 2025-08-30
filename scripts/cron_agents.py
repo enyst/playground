@@ -14,10 +14,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import sys
-import os
-
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -330,7 +329,11 @@ def main():
     parser.add_argument(
         'task', choices=['architecture-audit', 'openapi-drift'], help='Task to run'
     )
-    parser.add_argument('--api-key', required=False, help='OpenHands Cloud API key (or use OPENHANDS_API_KEY env)')
+    parser.add_argument(
+        '--api-key',
+        required=False,
+        help='OpenHands Cloud API key (or use OPENHANDS_API_KEY env)',
+    )
     parser.add_argument('--repository', required=True, help='Repository (owner/repo)')
     parser.add_argument('--branch', default='main', help='Branch to work on')
     parser.add_argument(
