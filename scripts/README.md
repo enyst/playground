@@ -42,16 +42,14 @@ Jinja2 templates for task prompts:
 ### CLI Interface
 
 ```bash
-# Architecture audit
+# Architecture audit (reads OPENHANDS_API_KEY from environment)
 python cron_agents.py architecture-audit \
-  --api-key "$OPENHANDS_API_KEY" \
   --repository "owner/repo" \
   --branch "main" \
   --output results.json
 
-# OpenAPI drift check
+# OpenAPI drift check (reads OPENHANDS_API_KEY from environment)
 python cron_agents.py openapi-drift \
-  --api-key "$OPENHANDS_API_KEY" \
   --repository "owner/repo" \
   --branch "main" \
   --output results.json
