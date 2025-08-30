@@ -386,7 +386,7 @@ def main():
         if args.task == 'architecture-audit':
             title = f'Architecture Audit — {args.repository}@{args.branch}'
             body_lines = [
-                'I am OpenHands-GPT-5, an AI agent. Posting weekly Architecture Audit results.',
+                'I am OpenHands, an AI engineer. Posting weekly Architecture Audit results.',
                 f'Status: {"success" if result.get("success") else "failed"}',
                 f'Conversation: {result.get("conversation_url") or "(n/a)"}',
             ]
@@ -400,7 +400,7 @@ def main():
         else:
             title = f'OpenAPI Drift — {args.repository}@{args.branch}'
             body_lines = [
-                'I am OpenHands-GPT-5, an AI agent. Posting weekly OpenAPI Drift results.',
+                'I am OpenHands, an AI engineer. Posting weekly OpenAPI Drift results.',
                 f'Status: {"success" if result.get("success") else "failed"}',
                 f'Conversation: {result.get("conversation_url") or "(n/a)"}',
             ]
