@@ -170,7 +170,7 @@ def run_architecture_audit(
         # so we'll just collect the last few assistant messages as summary
         assistant_messages = []
         for event in trajectory:
-            if event.get('source') == 'agent' and event.get('message'):
+            if str(event.get('source', '')).lower() == 'agent' and event.get('message'):
                 content = event.get('message', '')
                 if content and isinstance(content, str):
                     assistant_messages.append(content)
