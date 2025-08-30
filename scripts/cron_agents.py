@@ -92,6 +92,8 @@ def progress_callback(status: str, elapsed_time: float) -> None:
     logger.info(f'Status: {status} (elapsed: {elapsed_time:.1f}s)')
 
 
+
+
 def run_architecture_audit(
     api_key: str,
     repository: str,
