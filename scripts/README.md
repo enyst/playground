@@ -83,7 +83,7 @@ Both run weekly and only require the `OPENHANDS_API_KEY` secret.
 
 ## Error Handling
 
-The implementation provides comprehensive error reporting:
+The implementation provides structured error reporting:
 - HTTP status codes and response details for API errors
 - Structured error messages with context
 - Progress logging during polling

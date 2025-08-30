@@ -6,7 +6,7 @@ This module contains the main functions for running weekly automated tasks:
 2. OpenAPI drift detection
 
 Each function handles the complete workflow: prompt rendering, conversation creation,
-polling, and result extraction with comprehensive error reporting.
+polling, and result extraction with structured error reporting.
 """
 
 from __future__ import annotations
