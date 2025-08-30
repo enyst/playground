@@ -42,19 +42,17 @@ class OpenHandsCloudClient:
 
     def __post_init__(self) -> None:
         # Initialize a persistent session for connection reuse and centralized headers
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json',
-            }
-        )
+        if self.session is None:
+            self.session = requests.Session()
+        # Ensure required headers; Authorization must reflect this client's api_key
+        self.session.headers['Authorization'] = f'Bearer {self.api_key}'
+        self.session.headers.setdefault('Content-Type', 'application/json')
+        self.session.headers.setdefault('Accept', 'application/json')
 
     def _handle_response(self, response: requests.Response) -> dict[str, Any]:
         """Handle API response with structured error reporting."""
         try:
             response.raise_for_status()
-            return response.json() if response.content else {}
         except requests.HTTPError as e:
             error_msg = f'HTTP {response.status_code}: {e}'
             try:
@@ -70,6 +68,26 @@ class OpenHandsCloudClient:
             ) from e
         except requests.RequestException as e:
             raise CloudAPIError(f'Request failed: {e}') from e
+
+        # Success path
+        if not response.content:
+            return {}
+        content_type = response.headers.get('Content-Type', '')
+        if 'application/json' in content_type:
+            try:
+                return response.json()
+            except (ValueError, json.JSONDecodeError) as e:
+                raise CloudAPIError(
+                    'Invalid JSON in response.',
+                    status_code=response.status_code,
+                    response_text=response.text,
+                ) from e
+
+        raise CloudAPIError(
+            f"Expected JSON response, got Content-Type: {content_type!r}",
+            status_code=response.status_code,
+            response_text=response.text,
+        )
 
     def test_auth(self) -> dict[str, Any]:
         """Test authentication by calling server_info endpoint."""
@@ -99,7 +117,7 @@ class OpenHandsCloudClient:
             'conversation_instructions': conversation_instructions,
             'image_urls': image_urls,
         }
-        body.update({k: v for k, v in optional_params.items() if v})
+        body.update({k: v for k, v in optional_params.items() if v is not None})
 
         assert self.session is not None
         response = self.session.post(url, json=body, timeout=self.timeout)
