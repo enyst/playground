@@ -33,13 +33,15 @@ jobs:
 
       - name: Run OpenAPI drift check
         env:
+          CRON_AGENTS_ISSUE_NUMBER: "97"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
         working-directory: scripts
         run: |
           python cron_agents.py openapi-drift \
             --repository "${{ github.repository }}" \
-            --branch "main" \
-            --output ../openapi_drift_result.json
+            --branch "main"
 
       - name: Upload results
         uses: actions/upload-artifact@v4
