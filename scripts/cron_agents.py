@@ -329,11 +329,6 @@ def main():
     parser.add_argument(
         'task', choices=['architecture-audit', 'openapi-drift'], help='Task to run'
     )
-    parser.add_argument(
-        '--api-key',
-        required=False,
-        help='OpenHands Cloud API key (or use OPENHANDS_API_KEY env)',
-    )
     parser.add_argument('--repository', required=True, help='Repository (owner/repo)')
     parser.add_argument('--branch', default='main', help='Branch to work on')
     parser.add_argument(
@@ -346,10 +341,10 @@ def main():
 
     args = parser.parse_args()
 
-    # Prefer env var if present to avoid passing secrets via CLI
-    api_key = args.api_key or os.environ.get('OPENHANDS_API_KEY')
+    # Read API key exclusively from environment to avoid CLI secrets
+    api_key = os.environ.get('OPENHANDS_API_KEY')
     if not api_key:
-        logger.error('Missing API key: provide --api-key or set OPENHANDS_API_KEY')
+        logger.error('Missing API key: set OPENHANDS_API_KEY in the environment')
         sys.exit(2)
 
     # Run the appropriate task
