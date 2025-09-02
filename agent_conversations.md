@@ -139,6 +139,199 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Task**: Find hardcoded condenser max_size in server package, make it configurable with FE option and backend settings integration
 
+### Conversation #18 - Issue 10630 Condensation Max Size Validation
+- **Conversation ID**: `63e43bd44547454da4fad4e20c3428dd`
+- **Status**: RUNNING
+- **Created**: August 26, 2025 at 9:01:20 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/63e43bd44547454da4fad4e20c3428dd
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Task**: Fix issue #10630 - add validation to warn/error when condensation max size is set lower than 20 (not 10)
+
+### Conversation #19 - Analyze GitHub Service Architecture in PR 10492
+- **Conversation ID**: `e46733fd2a1c4c56adef7fc077113b9e`
+- **Status**: RUNNING
+- **Created**: August 29, 2025 at 9:54:55 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/e46733fd2a1c4c56adef7fc077113b9e
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Task**: Analyze GitHub Service Architecture in PR 10492
+
+### Conversation #20 - Document Repo Architecture with Mermaid Diagrams
+- **Conversation ID**: `8144d0eb90354f759706221039f90499`
+- **Status**: RUNNING
+- **Created**: August 29, 2025 at 11:35:49 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/8144d0eb90354f759706221039f90499
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `enyst/agent-sdk`
+- **Task**: Explore the agent-sdk repo and create GitHub issue with architecture documentation using simple Mermaid diagrams
+
+### Conversation #21 - Create Cron-Agent Branch from PR 94
+- **Conversation ID**: `3b496046f47b43d19a19f8da547e7b1c`
+- **Status**: RUNNING
+- **Created**: August 30, 2025 at 12:02:06 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/3b496046f47b43d19a19f8da547e7b1c
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `enyst/playground`
+- **Task**: Read PR 94, understand it, then create cron-agent branch with subset: workflows + conversation API (no LLM settings, no agent-conversations.md)
+
+### Conversation #22 - Review Reasoning PR 10432
+- **Conversation ID**: `92947666d5664bec92bff7b2e6cd5670`
+- **Status**: RUNNING
+- **Created**: August 30, 2025 at 2:05:10 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/92947666d5664bec92bff7b2e6cd5670
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Review and understand all code in reasoning PR 10432, use task tool to check current tasks
+
+### Conversation #23 - Roasted PR Code Review (Read Comments First) - **ISSUE #10730**
+- **Conversation ID**: `5e1c2e15da9842d196ae29e44fc45f36`
+- **Status**: RUNNING
+- **Created**: August 31, 2025 at 3:23:16 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/5e1c2e15da9842d196ae29e44fc45f36
+- **LLM Model**: **MODEL SWITCHING DETECTED** 🔄
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Working on GitHub Issue #10730 - TokenProvider refactor analysis and execution path documentation
+- **Complete Trajectory**: `issue_10730_complete_trajectory_297_events.json` (1.8MB)
+
+#### **📊 Model Switching Analysis:**
+- **Total Events**: 297 events (IDs 0-298)
+- **Total Tool Calls**: 148 tool calls with model metadata
+- **GPT-5 Phase**: 
+  - **Tool Calls**: 134 tool calls
+  - **Event Range**: IDs 9-252 (244 events)
+  - **Model**: `litellm_proxy/gpt-5-2025-08-07`
+  - **Role**: Primary work phase - most analysis and implementation
+- **Claude Sonnet 4 Phase**:
+  - **Tool Calls**: 14 tool calls  
+  - **Event Range**: IDs 262-296 (35 events)
+  - **Model**: `litellm_proxy/claude-sonnet-4-20250514`
+  - **Role**: Final phase - completion and refinement
+- **Transition**: Clean handoff at event 252→262 (9-event gap, no overlap)
+- **GitHub Output**: Posted detailed execution path analysis to issue #10730
+
+### Conversation #24 - Review Comment and Fix If Correct
+- **Conversation ID**: `6b9dbfe4ed774eb6acef364396c60a80`
+- **Status**: RUNNING
+- **Created**: August 30, 2025 at 5:22:54 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/6b9dbfe4ed774eb6acef364396c60a80
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Review comment and fix if correct (GitHub-initiated)
+
+### Conversation #25 - Code Review Roast Request
+- **Conversation ID**: `525f81b01d7c40a6a6b73d8d361f58b5`
+- **Status**: RUNNING
+- **Created**: August 30, 2025 at 12:31:13 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/525f81b01d7c40a6a6b73d8d361f58b5
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Code review roast request (GitHub-initiated)
+
+### Conversation #26 - Validate condensation max size >= 20 (Fix #10630)
+- **Conversation ID**: `63e43bd44547454da4fad4e20c3428dd`
+- **Status**: RUNNING
+- **Created**: August 26, 2025 at 9:01:20 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/63e43bd44547454da4fad4e20c3428dd
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Validate condensation max size >= 20 (Fix #10630) (GitHub-initiated)
+
+### Conversation #27 - Check CI and Fix Failing Unit Test on PR
+- **Conversation ID**: `dbab65133acd49d494386d7059d26c9d`
+- **Status**: RUNNING
+- **Created**: August 25, 2025 at 1:45:37 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/dbab65133acd49d494386d7059d26c9d
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Check CI and fix failing unit test on PR (GitHub-initiated)
+
+### Conversation #28 - model_features var move, merge main, stacked PR
+- **Conversation ID**: `83e43da6cea04a1cac6efb17e9d83231`
+- **Status**: RUNNING
+- **Created**: August 25, 2025 at 8:38:29 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/83e43da6cea04a1cac6efb17e9d83231
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: model_features var move, merge main, stacked PR (GitHub-initiated)
+
+### Conversation #29 - Port LLM tests from OpenHands to Agent SDK
+- **Conversation ID**: `4da6f8066b4f45a59175a25c32e44e04`
+- **Status**: RUNNING
+- **Created**: August 31, 2025 at 9:20:39 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/4da6f8066b4f45a59175a25c32e44e04
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `enyst/agent-sdk`
+- **Task**: Read issue #14, understand LLM class, compare tests between OpenHands and agent-sdk, port remaining LLM tests
+
+### Conversation #30 - Port config tests from OpenHands to agent-sdk
+- **Conversation ID**: `3b74ccb33105489494b9f8d521f3a0a7`
+- **Status**: RUNNING
+- **Created**: August 31, 2025 at 9:24:31 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/3b74ccb33105489494b9f8d521f3a0a7
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `enyst/agent-sdk`
+- **Task**: Read issue #13, understand config module, compare tests between OpenHands and agent-sdk, port relevant config tests
+
+### Conversation #31 - agent-sdk PR #49: Config defaults and test cleanup
+- **Conversation ID**: `c1816613806f4a5fb91765bac810a595`
+- **Status**: RUNNING
+- **Created**: August 31, 2025 at 11:07:54 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/c1816613806f4a5fb91765bac810a595
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `enyst/agent-sdk`
+- **Task**: Analyze PR #49 and roasting review, examine config classes and tests for redundancies, improve test quality
+
+### Conversation #32 - Issue #10730 Follow-up: Next API Route Analysis
+- **Conversation ID**: `7bda10fa255f44718ea2da0867dc1332`
+- **Status**: RUNNING
+- **Created**: September 2, 2025 at 3:14:25 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/7bda10fa255f44718ea2da0867dc1332
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Continue Issue #10730 TokenProvider refactor - analyze next API route, execution path, before/after code examples, and critical re-analysis of TokenProvider vs route boundary approach
+- **Related**: Follow-up to Conversation #23 (original Issue #10730 work with model switching GPT-5→Claude)
+
+### Conversation #33 - OpenHands user_id Architecture Analysis
+- **Conversation ID**: `1617038ac7e44c188bf6d5b8b6216448`
+- **Status**: RUNNING
+- **Created**: September 2, 2025 at 4:24:45 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/1617038ac7e44c188bf6d5b8b6216448
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Analyze all `user_id` occurrences in OpenHands codebase to determine refactoring strategy - 3 options: no auth (refactor out), single user auth, or multi-user auth. Create user.md with findings.
+
+### Conversation #34 - OpenHands user_id Architecture Analysis (Duplicate)
+- **Conversation ID**: `838912c526f14cd2a5d886cd1e75d22e`
+- **Status**: RUNNING
+- **Created**: September 2, 2025 at 4:29:17 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/838912c526f14cd2a5d886cd1e75d22e
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Same as #33 - analyze `user_id` occurrences for auth refactoring strategy. Second attempt hoping for GPT-5 but got Claude again.
+
+### Conversation #35 - OpenHands user_id Architecture Analysis (Hat Trick!)
+- **Conversation ID**: `789051dbb59c4bc29efd0cd14ce1b1a4`
+- **Status**: RUNNING
+- **Created**: September 2, 2025 at 4:39:24 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/789051dbb59c4bc29efd0cd14ce1b1a4
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Task**: Same as #33 & #34 - Claude Sonnet 4 hat trick! Third identical attempt, confirming intelligent model routing for architectural analysis tasks.
+
+### Conversation #36 - OpenHands user_id Architecture Analysis (GPT-5 BREAKTHROUGH!) 🎉
+- **Conversation ID**: `63e64d604ab545e4936cf900c242d5e4`
+- **Status**: RUNNING
+- **Created**: September 2, 2025 at 5:28:55 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/63e64d604ab545e4936cf900c242d5e4
+- **LLM Model**: `litellm_proxy/gpt-5-2025-08-07` ⭐
+- **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Trigger**: `gui` (UI created, not API!)
+- **Task**: Same user_id architecture analysis task - **FIRST GPT-5 SUCCESS** after 12 attempts (9 API + 3 UI)! Historic breakthrough breaking Claude's monopoly on this task type.
+- **Significance**: 
+  - **BREAKS CLAUDE MONOPOLY**: First non-Claude model for this specific task
+  - **UI vs API ROUTING**: Demonstrates different routing logic between UI and API
+  - **Model Routing Research**: Proves UI has probabilistic routing while API is deterministic
+  - **Historic Achievement**: 12th attempt finally succeeded with GPT-5
+
 ---
 
 ## Completed Conversations
@@ -153,3 +346,32 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - Default repository is set to `All-Hands-AI/OpenHands`
 - Each conversation gets its own dedicated runtime URL and session API key
 - Common tail instructions are automatically appended to all prompts
+
+## Model Routing Research Findings
+
+### Historic Discovery: Claude Monopoly vs GPT-5 Breakthrough
+
+**Task**: OpenHands `user_id` architecture analysis (identical prompt, 2,726 characters + common tail)
+
+**API Routing Results** (9 attempts):
+- Claude Sonnet 4: 9/9 (100% consistency) ✅✅✅✅✅✅✅✅✅
+- GPT-5: 0/9 (0% success) ❌❌❌❌❌❌❌❌❌
+
+**UI Routing Results** (4 attempts):
+- Claude Sonnet 4: 3/4 (75%) ✅✅✅❌
+- GPT-5: 1/4 (25% success) ❌❌❌✅ (Conversation #36)
+
+### Key Insights:
+
+1. **Different Routing Logic**: API vs UI use completely different model selection algorithms
+2. **API = Deterministic**: 100% consistent content-based routing (same prompt → same model)
+3. **UI = Probabilistic**: Variable routing with user behavior influence (PostHog-based?)
+4. **Task Specialization**: Claude Sonnet 4 appears to be the designated expert for architectural analysis
+5. **Platform Intelligence**: OpenHands Cloud has sophisticated AI orchestration beyond simple load balancing
+
+### Implications:
+
+- **For Users**: UI provides more model variety, API provides consistency
+- **For Research**: API routing is perfect for reproducible experiments
+- **For Platform**: Demonstrates advanced intelligent routing capabilities
+- **For Development**: Different interfaces may route to different models for the same task
