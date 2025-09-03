@@ -12,11 +12,14 @@ from openhands.server.extensions import (
     apply_register_funcs,
     discover_lifespans,
 )
-from openhands.server.routes.mcp import mcp_server
 from openhands.server.shared import conversation_manager
 
-
-mcp_app = mcp_server.http_app(path='/mcp')
+# MCP may have optional dependencies; attempt import but continue if unavailable.
+try:
+    from openhands.server.routes.mcp import mcp_server
+    mcp_app = mcp_server.http_app(path='/mcp')
+except Exception:  # pragma: no cover
+    mcp_app = None
 
 
 def combine_lifespans(*lifespans):
@@ -38,18 +41,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 # Build app with extension lifespans discovered dynamically
 _extension_lifespans = discover_lifespans()
-_app_lifespan = combine_lifespans(
-    _lifespan,
-    mcp_app.lifespan,
-    *_extension_lifespans,
-)
+lifespans = [_lifespan]
+if mcp_app is not None:
+    lifespans.append(mcp_app.lifespan)
+_app_lifespan = combine_lifespans(*lifespans)
 
 app = FastAPI(
     title='OpenHands (Demo with Extensions)',
     description='OpenHands with extension loader (demo module, not default entrypoint)',
     version=__version__,
     lifespan=_app_lifespan,
-    routes=[Mount(path='/mcp', app=mcp_app)],
+    routes=([Mount(path='/mcp', app=mcp_app)] if mcp_app is not None else []),
 )
 
 # Apply extension routers/middlewares
