@@ -13,11 +13,16 @@ Facts in this document are sourced from the code in this repository (openhands/s
 - Enable external packages to register FastAPI routers and middlewares into the OpenHands server without modifying core files.
 - Allow external packages to participate in server startup/shutdown via lifespans.
 - Keep core component substitution (ConversationManager, stores, UserAuth) working through existing `get_impl` configuration.
+- Provide a minimal DI approach (FastAPI Depends) with a global, non-enforcing RequestContext and a tiny ServiceRegistry for app-scope singletons.
+- Ensure optional dependencies are truly optional (lazy imports), so core starts without optional packages installed.
 
 ## Extension Interfaces
 
-- `register(app: FastAPI) -> None`: Mount routers and middlewares.
-- `lifespan(app: FastAPI) -> Async context manager`: Participate in startup/shutdown (e.g., background tasks).
+- `register(app: FastAPI) -> None`: Mount routers and middlewares (additive).
+- `lifespan(app: FastAPI) -> Async context manager`: Participate in startup/shutdown (additive; composed via ExitStack).
+- `ComponentContribution`: optional object an extension can return to contribute:
+  - `routers: list[(prefix: str, router: APIRouter)]` (additive)
+  - singleton names (first-wins), e.g., `conversation_manager_name`
 
 These are discovered from:
 - Environment variables:
@@ -26,8 +31,9 @@ These are discovered from:
 - Entry points:
   - `openhands_server_extensions`
   - `openhands_server_lifespans`
+  - `openhands_components`
 
-See implementation: `openhands/server/extensions.py`.
+See implementation: `openhands/server/extensions.py` and demo usage in `openhands/server/app_ext_demo.py`.
 
 ## Demo Entrypoint
 
@@ -36,7 +42,7 @@ See implementation: `openhands/server/extensions.py`.
 - MCP lifespan
 - Discovered extension lifespans
 
-Then it calls `apply_register_funcs(app)` to mount all discovered routers.
+It then includes routers from discovered ComponentContributions and calls `apply_register_funcs(app)` to mount all discovered routers. Router prefixes are sanitized before inclusion (trailing '/' removed; leading '/' ensured when non-empty).
 
 Run the demo server, for example:
 
