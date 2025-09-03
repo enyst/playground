@@ -66,9 +66,19 @@ app = FastAPI(
 )
 
 # Apply ComponentContribution routers (additive). Singletons would be handled with first-wins policy in future step.
+def _sanitize_prefix(prefix: str | None) -> str:
+    if not prefix:
+        return ""
+    p = prefix.strip()
+    while p.endswith('/'):
+        p = p[:-1]
+    if p and not p.startswith('/'):
+        p = '/' + p
+    return p
+
 for contrib in discover_component_contributions():
     for prefix, router in getattr(contrib, 'routers', []):
-        app.include_router(router, prefix=prefix)
+        app.include_router(router, prefix=_sanitize_prefix(prefix))
 
 # Apply extension routers/middlewares
 apply_register_funcs(app)
