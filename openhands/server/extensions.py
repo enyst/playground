@@ -14,7 +14,11 @@ except Exception:  # pragma: no cover
 
 from fastapi import FastAPI
 
-from openhands.core.logger import openhands_logger as logger
+try:
+    from openhands.core.logger import openhands_logger as logger
+except Exception:  # pragma: no cover
+    import logging as _logging
+    logger = _logging.getLogger('openhands.extensions')
 
 # Type aliases
 RegisterFunc = Callable[[FastAPI], None]
