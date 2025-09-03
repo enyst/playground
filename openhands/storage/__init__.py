@@ -11,7 +11,11 @@ except Exception:  # pragma: no cover
     GoogleCloudFileStore = None  # type: ignore
 from openhands.storage.local import LocalFileStore
 from openhands.storage.memory import InMemoryFileStore
-from openhands.storage.s3 import S3FileStore
+# Lazy-import S3FileStore for optional dependency
+try:
+    from openhands.storage.s3 import S3FileStore  # type: ignore
+except Exception:  # pragma: no cover
+    S3FileStore = None  # type: ignore
 from openhands.storage.web_hook import WebHookFileStore
 
 
@@ -28,7 +32,9 @@ def get_file_store(
             raise ValueError('file_store_path is required for local file store')
         store = LocalFileStore(file_store_path)
     elif file_store_type == 's3':
-        store = S3FileStore(file_store_path)
+        if S3FileStore is None:
+            raise RuntimeError("S3 file store selected but boto3 is not installed")
+        store = S3FileStore(file_store_path)  # type: ignore[misc]
     elif file_store_type == 'google_cloud':
         if GoogleCloudFileStore is None:
             raise RuntimeError("Google Cloud file store selected but google-cloud dependencies are not installed")
