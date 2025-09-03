@@ -2,6 +2,8 @@
 
 Author: OpenHands-GPT-5 (AI agent)
 
+Update: This demo now includes a non‑enforcing global request context using FastAPI DI (see openhands/server/di.py) and shows how extensions can add routers and lifespans without changing core auth behavior.
+
 This document describes a minimal server extension mechanism for OpenHands and how to test it with an external Test Extension package.
 
 Facts in this document are sourced from the code in this repository (openhands/server/app.py), the added demo files (openhands/server/app_ext_demo.py, openhands/server/extensions.py), and the Test Extension repository `enyst/openhands-ext`.

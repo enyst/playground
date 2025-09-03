@@ -4,7 +4,7 @@ import contextlib
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.routing import Mount
 
 from openhands import __version__
@@ -46,11 +46,14 @@ if mcp_app is not None:
     lifespans.append(mcp_app.lifespan)
 _app_lifespan = combine_lifespans(*lifespans)
 
+from openhands.server.di import resolve_context
+
 app = FastAPI(
     title='OpenHands (Demo with Extensions)',
     description='OpenHands with extension loader (demo module, not default entrypoint)',
     version=__version__,
     lifespan=_app_lifespan,
+    dependencies=[Depends(resolve_context)],  # Global, non-enforcing context
     routes=([Mount(path='/mcp', app=mcp_app)] if mcp_app is not None else []),
 )
 
