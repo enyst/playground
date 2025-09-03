@@ -4,7 +4,11 @@ import httpx
 
 from openhands.storage.batched_web_hook import BatchedWebHookFileStore
 from openhands.storage.files import FileStore
-from openhands.storage.google_cloud import GoogleCloudFileStore
+# Lazy-import GoogleCloudFileStore to avoid hard dependency when unused
+try:
+    from openhands.storage.google_cloud import GoogleCloudFileStore  # type: ignore
+except Exception:  # pragma: no cover
+    GoogleCloudFileStore = None  # type: ignore
 from openhands.storage.local import LocalFileStore
 from openhands.storage.memory import InMemoryFileStore
 from openhands.storage.s3 import S3FileStore
@@ -26,7 +30,9 @@ def get_file_store(
     elif file_store_type == 's3':
         store = S3FileStore(file_store_path)
     elif file_store_type == 'google_cloud':
-        store = GoogleCloudFileStore(file_store_path)
+        if GoogleCloudFileStore is None:
+            raise RuntimeError("Google Cloud file store selected but google-cloud dependencies are not installed")
+        store = GoogleCloudFileStore(file_store_path)  # type: ignore[misc]
     else:
         store = InMemoryFileStore()
     if file_store_web_hook_url:
