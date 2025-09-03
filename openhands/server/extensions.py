@@ -4,8 +4,9 @@ import os
 import sys
 import types
 import importlib
+from dataclasses import dataclass
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Callable, Iterable, Optional
+from typing import Any, AsyncIterator, Callable, Iterable, Optional, Sequence, Tuple
 
 try:  # Python 3.10+
     import importlib.metadata as importlib_metadata  # type: ignore
@@ -149,6 +150,31 @@ def discover_server_config_classes() -> list[type[Any]]:
                 f"Entry point value for 'openhands_server_config' is not a class: {obj}"
             )
     return configs
+
+@dataclass
+class ComponentContribution:
+    routers: list[tuple[str, Any]]
+    conversation_manager_name: Optional[str] = None
+
+
+def discover_component_contributions() -> list[ComponentContribution]:
+    """Discover component contributions from entry point group 'openhands_components'.
+
+    This is a demo API; future work can add env var sourcing and validation.
+    """
+    contributions: list[ComponentContribution] = []
+    for obj in _iter_entry_points('openhands_components'):
+        try:
+            contrib = obj()
+            # Basic shape validation
+            if not hasattr(contrib, 'routers'):
+                logger.warning('ComponentContribution missing routers; skipping')
+                continue
+            contributions.append(contrib)
+        except Exception as e:  # pragma: no cover
+            logger.warning(f"Failed to load component contribution: {e}")
+    return contributions
+
 
 
 def apply_register_funcs(app: FastAPI) -> None:
