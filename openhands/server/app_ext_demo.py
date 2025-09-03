@@ -11,8 +11,13 @@ from openhands import __version__
 from openhands.server.extensions import (
     apply_register_funcs,
     discover_lifespans,
+    discover_component_contributions,
 )
-from openhands.server.shared import conversation_manager
+# Conversation manager lifespan is optional for the demo to avoid heavy deps at import time.
+try:
+    from openhands.server.shared import conversation_manager  # type: ignore
+except Exception:  # pragma: no cover
+    conversation_manager = None  # type: ignore
 
 # MCP may have optional dependencies; attempt import but continue if unavailable.
 try:
@@ -35,8 +40,11 @@ def combine_lifespans(*lifespans):
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    async with conversation_manager:
+    if conversation_manager is None:
         yield
+    else:
+        async with conversation_manager:  # type: ignore
+            yield
 
 
 # Build app with extension lifespans discovered dynamically
@@ -56,6 +64,11 @@ app = FastAPI(
     dependencies=[Depends(resolve_context)],  # Global, non-enforcing context
     routes=([Mount(path='/mcp', app=mcp_app)] if mcp_app is not None else []),
 )
+
+# Apply ComponentContribution routers (additive). Singletons would be handled with first-wins policy in future step.
+for contrib in discover_component_contributions():
+    for prefix, router in getattr(contrib, 'routers', []):
+        app.include_router(router, prefix=prefix)
 
 # Apply extension routers/middlewares
 apply_register_funcs(app)
