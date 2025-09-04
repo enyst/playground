@@ -1,5 +1,13 @@
+"""
+OpenHands Extension System
+
+This module provides the foundation for loading and managing OpenHands extensions.
+Extensions can add routes, middleware, and functionality without modifying the core.
+"""
+
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 import types
@@ -10,8 +18,13 @@ from typing import Any, AsyncIterator, Callable, Iterable, Optional, Sequence, T
 
 try:  # Python 3.10+
     import importlib.metadata as importlib_metadata  # type: ignore
-except Exception:  # pragma: no cover
-    import importlib_metadata  # type: ignore
+    HAS_METADATA = True
+except ImportError:  # pragma: no cover
+    try:
+        import importlib_metadata  # type: ignore
+        HAS_METADATA = True
+    except ImportError:
+        HAS_METADATA = False
 
 from fastapi import FastAPI
 
@@ -20,6 +33,9 @@ try:
 except Exception:  # pragma: no cover
     import logging as _logging
     logger = _logging.getLogger('openhands.extensions')
+    
+if not HAS_METADATA:
+    logger.warning('importlib.metadata not available. Entry point discovery disabled.')
 
 # Type aliases
 RegisterFunc = Callable[[FastAPI], None]
@@ -43,6 +59,9 @@ def _iter_entry_points(group: str) -> Iterable[Any]:
 
     Compatible with both old and new importlib.metadata APIs.
     """
+    if not HAS_METADATA:
+        return
+        
     try:
         eps = importlib_metadata.entry_points()
         # New API supports .select
@@ -52,7 +71,7 @@ def _iter_entry_points(group: str) -> Iterable[Any]:
             selected = eps.get(group, [])  # type: ignore[attr-defined]
     except Exception as e:  # pragma: no cover
         logger.warning(f"Failed to read entry points for group '{group}': {e}")
-        return []
+        return
 
     for ep in selected:  # type: ignore[assignment]
         try:
@@ -189,6 +208,92 @@ def apply_register_funcs(app: FastAPI) -> None:
             logger.warning(f"Extension register failed for {func}: {e}")
 
 
+def combine_lifespans(*lifespans):
+    """Combine multiple lifespan functions into a single lifespan."""
+
+    @contextlib.asynccontextmanager
+    async def combined_lifespan(app):
+        async with contextlib.AsyncExitStack() as stack:
+            for lifespan in lifespans:
+                await stack.enter_async_context(lifespan(app))
+            yield
+
+    return combined_lifespan
+
+
+def load_extensions(app: FastAPI) -> list[str]:
+    """
+    Load and register all available OpenHands extensions.
+
+    Extensions can be discovered through:
+    1. Environment variable: OPENHANDS_EXTENSIONS (comma-separated list of module:function)
+    2. Entry points: openhands_server_extensions
+
+    Args:
+        app: FastAPI application instance
+
+    Returns:
+        List of successfully loaded extension names
+    """
+    loaded_extensions = []
+
+    # Use existing apply_register_funcs for compatibility
+    try:
+        apply_register_funcs(app)
+        # Get the names of loaded extensions
+        for func in discover_register_funcs():
+            loaded_extensions.append(getattr(func, '__qualname__', str(func)))
+    except Exception as e:
+        logger.error(f"Failed to load extensions: {e}")
+
+    if loaded_extensions:
+        logger.info(f'Total extensions loaded: {len(loaded_extensions)}')
+    else:
+        logger.debug('No extensions loaded')
+
+    return loaded_extensions
+
+
+def get_extension_info(app: FastAPI) -> dict:
+    """
+    Get information about loaded extensions.
+
+    Args:
+        app: FastAPI application instance
+
+    Returns:
+        Dictionary with extension information
+    """
+    info = {
+        'extension_system': 'enabled',
+        'discovery_methods': ['environment_variable', 'entry_points'],
+        'register_extensions': {
+            'environment_variable': 'OPENHANDS_EXTENSIONS',
+            'entry_point_group': 'openhands_server_extensions',
+        },
+        'lifespan_extensions': {
+            'environment_variable': 'OPENHANDS_EXTENSION_LIFESPANS',
+            'entry_point_group': 'openhands_server_lifespans',
+        },
+        'metadata_available': HAS_METADATA,
+    }
+
+    # Check if any extensions are configured
+    extensions_env = os.getenv('OPENHANDS_EXTENSIONS', '')
+    if extensions_env.strip():
+        info['configured_register_extensions'] = [
+            ext.strip() for ext in extensions_env.split(',') if ext.strip()
+        ]
+
+    lifespans_env = os.getenv('OPENHANDS_EXTENSION_LIFESPANS', '')
+    if lifespans_env.strip():
+        info['configured_lifespan_extensions'] = [
+            ext.strip() for ext in lifespans_env.split(',') if ext.strip()
+        ]
+
+    return info
+
+
 __all__ = [
     'RegisterFunc',
     'LifespanFactory',
@@ -196,4 +301,7 @@ __all__ = [
     'discover_lifespans',
     'discover_server_config_classes',
     'apply_register_funcs',
+    'combine_lifespans',
+    'load_extensions',
+    'get_extension_info',
 ]

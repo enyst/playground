@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
 from openhands import __version__
 from openhands.integrations.service_types import AuthenticationError
+from openhands.server.extensions import get_extension_info, load_extensions
 from openhands.server.routes.conversation import app as conversation_api_router
 from openhands.server.routes.feedback import app as feedback_api_router
 from openhands.server.routes.files import app as files_api_router
@@ -84,3 +85,15 @@ if server_config.app_mode == AppMode.OSS:
     app.include_router(git_api_router)
 app.include_router(trajectory_router)
 add_health_endpoints(app)
+
+# Load extensions after all core routes are registered
+loaded_extensions = load_extensions(app)
+
+
+# Add extension info endpoint
+@app.get('/api/extensions/info')
+async def extensions_info():
+    """Get information about the extension system and loaded extensions"""
+    info = get_extension_info(app)
+    info['loaded_extensions'] = loaded_extensions
+    return info
