@@ -327,7 +327,6 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/63e64d604ab545e4936cf900c242d5e4
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07` ⭐
 - **Repository**: `All-Hands-AI/OpenHands` (default)
-- **Trigger**: gui
 - **Trigger**: `gui` (UI created, not API!)
 - **Task**: Same user_id architecture analysis task - **FIRST GPT-5 SUCCESS** after 12 attempts (9 API + 3 UI)! Historic breakthrough breaking Claude's monopoly on this task type.
 - **Significance**:
