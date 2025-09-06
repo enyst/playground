@@ -275,6 +275,8 @@ class OpenHandsCloudAPI:
                            if e.get('source') == 'agent' and
                               e.get('action') == 'condensation']
         """
+        # Clamp limit to [1, 100]
+        limit = max(1, min(100, int(limit)))
         params = {
             'start_id': start_id,
             'reverse': str(reverse).lower(),
