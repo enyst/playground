@@ -193,7 +193,6 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **LLM Model**: **MODEL SWITCHING DETECTED** 🔄
 - **Repository**: `All-Hands-AI/OpenHands` (default)
 - **Task**: Working on GitHub Issue #10730 - TokenProvider refactor analysis and execution path documentation
-- **Complete Trajectory**: `issue_10730_complete_trajectory_297_events.json` (1.8MB)
 
 #### **📊 Model Switching Analysis:**
 - **Total Events**: 297 events (IDs 0-298)
@@ -351,7 +350,6 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 
 - **Model inspection notes**:
   - Total events: 437 (IDs 0–436)
-  - Full event history saved to: `cache/trajectories/conversation_4c2948df77424deaa23b6a09ada34259_events.json`
   - Models detected across events:
     - `litellm_proxy/claude-sonnet-4-20250514` (first seen at event 9, last seen at 383)
     - `gpt-5-2025-08-07` (first seen at 392, last seen at 434)
