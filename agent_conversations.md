@@ -725,6 +725,102 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Trigger**: resolver
 - **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
 
+### Conversation #77 - Clone litellm repo and verify response attributes
+- **Conversation ID**: `ba0ea59a73594f1487df12b98aa3cd0b`
+- **Status**: RUNNING
+- **Created**: September 06, 2025 at 07:39:21 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/ba0ea59a73594f1487df12b98aa3cd0b
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: resolver
+- **PRs**: []
+- **Task**: @openhands Clone litellm repo and verify this: does a response from Responses API via litellm have ALWAYS these attributes, like 'id', 'created', 'model' ? If yes, clean up this code from getattr, we don't need it! If not, explain with link to the relevant litellm code.
+- **Events**: 115
+
+### Conversation #78 - Clone LiteLLM repo and verify usage object prop...
+- **Conversation ID**: `7275799c0cd8470c8bdd5434ed466a2e`
+- **Status**: RUNNING
+- **Created**: September 06, 2025 at 07:37:22 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/7275799c0cd8470c8bdd5434ed466a2e
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: resolver
+- **PRs**: []
+- **Task**: @openhands Clone litellm repo and verify this: if a response from Responses API has 'usage', does the usage object ALWAYS have properties used in this code, e.g. input_tokens, output_tokens, completion_... etc, or not?
+- **Events**: 93
+
+### Conversation #79 - Verify LiteLLM Model Response API Patterns
+- **Conversation ID**: `0487483f884f4b6ca91b2dfa21862628`
+- **Status**: STOPPED
+- **Created**: September 06, 2025 at 07:17:52 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/0487483f884f4b6ca91b2dfa21862628
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: resolver
+- **PRs**: []
+- **Task**: @openhands Double check every model in the list of RESPONSES_API_PATTERNS against litellm's documentation or code for responses API. For example, gemini 1.5 pro does NOT have reasoning. Don't hallucinate, check. If you can't find a model, just remove it from this list.
+- **Events**: 99
+
+### Conversation #80 - Fix code based on review comment
+- **Conversation ID**: `4ec43132dc1e45f298f7fe0fde13bb8f`
+- **Status**: STOPPED
+- **Created**: September 06, 2025 at 06:22:59 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/4ec43132dc1e45f298f7fe0fde13bb8f
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: resolver
+- **PRs**: []
+- **Task**: @openhands fix this as per the review comment here
+- **Events**: 55
+
+### Conversation #81 - Implement Xingyao's suggestion from comments
+- **Conversation ID**: `ff4b69c0b2f540be8fe460aa5f2425e0`
+- **Status**: STOPPED
+- **Created**: September 06, 2025 at 06:20:58 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/ff4b69c0b2f540be8fe460aa5f2425e0
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: resolver
+- **PRs**: [142]
+- **Task**: Exactly, I think it’s doable. Let’s see how it looks like, maybe it doesn’t bring too much complexity.
+- **Events**: 402
+
+### Conversation #82 - Clone agent-sdk and migrate PR changes from V0 ...
+- **Conversation ID**: `56afe3690b1c4d549949e199e3f38981`
+- **Status**: STOPPED
+- **Created**: September 06, 2025 at 06:16:41 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/56afe3690b1c4d549949e199e3f38981
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: resolver
+- **PRs**: [141]
+- **Task**: @openhands Clone the repo agent-sdk from this org. That is OpenHands V1, while this we can say it’s V0.
+- **Events**: 154
+
+### Conversation #83 - Testing Microphone or System Functionality
+- **Conversation ID**: `0db2c993a6df43ffbb6b2d2956feb3bd`
+- **Status**: STOPPED
+- **Created**: September 06, 2025 at 06:03:48 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/0db2c993a6df43ffbb6b2d2956feb3bd
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: slack
+- **PRs**: []
+- **Task**: *pushes a button* testing testing, is this thing on
+- **Events**: 17
+
+### Conversation #84 - Analyze Enterprise Conversations for Private OH...
+- **Conversation ID**: `6cf0dd53d6e547dabd26f82c4c4c0c5c`
+- **Status**: STOPPED
+- **Created**: September 06, 2025 at 04:56:07 PM UTC
+- **Link**: https://app.all-hands.dev/conversations/6cf0dd53d6e547dabd26f82c4c4c0c5c
+- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **Repository**: `(unspecified)`
+- **Trigger**: slack
+- **PRs**: []
+- **Task**: Read the readme in /enterprise. The whole /enterprise is built on OpenHands (OH).
+- **Events**: 186
+
 ## Completed Conversations
 
 *(None yet)*
