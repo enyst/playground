@@ -342,6 +342,15 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Repository**: `All-Hands-AI/agent-sdk`
 - **Task**: Read and implement GitHub issue comments for PR #134; posted reply comment here: https://github.com/All-Hands-AI/agent-sdk/pull/134#issuecomment-3260282721
 
+
+- **Model inspection notes**:
+  - Total events: 437 (IDs 0–436)
+  - Full event history saved to: `cache/trajectories/conversation_4c2948df77424deaa23b6a09ada34259_events.json`
+  - Models detected across events:
+    - `litellm_proxy/claude-sonnet-4-20250514` (first seen at event 9, last seen at 383)
+    - `gpt-5-2025-08-07` (first seen at 392, last seen at 434)
+  - Prefix discrepancy: In this conversation, Claude includes the `litellm_proxy/` prefix while GPT-5 does not. In the earlier model-switching note (Conversation #23), both models included the `litellm_proxy/` prefix (e.g., `litellm_proxy/gpt-5-2025-08-07`). This suggests inconsistent model-name normalization between different logging paths/endpoints or routing layers.
+
 ---
 
 ## Completed Conversations
