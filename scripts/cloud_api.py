@@ -35,6 +35,74 @@ class OpenHandsCloudAPI:
             }
         )
 
+    def list_conversations(self, limit: int = 100) -> list[dict[str, Any]]:
+        """List conversations with pagination.
+
+        Args:
+            limit: Page size (max 100)
+
+        Returns:
+            Flattened list of conversation summaries
+        """
+        results: list[dict[str, Any]] = []
+        page_id: str | None = None
+        while True:
+            params: dict[str, Any] = {'limit': limit}
+            if page_id:
+                params['page_id'] = page_id
+            r = self.session.get(f'{self.base_url}/api/conversations', params=params)
+            r.raise_for_status()
+            data = r.json()
+            results.extend(data.get('results', []))
+            page_id = data.get('next_page_id')
+            if not page_id:
+                break
+        return results
+
+    def get_last_event_id(self, conversation_id: str) -> int | None:
+        """Return the latest event id using a minimal query."""
+        payload = self.get_events(conversation_id, reverse=True, limit=1)
+        events = payload.get('events', [])
+        return events[0]['id'] if events else None
+
+    def get_recent_model(self, conversation_id: str) -> str | None:
+        """Inspect a small recent window for model metadata and return first found."""
+        payload = self.get_events(conversation_id, reverse=True, limit=20)
+        for e in payload.get('events', []):
+            # tool_call_metadata.model_response.model is most reliable
+            m = ((e.get('tool_call_metadata') or {}).get('model_response') or {}).get(
+                'model'
+            )
+            if isinstance(m, str):
+                return m
+            # fallback to common fields
+            for k in ('model', 'llm_model', 'provider_model', 'selected_model'):
+                v = e.get(k)
+                if isinstance(v, str):
+                    return v
+            meta = e.get('metadata') or e.get('meta') or {}
+            for k in ('model', 'llm_model', 'provider_model'):
+                v = meta.get(k)
+                if isinstance(v, str):
+                    return v
+            args = e.get('args') or {}
+            for k in ('model', 'llm_model'):
+                v = args.get(k)
+                if isinstance(v, str):
+                    return v
+        return None
+
+    def get_first_user_message(self, conversation_id: str) -> str | None:
+        """Fetch earliest handful of events and return the first user message text if present."""
+        payload = self.get_events(conversation_id, start_id=0, limit=20)
+        for e in payload.get('events', []):
+            if e.get('source') == 'user':
+                # Try 'message' then 'content'
+                msg = e.get('message') or e.get('content')
+                if isinstance(msg, str) and msg.strip():
+                    return msg.strip()
+        return None
+
     def store_llm_settings(
         self,
         llm_model: str,
@@ -172,14 +240,14 @@ class OpenHandsCloudAPI:
         Examples:
             # Get latest 50 events in reverse order
             api.get_events(conv_id, reverse=True, limit=50)
-            
+
             # Get events in a specific range (e.g., events 800-900)
             api.get_events(conv_id, start_id=800, end_id=900, limit=100)
-            
+
             # Find condensation events in recent history
             events = api.get_events(conv_id, start_id=800, end_id=900, limit=100)
-            condensations = [e for e in events['events'] 
-                           if e.get('source') == 'agent' and 
+            condensations = [e for e in events['events']
+                           if e.get('source') == 'agent' and
                               e.get('action') == 'condensation']
         """
         params = {
