@@ -341,7 +341,7 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Status**: RUNNING
 - **Created**: September 6, 2025 at 12:45:34 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/4c2948df77424deaa23b6a09ada34259
-- **LLM Model**: `gpt-5-2025-08-07`
+- **LLM Model**: **MODEL SWITCHING DETECTED** 🔄
 - **Repository**: `All-Hands-AI/agent-sdk`
 - **Trigger**: resolver
 - **PRs**: 134
