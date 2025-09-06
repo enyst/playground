@@ -103,6 +103,31 @@ class OpenHandsCloudAPI:
                     return msg.strip()
         return None
 
+    def get_early_model(self, conversation_id: str) -> str | None:
+        """Inspect the earliest small window for the first model reference."""
+        payload = self.get_events(conversation_id, start_id=0, limit=20)
+        for e in payload.get('events', []):
+            m = ((e.get('tool_call_metadata') or {}).get('model_response') or {}).get(
+                'model'
+            )
+            if isinstance(m, str):
+                return m
+            for k in ('model', 'llm_model', 'provider_model', 'selected_model'):
+                v = e.get(k)
+                if isinstance(v, str):
+                    return v
+            meta = e.get('metadata') or e.get('meta') or {}
+            for k in ('model', 'llm_model', 'provider_model'):
+                v = meta.get(k)
+                if isinstance(v, str):
+                    return v
+            args = e.get('args') or {}
+            for k in ('model', 'llm_model'):
+                v = args.get(k)
+                if isinstance(v, str):
+                    return v
+        return None
+
     def store_llm_settings(
         self,
         llm_model: str,

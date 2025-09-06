@@ -154,6 +154,7 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/e46733fd2a1c4c56adef7fc077113b9e
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Task**: Analyze GitHub Service Architecture in PR 10492
+- **Trigger**: openhands_api
 
 ### Conversation #20 - Document Repo Architecture with Mermaid Diagrams
 - **Conversation ID**: `8144d0eb90354f759706221039f90499`
@@ -162,8 +163,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/8144d0eb90354f759706221039f90499
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Repository**: `enyst/agent-sdk`
+- **Trigger**: openhands_api
+- **PRs**: 2, 47
 - **Task**: Explore the agent-sdk repo and create GitHub issue with architecture documentation using simple Mermaid diagrams
-
 ### Conversation #21 - Create Cron-Agent Branch from PR 94
 - **Conversation ID**: `3b496046f47b43d19a19f8da547e7b1c`
 - **Status**: RUNNING
@@ -171,8 +173,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/3b496046f47b43d19a19f8da547e7b1c
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Repository**: `enyst/playground`
+- **Trigger**: openhands_api
+- **PRs**: 96
 - **Task**: Read PR 94, understand it, then create cron-agent branch with subset: workflows + conversation API (no LLM settings, no agent-conversations.md)
-
 ### Conversation #22 - Review Reasoning PR 10432
 - **Conversation ID**: `92947666d5664bec92bff7b2e6cd5670`
 - **Status**: RUNNING
@@ -180,8 +183,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/92947666d5664bec92bff7b2e6cd5670
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Trigger**: openhands_api
 - **Task**: Review and understand all code in reasoning PR 10432, use task tool to check current tasks
-
 ### Conversation #23 - Roasted PR Code Review (Read Comments First) - **ISSUE #10730**
 - **Conversation ID**: `5e1c2e15da9842d196ae29e44fc45f36`
 - **Status**: RUNNING
@@ -269,8 +272,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/3b74ccb33105489494b9f8d521f3a0a7
 - **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
 - **Repository**: `enyst/agent-sdk`
+- **Trigger**: openhands_api
+- **PRs**: 4, 49
 - **Task**: Read issue #13, understand config module, compare tests between OpenHands and agent-sdk, port relevant config tests
-
 ### Conversation #31 - agent-sdk PR #49: Config defaults and test cleanup
 - **Conversation ID**: `c1816613806f4a5fb91765bac810a595`
 - **Status**: RUNNING
@@ -278,8 +282,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/c1816613806f4a5fb91765bac810a595
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Repository**: `enyst/agent-sdk`
+- **Trigger**: openhands_api
 - **Task**: Analyze PR #49 and roasting review, examine config classes and tests for redundancies, improve test quality
-
 ### Conversation #32 - Issue #10730 Follow-up: Next API Route Analysis
 - **Conversation ID**: `7bda10fa255f44718ea2da0867dc1332`
 - **Status**: RUNNING
@@ -287,9 +291,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/7bda10fa255f44718ea2da0867dc1332
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Trigger**: openhands_api
 - **Task**: Continue Issue #10730 TokenProvider refactor - analyze next API route, execution path, before/after code examples, and critical re-analysis of TokenProvider vs route boundary approach
 - **Related**: Follow-up to Conversation #23 (original Issue #10730 work with model switching GPT-5→Claude)
-
 ### Conversation #33 - OpenHands user_id Architecture Analysis
 - **Conversation ID**: `1617038ac7e44c188bf6d5b8b6216448`
 - **Status**: RUNNING
@@ -324,6 +328,7 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/63e64d604ab545e4936cf900c242d5e4
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07` ⭐
 - **Repository**: `All-Hands-AI/OpenHands` (default)
+- **Trigger**: gui
 - **Trigger**: `gui` (UI created, not API!)
 - **Task**: Same user_id architecture analysis task - **FIRST GPT-5 SUCCESS** after 12 attempts (9 API + 3 UI)! Historic breakthrough breaking Claude's monopoly on this task type.
 - **Significance**:
@@ -332,7 +337,6 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
   - **Model Routing Research**: Proves UI has probabilistic routing while API is deterministic
   - **Historic Achievement**: 12th attempt finally succeeded with GPT-5
 
-
 ### Conversation #37 - Read and implement GitHub issue comments (PR #134)
 - **Conversation ID**: `4c2948df77424deaa23b6a09ada34259`
 - **Status**: RUNNING
@@ -340,6 +344,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Link**: https://app.all-hands.dev/conversations/4c2948df77424deaa23b6a09ada34259
 - **LLM Model**: `gpt-5-2025-08-07`
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
+- **PRs**: 134
 - **Task**: Read and implement GitHub issue comments for PR #134; posted reply comment here: https://github.com/All-Hands-AI/agent-sdk/pull/134#issuecomment-3260282721
 
 
@@ -353,14 +359,20 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 
 ---
 
+
+> Notes on counts and model:
+> - Events count is derived as (latest event id + 1) using a minimal reverse query.
+> - LLM model is detected by probing recent events (from the end). In rare cases we also probe early events when needed.
+
 ### Conversation #38 - Research Reasoning LLMs and Agent-SDK Proposal
 - **Conversation ID**: `e9eeecb5ca8f46adba949a23a2d271b0`
 - **Status**: STOPPED
 - **Created**: September 6, 2025 at 2:00:26 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/e9eeecb5ca8f46adba949a23a2d271b0
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
+- **PRs**: 139
 - **LLM Model**: `unknown`
-
 
 ### Conversation #39 - Branch-Main Diff; Retrieve Conversation; Log Model
 - **Conversation ID**: `9884a6b6267344258c97ae505fc73181`
@@ -368,8 +380,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 6, 2025 at 3:23:52 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/9884a6b6267344258c97ae505fc73181
 - **Repository**: `enyst/playground`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #40 - Code Review Roast PR Request
 - **Conversation ID**: `b77e0c6168304b56938c9be43e21c1a6`
@@ -377,8 +389,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 6, 2025 at 1:53:46 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/b77e0c6168304b56938c9be43e21c1a6
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #41 - Clone agent-sdk repo and port PR from V0 to V1
 - **Conversation ID**: `c9269b5dc02947c98261ebf1f6bf806e`
@@ -386,8 +398,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 6, 2025 at 12:56:51 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/c9269b5dc02947c98261ebf1f6bf806e
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #42 - Refactor Conversation Paths for HA Enterprise API
 - **Conversation ID**: `afeb299115464807be738d6572c8af9d`
@@ -395,8 +407,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 6, 2025 at 12:35:23 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/afeb299115464807be738d6572c8af9d
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #43 - Fix CI Failures for PR #10432 (OpenHands)
 - **Conversation ID**: `2803db3e49984ba9bb7928243aebbaf9`
@@ -404,8 +416,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 5, 2025 at 11:38:45 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/2803db3e49984ba9bb7928243aebbaf9
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: suggested_task
 - **LLM Model**: `unknown`
-
 
 ### Conversation #44 - Clone OpenHands V1 SDK; compare to V0; port gaps
 - **Conversation ID**: `0925788128f24aa1aa9b50d8b967997f`
@@ -413,8 +425,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 5, 2025 at 11:03:05 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/0925788128f24aa1aa9b50d8b967997f
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #45 - Agent Review and Options Discussion
 - **Conversation ID**: `30dd56300f934e45ac79c98f9ac6f573`
@@ -422,8 +434,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 5, 2025 at 11:01:37 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/30dd56300f934e45ac79c98f9ac6f573
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #46 - Clone repo, move analysis dir to new branch, cr...
 - **Conversation ID**: `aab83d9f2c8b486cb87f6f9636e0acf6`
@@ -431,8 +443,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 5, 2025 at 7:22:55 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/aab83d9f2c8b486cb87f6f9636e0acf6
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
+- **PRs**: 10860
 - **LLM Model**: `unknown`
-
 
 ### Conversation #47 - Enterprise Auth System Analysis & Report
 - **Conversation ID**: `8a80b16d411444c8a206fa23d27ecf18`
@@ -440,8 +453,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 11:10:00 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/8a80b16d411444c8a206fa23d27ecf18
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: slack
+- **PRs**: 10828
 - **LLM Model**: `unknown`
-
 
 ### Conversation #48 - Create docs/ folder and move existing docs
 - **Conversation ID**: `5fd6b88e07964fcd85f20b3ea740769b`
@@ -449,8 +463,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 10:10:17 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/5fd6b88e07964fcd85f20b3ea740769b
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
+- **PRs**: 117
 - **LLM Model**: `unknown`
-
 
 ### Conversation #49 - Analyze user_id usage patterns in /enterprise c...
 - **Conversation ID**: `deed3f9200a9475a95cf9977500379ec`
@@ -458,8 +473,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 10:01:14 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/deed3f9200a9475a95cf9977500379ec
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: slack
+- **PRs**: 10825
 - **LLM Model**: `unknown`
-
 
 ### Conversation #50 - OpenHands PR 10823: Deduplicate Auth Proposal
 - **Conversation ID**: `1c1bb1c74a484b08a503e523b4e17cb9`
@@ -467,8 +483,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 8:46:39 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/1c1bb1c74a484b08a503e523b4e17cb9
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #51 - AuthSystem Design (GPT-5)
 - **Conversation ID**: `e5bab335eac7448da9a599273226f1ce`
@@ -476,8 +492,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 7:16:10 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/e5bab335eac7448da9a599273226f1ce
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #52 - Design AuthSystem for OpenHands with OAuth Support
 - **Conversation ID**: `54e604f396794e1c9eaac0794a39d8cc`
@@ -485,8 +501,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 7:05:43 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/54e604f396794e1c9eaac0794a39d8cc
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #53 - FastAPI Multi-User Auth Architecture Options
 - **Conversation ID**: `4f79e656c76b4519ae3906fdcaaa83a3`
@@ -494,8 +510,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 3:10:02 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/4f79e656c76b4519ae3906fdcaaa83a3
 - **Repository**: `enyst/test-auth`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #54 - Design AuthSystem for OpenHands with Auth Strat...
 - **Conversation ID**: `a69a32a55a484b688d7acb1708ef6ecd`
@@ -503,8 +519,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 2:58:48 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/a69a32a55a484b688d7acb1708ef6ecd
 - **Repository**: `enyst/test-auth`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #55 - FastAPI Multi-User App Architecture Options
 - **Conversation ID**: `830f33ec14ad44858fbb0032d0a3e1e6`
@@ -512,8 +528,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 2:02:49 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/830f33ec14ad44858fbb0032d0a3e1e6
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #56 - Analyze OpenHands Extension System Architecture
 - **Conversation ID**: `4995f442a6ca4321814a7515f852edc7`
@@ -521,8 +537,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 4, 2025 at 12:29:44 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/4995f442a6ca4321814a7515f852edc7
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #57 - Verify microagent trigger "line too long" funct...
 - **Conversation ID**: `07c02a7e196e4ffc93cda087c81025b1`
@@ -530,8 +546,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 11:15:07 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/07c02a7e196e4ffc93cda087c81025b1
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #58 - Decoupling saas_app into OpenHands Extension
 - **Conversation ID**: `e24fcd31275a42e1a99828035a825f62`
@@ -539,8 +555,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 7:00:30 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/e24fcd31275a42e1a99828035a825f62
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
+- **PRs**: 98, 5
 - **LLM Model**: `unknown`
-
 
 ### Conversation #59 - Clone openhands-ext repo and decouple enterpris...
 - **Conversation ID**: `3cb4c084c9964f6c9a7fdf0b2d7f7c5c`
@@ -548,8 +565,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 6:22:56 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/3cb4c084c9964f6c9a7fdf0b2d7f7c5c
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
+- **PRs**: 4
 - **LLM Model**: `unknown`
-
 
 ### Conversation #60 - Review issue against upstream main; PR docs
 - **Conversation ID**: `dbc3528709cf4875b941b82e01c9fc44`
@@ -557,8 +575,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 4:17:10 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/dbc3528709cf4875b941b82e01c9fc44
 - **Repository**: `enyst/agent-sdk`
+- **Trigger**: resolver
+- **PRs**: 76
 - **LLM Model**: `unknown`
-
 
 ### Conversation #61 - Fix PR conflicts by merging main branch
 - **Conversation ID**: `102406256cb5433cb67758b11fcd8461`
@@ -566,8 +585,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 4:06:52 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/102406256cb5433cb67758b11fcd8461
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #62 - Review and Update Issue for Documentation PR
 - **Conversation ID**: `a07d4668b48a474f9a2c1b3bba3b66c2`
@@ -575,8 +594,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 4:00:10 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/a07d4668b48a474f9a2c1b3bba3b66c2
 - **Repository**: `enyst/agent-sdk`
+- **Trigger**: resolver
+- **PRs**: 7
 - **LLM Model**: `unknown`
-
 
 ### Conversation #63 - Merge main, fix conflicts, run pre-commit
 - **Conversation ID**: `437562f37f484a0cbb532445f442628c`
@@ -584,8 +604,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 3:51:26 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/437562f37f484a0cbb532445f442628c
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #64 - Fix pre-commit setup and configuration issues
 - **Conversation ID**: `fb960f4e5ef24733b1f8debbd84a732f`
@@ -593,8 +613,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 3:48:01 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/fb960f4e5ef24733b1f8debbd84a732f
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #65 - Fix CI pre-commit failures
 - **Conversation ID**: `3f28c3132ae14cf68d607f50d226761d`
@@ -602,8 +622,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 3:40:42 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/3f28c3132ae14cf68d607f50d226761d
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #66 - Understanding /enterprise branch implementation
 - **Conversation ID**: `c251396bdcc64fb29e11be77c807410a`
@@ -611,8 +631,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 6:46:27 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/c251396bdcc64fb29e11be77c807410a
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: gui
 - **LLM Model**: `unknown`
-
 
 ### Conversation #67 - PR Code Review: Multiuser Extensions Analysis
 - **Conversation ID**: `419537bf49e3432cbc9a080dabb70600`
@@ -620,8 +640,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 2:09:45 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/419537bf49e3432cbc9a080dabb70600
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #68 - PR Code Review and Roast Analysis
 - **Conversation ID**: `6a0efd658d804a6c9e231188883450da`
@@ -629,8 +649,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 3, 2025 at 1:54:24 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/6a0efd658d804a6c9e231188883450da
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #69 - Refactor OpenHands globals for SaaS integration
 - **Conversation ID**: `2b2d55f0f6284c879b9af801ad8e94d3`
@@ -638,8 +658,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 2, 2025 at 8:40:41 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/2b2d55f0f6284c879b9af801ad8e94d3
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: openhands_api
+- **PRs**: 10772
 - **LLM Model**: `unknown`
-
 
 ### Conversation #70 - Remove obsolete user_id code from state.py
 - **Conversation ID**: `fa62dfb285b440afb9d7bd76960fee3f`
@@ -647,8 +668,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 2, 2025 at 6:06:13 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/fa62dfb285b440afb9d7bd76960fee3f
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: openhands_api
+- **PRs**: 10752
 - **LLM Model**: `unknown`
-
 
 ### Conversation #71 - Fix stuck detection for empty bash commands
 - **Conversation ID**: `438d2a11e0d44458b33b8911ab3b24a9`
@@ -656,8 +678,9 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 2, 2025 at 12:57:36 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/438d2a11e0d44458b33b8911ab3b24a9
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: slack
+- **PRs**: 10750
 - **LLM Model**: `unknown`
-
 
 ### Conversation #72 - Code Review Roast Request for PR
 - **Conversation ID**: `20f5f90efcd44aeebe114b34fcf3e4c0`
@@ -665,8 +688,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 1, 2025 at 5:38:59 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/20f5f90efcd44aeebe114b34fcf3e4c0
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #73 - Roasted PR Code Review
 - **Conversation ID**: `d9f1a3b8266045cca26bc0449d1d5e16`
@@ -674,8 +697,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: September 1, 2025 at 5:29:14 AM UTC
 - **Link**: https://app.all-hands.dev/conversations/d9f1a3b8266045cca26bc0449d1d5e16
 - **Repository**: `All-Hands-AI/OpenHands`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #74 - Investigating Parameter Syntax Changes in OpenH...
 - **Conversation ID**: `2f00ec51b1d845419775123c066e93f5`
@@ -683,8 +706,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: August 31, 2025 at 11:26:59 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/2f00ec51b1d845419775123c066e93f5
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #75 - Code Review: Port Tests from V0 to V1 OpenHands
 - **Conversation ID**: `88f42988126d45efa836038f3f21b5b3`
@@ -692,8 +715,8 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: August 31, 2025 at 10:52:57 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/88f42988126d45efa836038f3f21b5b3
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
-
 
 ### Conversation #76 - Fix Code Issues Based on Comments and Review
 - **Conversation ID**: `9b72b03a242f490c81f15ce8420c7894`
@@ -701,6 +724,7 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Created**: August 31, 2025 at 10:38:05 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/9b72b03a242f490c81f15ce8420c7894
 - **Repository**: `All-Hands-AI/agent-sdk`
+- **Trigger**: resolver
 - **LLM Model**: `unknown`
 
 ## Completed Conversations
@@ -717,7 +741,6 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - Common tail instructions are automatically appended to all prompts
 
 ## Model Routing Research Findings
-
 ### Historic Discovery: Claude Monopoly vs GPT-5 Breakthrough
 
 **Task**: OpenHands `user_id` architecture analysis (identical prompt, 2,726 characters + common tail)
