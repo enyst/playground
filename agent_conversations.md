@@ -12,7 +12,7 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **LLM Model**: `litellm_proxy/gpt-5-2025-08-07`
 - **Task**: Fix poetry.lock conflict in PR 10305 by merging main and regenerating lock file
 
-### Conversation #2 - Issue 10553 Title Display Investigation  
+### Conversation #2 - Issue 10553 Title Display Investigation
 - **Conversation ID**: `401c3b5f89f4419f8a90bcae38ad0270`
 - **Status**: RUNNING
 - **Created**: August 21, 2025 at 5:18:27 PM UTC
@@ -195,13 +195,13 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 #### **📊 Model Switching Analysis:**
 - **Total Events**: 297 events (IDs 0-298)
 - **Total Tool Calls**: 148 tool calls with model metadata
-- **GPT-5 Phase**: 
+- **GPT-5 Phase**:
   - **Tool Calls**: 134 tool calls
   - **Event Range**: IDs 9-252 (244 events)
   - **Model**: `litellm_proxy/gpt-5-2025-08-07`
   - **Role**: Primary work phase - most analysis and implementation
 - **Claude Sonnet 4 Phase**:
-  - **Tool Calls**: 14 tool calls  
+  - **Tool Calls**: 14 tool calls
   - **Event Range**: IDs 262-296 (35 events)
   - **Model**: `litellm_proxy/claude-sonnet-4-20250514`
   - **Role**: Final phase - completion and refinement
@@ -326,11 +326,21 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Repository**: `All-Hands-AI/OpenHands` (default)
 - **Trigger**: `gui` (UI created, not API!)
 - **Task**: Same user_id architecture analysis task - **FIRST GPT-5 SUCCESS** after 12 attempts (9 API + 3 UI)! Historic breakthrough breaking Claude's monopoly on this task type.
-- **Significance**: 
+- **Significance**:
   - **BREAKS CLAUDE MONOPOLY**: First non-Claude model for this specific task
   - **UI vs API ROUTING**: Demonstrates different routing logic between UI and API
   - **Model Routing Research**: Proves UI has probabilistic routing while API is deterministic
   - **Historic Achievement**: 12th attempt finally succeeded with GPT-5
+
+
+### Conversation #37 - Read and implement GitHub issue comments (PR #134)
+- **Conversation ID**: `4c2948df77424deaa23b6a09ada34259`
+- **Status**: RUNNING
+- **Created**: September 6, 2025 at 12:45:34 AM UTC
+- **Link**: https://app.all-hands.dev/conversations/4c2948df77424deaa23b6a09ada34259
+- **LLM Model**: `gpt-5-2025-08-07`
+- **Repository**: `All-Hands-AI/agent-sdk`
+- **Task**: Read and implement GitHub issue comments for PR #134; posted reply comment here: https://github.com/All-Hands-AI/agent-sdk/pull/134#issuecomment-3260282721
 
 ---
 
