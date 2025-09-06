@@ -814,12 +814,18 @@ This file tracks conversations we've spawned with OpenHands agents via the Cloud
 - **Status**: STOPPED
 - **Created**: September 06, 2025 at 04:56:07 PM UTC
 - **Link**: https://app.all-hands.dev/conversations/6cf0dd53d6e547dabd26f82c4c4c0c5c
-- **LLM Model**: `litellm_proxy/claude-sonnet-4-20250514`
+- **LLM Model**: **MODEL SWITCHING DETECTED** 🔄
 - **Repository**: `(unspecified)`
 - **Trigger**: slack
 - **PRs**: []
 - **Task**: Read the readme in /enterprise. The whole /enterprise is built on OpenHands (OH).
 - **Events**: 186
+
+- **Model inspection notes**:
+  - Models detected across events:
+    - `litellm_proxy/claude-sonnet-4-20250514` (events 9–177)
+    - `gpt-5-2025-08-07` (events 193–215)
+  - Transition window: ~16 events gap (177→193), non-overlapping phases
 
 ## Completed Conversations
 
