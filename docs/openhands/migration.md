@@ -57,6 +57,69 @@ This document maps current enterprise usages of OpenHands (OH) private methods t
 - Public replacement:
   - `UserContext.paths: ConversationPaths` provides path helpers; `user_id` becomes an implementation detail of the context.
 
+
+## Dynamic overrides (enterprise) and load locations (OH)
+
+- Server configuration class
+  - Definition (enterprise): SaaSServerConfig defines override targets (settings, secrets, conversation store/manager, monitoring, user auth)
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L52-L74
+  - Load point (OH): load_server_config resolves OPENHANDS_CONFIG_CLS and instantiates the ServerConfig implementation
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/config/server_config.py#L53-L62
+
+- ConversationManager implementation
+  - Definition (enterprise): conversation_manager_class → server.clustered_conversation_manager.ClusteredConversationManager
+    - Definition reference: https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L64-L67
+    - Class file (enterprise): https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/clustered_conversation_manager.py
+  - Load point (OH): ConversationManagerImpl via get_impl using server_config.conversation_manager_class
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/shared.py#L61-L66
+
+- SettingsStore implementation
+  - Definition (enterprise): settings_store_class → storage.saas_settings_store.SaasSettingsStore
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L59-L60
+  - Load point (OH): SettingsStoreImpl via get_impl using server_config.settings_store_class
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/shared.py#L68
+
+- SecretsStore implementation
+  - Definition (enterprise): secret_store_class → storage.saas_secrets_store.SaasSecretsStore
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L60-L61
+  - Load point (OH): SecretsStoreImpl via get_impl using server_config.secret_store_class
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/shared.py#L70
+
+- ConversationStore implementation
+  - Definition (enterprise): conversation_store_class → storage.saas_conversation_store.SaasConversationStore
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L61-L64
+  - Load point (OH): ConversationStoreImpl via get_impl using server_config.conversation_store_class
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/shared.py#L72-L76
+
+- MonitoringListener implementation
+  - Definition (enterprise): monitoring_listener_class → server.saas_monitoring_listener.SaaSMonitoringListener
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L68-L71
+  - Load point (OH): MonitoringListenerImpl via get_impl using server_config.monitoring_listener_class
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/shared.py#L54-L59
+
+- UserAuth implementation
+  - Definition (enterprise): user_auth_class → server.auth.saas_user_auth.SaasUserAuth
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/enterprise/server/config.py#L71-L74
+  - Load point (OH): get_impl(UserAuth, server_config.user_auth_class)
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/user_auth/user_auth.py#L88-L89
+
+- Git service implementations (used by MCP tools and ProviderHandler)
+  - Impl resolution points (OH):
+    - GitHub: GithubServiceImpl = get_impl(GitHubService, OPENHANDS_GITHUB_SERVICE_CLS)
+      - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/integrations/github/github_service.py#L75-L78
+    - GitLab: GitLabServiceImpl = get_impl(GitLabService, OPENHANDS_GITLAB_SERVICE_CLS)
+      - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/integrations/gitlab/gitlab_service.py#L79-L82
+    - Bitbucket: BitBucketServiceImpl = get_impl(BitBucketService, OPENHANDS_BITBUCKET_SERVICE_CLS)
+      - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/integrations/bitbucket/bitbucket_service.py#L64-L67
+  - Creation points (OH MCP tools):
+    - GitHub create_pr constructs GithubServiceImpl
+      - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/routes/mcp.py#L117-L140
+    - GitLab create_mr constructs GitLabServiceImpl
+      - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/server/routes/mcp.py#L190-L219
+  - ProviderHandler mapping to service Impls (OH)
+    - https://github.com/All-Hands-AI/OpenHands/blob/989a4e662bb8d388f73a6ec731985b7bbaea8942/openhands/integrations/provider.py#L128-L130
+
+
 ## Migration plan (phased)
 - Phase 1: Introduce public APIs in OH (openhands.api.*) and adapters that forward to current internals with deprecation warnings.
 - Phase 2: Update enterprise to:
