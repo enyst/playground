@@ -357,7 +357,7 @@ async def create_subscription_checkout_session_via_get(
     user: UserContext = Depends(user_injector()),
 ) -> RedirectResponse:
     """Create a subscription checkout session using a GET request (For easier copy / paste to URL bar)."""
-        response = await create_subscription_checkout_session(
+    response = await create_subscription_checkout_session(
         request, billing_session_type, user
     )
     return RedirectResponse(response.redirect_url)
