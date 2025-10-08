@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
 from pydantic import PrivateAttr
 
 from openhands.app_server.user.token_source import AuthTokenSource, TokenSource
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
-from openhands.app_server.user.user_models import UserInfo
+from openhands.app_server.user.user_models import Identity, UserInfo
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
 from openhands.server.user_auth.user_auth import UserAuth, get_user_auth
@@ -22,12 +22,31 @@ class AuthUserContext(UserContext):
     _user_info: UserInfo | None = None
     _provider_handler: ProviderHandler | None = None
     _token_source: TokenSource | None = None
+    _identity: Identity | None = None
 
     async def get_user_id(self) -> str | None:
         # If you have an auth object here you are logged in. If user_id is None
         # it means we are in OSS mode.
         user_id = await self.user_auth.get_user_id()
         return user_id
+
+    async def require_user_id(self) -> str:
+        user_id = await self.get_user_id()
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail='Unauthorized'
+            )
+        return user_id
+
+    async def get_identity(self) -> Identity:
+        identity = self._identity
+        if identity is None:
+            user_id = await self.get_user_id()
+            email = await self.user_auth.get_user_email()
+            auth_type = self.user_auth.get_auth_type()
+            identity = Identity(id=user_id, email=email, auth_type=auth_type)
+            self._identity = identity
+        return identity
 
     async def get_user_info(self) -> UserInfo:
         user_info = self._user_info

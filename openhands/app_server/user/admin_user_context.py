@@ -5,7 +5,7 @@ from fastapi import Request
 
 from openhands.app_server.user.token_source import TokenSource
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
-from openhands.app_server.user.user_models import UserInfo
+from openhands.app_server.user.user_models import Identity, UserInfo
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
 
@@ -18,6 +18,12 @@ class AdminUserContext(UserContext):
 
     async def get_user_id(self) -> str | None:
         return self.user_id
+
+    async def require_user_id(self) -> str:
+        raise NotImplementedError()
+
+    async def get_identity(self) -> Identity:
+        raise NotImplementedError()
 
     async def get_user_info(self) -> UserInfo:
         raise NotImplementedError()

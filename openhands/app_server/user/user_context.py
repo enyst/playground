@@ -3,6 +3,7 @@ from typing import Awaitable, Callable
 
 from openhands.app_server.user.token_source import TokenSource
 from openhands.app_server.user.user_models import (
+    Identity,
     UserInfo,
 )
 from openhands.integrations.provider import ProviderHandler, ProviderType
@@ -22,11 +23,19 @@ class UserContext(ABC):
 
     @abstractmethod
     async def get_user_id(self) -> str | None:
-        """Get the user id"""
+        """Get the user id (may be None for anonymous OSS flows)."""
+
+    @abstractmethod
+    async def require_user_id(self) -> str:
+        """Get the user id or raise if not authenticated."""
+
+    @abstractmethod
+    async def get_identity(self) -> Identity:
+        """Basic identity data: id, email, auth_type."""
 
     @abstractmethod
     async def get_user_info(self) -> UserInfo:
-        """Get the user info."""
+        """Get the user info including persisted settings."""
 
     @abstractmethod
     async def get_authenticated_git_url(self, repository: str) -> str:
