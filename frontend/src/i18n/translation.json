@@ -2719,6 +2719,39 @@
     "tr": "All Hands Logosu",
     "uk": "All Hands лого"
   },
+  "BRANDING$OPENHANDS": {
+    "en": "OpenHands",
+    "ja": "OpenHands",
+    "zh-CN": "OpenHands",
+    "zh-TW": "OpenHands",
+    "ko-KR": "OpenHands",
+    "de": "OpenHands",
+    "no": "OpenHands",
+    "it": "OpenHands",
+    "pt": "OpenHands",
+    "es": "OpenHands",
+    "ar": "OpenHands",
+    "fr": "OpenHands",
+    "tr": "OpenHands",
+    "uk": "OpenHands"
+  },
+  "BRANDING$OPENHANDS_LOGO": {
+    "en": "OpenHands Logo",
+    "ja": "OpenHandsロゴ",
+    "zh-CN": "OpenHands标志",
+    "zh-TW": "OpenHands標誌",
+    "ko-KR": "OpenHands 로고",
+    "de": "OpenHands Logo",
+    "no": "OpenHands Logo",
+    "it": "Logo OpenHands",
+    "pt": "Logo OpenHands",
+    "es": "Logo de OpenHands",
+    "ar": "شعار OpenHands",
+    "fr": "Logo OpenHands",
+    "tr": "OpenHands Logosu",
+    "uk": "OpenHands лого"
+  },
+
   "ERROR$GENERIC": {
     "en": "An error occurred",
     "ja": "エラーが発生しました",
