@@ -37,7 +37,7 @@ async def update_email(
     # If we get here, the email has already passed validation
 
     try:
-        user_id = await user.get_user_id()
+        user_id = await user.require_user_id()
 
         keycloak_admin = get_keycloak_admin()
         user = keycloak_admin.get_user(user_id)
@@ -95,7 +95,7 @@ async def update_email(
 
 @api_router.put('/verify')
 async def verify_email(request: Request, user: UserContext = Depends(user_injector())):
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
     await _verify_email(request=request, user_id=user_id)
 
     logger.info(f'Resending verification email for {user_id}')

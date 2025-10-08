@@ -115,7 +115,7 @@ async def get_batch_feedback(conversation_id: str, user: UserContext = Depends(u
     Returns feedback status for each event, including whether feedback exists
     and if so, the rating and reason.
     """
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
 
     # Get all event IDs for the conversation
     event_ids = await get_event_ids(conversation_id, user_id)

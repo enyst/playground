@@ -77,7 +77,7 @@ def calculate_credits(user_info: LiteLlmUserInfo) -> float:
 # Endpoint to retrieve user's current credit balance
 @billing_router.get('/credits')
 async def get_credits(user: UserContext = Depends(user_injector())) -> GetCreditsResponse:
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
 
     if not stripe_service.STRIPE_API_KEY:
         return GetCreditsResponse()
@@ -93,7 +93,7 @@ async def get_subscription_access(
     user: UserContext = Depends(user_injector()),
 ) -> SubscriptionAccessResponse | None:
     """Get details of the currently valid subscription for the user."""
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
 
     with session_maker() as session:
         now = datetime.now(UTC)
@@ -119,9 +119,7 @@ async def get_subscription_access(
 # Endpoint to check if a user has entered a payment method into stripe
 @billing_router.post('/has-payment-method')
 async def has_payment_method(user: UserContext = Depends(user_injector())) -> bool:
-    user_id = await user.get_user_id()
-    if not user_id:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+    user_id = await user.require_user_id()
     return await stripe_service.has_payment_method(user_id)
 
 
@@ -129,10 +127,7 @@ async def has_payment_method(user: UserContext = Depends(user_injector())) -> bo
 @billing_router.post('/cancel-subscription')
 async def cancel_subscription(user: UserContext = Depends(user_injector())) -> JSONResponse:
     """Cancel user's active subscription at the end of the current billing period."""
-    user_id = await user.get_user_id()
-
-    if not user_id:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+    user_id = await user.require_user_id()
 
     with session_maker() as session:
         # Find the user's active subscription
@@ -204,7 +199,7 @@ async def cancel_subscription(user: UserContext = Depends(user_injector())) -> J
 async def create_customer_setup_session(
     request: Request, user: UserContext = Depends(user_injector())
 ) -> CreateBillingSessionResponse:
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
 
     customer_id = await stripe_service.find_or_create_customer(user_id)
     checkout_session = await stripe.checkout.Session.create_async(
@@ -224,7 +219,7 @@ async def create_checkout_session(
     request: Request,
     user: UserContext = Depends(user_injector()),
 ) -> CreateBillingSessionResponse:
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
 
     customer_id = await stripe_service.find_or_create_customer(user_id)
     checkout_session = await stripe.checkout.Session.create_async(
@@ -281,7 +276,7 @@ async def create_subscription_checkout_session(
     user: UserContext = Depends(user_injector()),
 ) -> CreateBillingSessionResponse:
     # Prevent duplicate subscriptions for the same user
-    user_id = await user.get_user_id()
+    user_id = await user.require_user_id()
 
     with session_maker() as session:
         now = datetime.now(UTC)

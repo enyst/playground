@@ -178,7 +178,7 @@ class LlmApiKeyResponse(BaseModel):
 
 @api_router.post('', response_model=ApiKeyCreateResponse)
 async def create_api_key(key_data: ApiKeyCreate, user: UserContext = Depends(user_injector())):
-    user_id = await user.get_user_id() or ''
+    user_id = await user.require_user_id()
     """Create a new API key for the authenticated user."""
     try:
         api_key = api_key_store.create_api_key(
@@ -211,7 +211,7 @@ async def create_api_key(key_data: ApiKeyCreate, user: UserContext = Depends(use
 
 @api_router.get('', response_model=list[ApiKeyResponse])
 async def list_api_keys(user: UserContext = Depends(user_injector())):
-    user_id = await user.get_user_id() or ''
+    user_id = await user.require_user_id()
     """List all API keys for the authenticated user."""
     try:
         keys = api_key_store.list_api_keys(user_id)
@@ -240,7 +240,7 @@ async def list_api_keys(user: UserContext = Depends(user_injector())):
 
 @api_router.delete('/{key_id}')
 async def delete_api_key(key_id: int, user: UserContext = Depends(user_injector())):
-    user_id = await user.get_user_id() or ''
+    user_id = await user.require_user_id()
     """Delete an API key."""
     try:
         # First, verify the key belongs to the user
@@ -279,7 +279,7 @@ async def delete_api_key(key_id: int, user: UserContext = Depends(user_injector(
 
 @api_router.get('/llm/byor', response_model=LlmApiKeyResponse)
 async def get_llm_api_key_for_byor(user: UserContext = Depends(user_injector())):
-    user_id = await user.get_user_id() or ''
+    user_id = await user.require_user_id()
     """Get the LLM API key for BYOR (Bring Your Own Runtime) for the authenticated user."""
     try:
         # Check if the BYOR key exists in the database
@@ -313,7 +313,7 @@ async def get_llm_api_key_for_byor(user: UserContext = Depends(user_injector()))
 
 @api_router.post('/llm/byor/refresh', response_model=LlmApiKeyResponse)
 async def refresh_llm_api_key_for_byor(user: UserContext = Depends(user_injector())):
-    user_id = await user.get_user_id() or ''
+    user_id = await user.require_user_id()
     """Refresh the LLM API key for BYOR (Bring Your Own Runtime) for the authenticated user."""
     logger.info('Starting BYOR LLM API key refresh', extra={'user_id': user_id})
 
