@@ -1,16 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Awaitable, Callable
 
-from pydantic import SecretStr
-
+from openhands.app_server.user.token_source import TokenSource
 from openhands.app_server.user.user_models import (
     UserInfo,
 )
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
-from openhands.server.user_auth.user_auth import AuthType
-from openhands.app_server.user.token_source import TokenSource
 
 
 class UserContext(ABC):

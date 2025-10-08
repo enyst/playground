@@ -2,14 +2,12 @@ from dataclasses import dataclass
 from typing import Callable
 
 from fastapi import Request
-from pydantic import SecretStr
 
+from openhands.app_server.user.token_source import TokenSource
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
 from openhands.app_server.user.user_models import UserInfo
-from openhands.app_server.user.token_source import TokenSource
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
-from openhands.server.user_auth.user_auth import AuthType
 
 
 @dataclass
