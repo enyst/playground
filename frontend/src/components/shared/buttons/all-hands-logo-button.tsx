@@ -10,7 +10,7 @@ export function AllHandsLogoButton() {
     <TooltipButton
       tooltip={"OpenHands"}
       ariaLabel={t(I18nKey.BRANDING$ALL_HANDS_LOGO)}
-      href="https://github.com/All-Hands-AI/OpenHands/blob/main/community.md"
+      href="https://github.com/All-Hands-AI/OpenHands/blob/main/COMMUNITY.md"
     >
       <AllHandsLogo width={46} height={30} />
     </TooltipButton>
