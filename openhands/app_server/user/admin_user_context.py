@@ -37,7 +37,7 @@ class AdminUserContext(UserContext):
     async def get_secrets(self) -> dict[str, SecretSource]:
         raise NotImplementedError()
 
-    async def get_provider_handler(self) -> ProviderHandler:
+    async def get_provider_handler(self, strict: bool = True) -> ProviderHandler:
         raise NotImplementedError()
 
     async def get_token_source(self) -> TokenSource:

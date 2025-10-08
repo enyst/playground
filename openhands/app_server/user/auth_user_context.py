@@ -61,19 +61,37 @@ class AuthUserContext(UserContext):
             self._user_info = user_info
         return user_info
 
-    async def get_provider_handler(self):
+    async def get_provider_handler(self, strict: bool = True):
         provider_handler = self._provider_handler
         if not provider_handler:
             token_source = await self.get_token_source()
             provider_tokens = await token_source.get_provider_tokens()
-            assert provider_tokens is not None
             user_id = await self.get_user_id()
             access_token = await token_source.get_access_token()
+            if provider_tokens is None:
+                from types import MappingProxyType
+
+                from openhands.integrations.provider import (
+                    PROVIDER_TOKEN_TYPE,
+                    ProviderToken,
+                )
+                from openhands.integrations.service_types import ProviderType
+
+                empty_map: dict[ProviderType, ProviderToken] = {}
+                provider_tokens_empty: PROVIDER_TOKEN_TYPE = MappingProxyType(empty_map)
+                handler = ProviderHandler(
+                    provider_tokens=provider_tokens_empty,
+                    external_auth_id=user_id,
+                    external_auth_token=access_token,
+                )
+                # Do not cache if we don't have real tokens; return ephemeral handler for public flows
+                return handler
             provider_handler = ProviderHandler(
                 provider_tokens=provider_tokens,
                 external_auth_id=user_id,
                 external_auth_token=access_token,
             )
+            # Cache only when we have real tokens
             self._provider_handler = provider_handler
         return provider_handler
 

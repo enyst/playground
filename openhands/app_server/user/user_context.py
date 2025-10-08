@@ -51,8 +51,10 @@ class UserContext(ABC):
 
     # New unified identity/auth accessors
     @abstractmethod
-    async def get_provider_handler(self) -> ProviderHandler:
-        """Get a provider handler preconfigured for the current user."""
+    async def get_provider_handler(self, strict: bool = True) -> ProviderHandler:
+        """Get a provider handler preconfigured for the current user.
+
+        strict=True requires provider tokens; strict=False allows empty tokens (public access)"""
 
     @abstractmethod
     async def get_token_source(self) -> TokenSource:
