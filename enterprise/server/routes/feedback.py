@@ -9,7 +9,8 @@ from storage.stored_conversation_metadata import StoredConversationMetadata
 
 from openhands.events.event_store import EventStore
 from openhands.server.shared import file_store
-from openhands.server.user_auth import get_user_id
+from openhands.app_server.config import user_injector
+from openhands.app_server.user.user_context import UserContext
 from openhands.utils.async_utils import call_sync_from_async
 
 router = APIRouter(prefix='/feedback', tags=['feedback'])
@@ -107,13 +108,15 @@ async def submit_conversation_feedback(feedback: FeedbackRequest):
 
 
 @router.get('/conversation/{conversation_id}/batch')
-async def get_batch_feedback(conversation_id: str, user_id: str = Depends(get_user_id)):
+async def get_batch_feedback(conversation_id: str, user: UserContext = Depends(user_injector())):
     """
     Get feedback for all events in a conversation.
 
     Returns feedback status for each event, including whether feedback exists
     and if so, the rating and reason.
     """
+    user_id = await user.get_user_id()
+
     # Get all event IDs for the conversation
     event_ids = await get_event_ids(conversation_id, user_id)
     if not event_ids:

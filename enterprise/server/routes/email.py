@@ -9,7 +9,8 @@ from server.auth.saas_user_auth import SaasUserAuth
 from server.routes.auth import set_response_cookie
 
 from openhands.core.logger import openhands_logger as logger
-from openhands.server.user_auth import get_user_id
+from openhands.app_server.config import user_injector
+from openhands.app_server.user.user_context import UserContext
 from openhands.server.user_auth.user_auth import get_user_auth
 
 # Email validation regex pattern
@@ -30,12 +31,14 @@ class EmailUpdate(BaseModel):
 
 @api_router.post('')
 async def update_email(
-    email_data: EmailUpdate, request: Request, user_id: str = Depends(get_user_id)
+    email_data: EmailUpdate, request: Request, user: UserContext = Depends(user_injector())
 ):
     # Email validation is now handled by the Pydantic model
     # If we get here, the email has already passed validation
 
     try:
+        user_id = await user.get_user_id()
+
         keycloak_admin = get_keycloak_admin()
         user = keycloak_admin.get_user(user_id)
         email = email_data.email
@@ -91,7 +94,8 @@ async def update_email(
 
 
 @api_router.put('/verify')
-async def verify_email(request: Request, user_id: str = Depends(get_user_id)):
+async def verify_email(request: Request, user: UserContext = Depends(user_injector())):
+    user_id = await user.get_user_id()
     await _verify_email(request=request, user_id=user_id)
 
     logger.info(f'Resending verification email for {user_id}')

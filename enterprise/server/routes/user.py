@@ -159,6 +159,3 @@ async def saas_get_repository_microagent_content(
         return JSONResponse(content=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _check_idp(*args, **kwargs):
-    # No longer needed with unified UserContext; keep for compatibility if imported
-    return None
