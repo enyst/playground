@@ -3,10 +3,10 @@ OpenHands is a community of engineers, academics, and enthusiasts reimagining so
 **Mission**
 OpenHands exists to advance Open Source AI—free as in freedom. We believe the future of software development must not be locked behind proprietary models, agents, or interfaces. The most important developer platform shift in decades should be driven by the open-source community, not dictated by vendor lock-in. Our mission is to make state-of-the-art AI development tools open, inspectable, remixable, and owned by the people who use them.
 
-So we’re not only building friendly interfaces for AI-driven development—we’re also providing the building blocks to create new experiences tailored to your own habits, needs, and imagination. Everything we do aims to keep the door open: to learning, to contribution, and to forkable freedom if we ever go astray.
+So we’re not only building friendly interfaces for AI-driven development—we’re also providing the building blocks to create new experiences tailored to your own habits, needs, and imagination. Everything we do aims to keep the door open: to learning, to contribution, and to the freedom to fork if we ever go astray.
 
 **Ethos**
-We have two core values: high openness and high agency. While we don’t expect everyone in the community to embody these values, we want to establish them as norms.
+We have two core values: high openness and high agency.
 
 **High Openness**
 We welcome anyone and everyone into our community by default. You don’t have to be a software developer to help us build. You don’t have to be pro-AI to help us learn.
@@ -18,10 +18,18 @@ Everyone should feel empowered to contribute to OpenHands. Whether it’s by mak
 OpenHands gives everyone the building blocks to create state-of-the-art developer experiences. We experiment constantly and love building new things.
 Coding, development practices, and communities are changing rapidly. We won’t hesitate to change direction and make big bets.
 
+**Community Ownership**
+OpenHands belongs to everyone who uses and builds it. Every improvement is shared, every breakthrough becomes a building block, and contributors own a piece of the future we're creating together.
+
+**Extensibility and Interoperability**
+We design for flexibility and clean interfaces so new ideas integrate quickly. Modular, inspectable components make it easy to adapt, extend, and switch without friction.
+
+
 **Open Source and Freedom**
 AI is quickly becoming the most important layer in the software stack. If that layer is proprietary and closed, then innovation, learning, and opportunity are gated. “Free as in freedom” matters: the right to run, study, modify, and share the software—and the agents that build it. We see open models, open agents, and open interfaces as essential public infrastructure for the next era of software.
 
-We will work with proprietary systems when it helps users—but we will never accept lock-in as the end state. Wherever possible, we push for open alternatives, clean abstractions, and architectures that keep switching costs low and community ownership high.
+**Pragmatism, Not Lock-in**
+We’ll integrate with proprietary systems when it helps users, but we won’t accept lock-in as the end state. We favor open alternatives, clean abstractions, and architectures that keep switching costs low and community ownership high.
 
 **Relationship to All Hands**
 OpenHands is supported by the for-profit organization All Hands AI, Inc.
