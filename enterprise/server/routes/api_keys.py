@@ -12,7 +12,6 @@ from storage.database import session_maker
 from storage.user_settings import UserSettings
 
 from openhands.core.logger import openhands_logger as logger
-from openhands.server.user_auth import get_user_id
 from openhands.utils.async_utils import call_sync_from_async
 
 
