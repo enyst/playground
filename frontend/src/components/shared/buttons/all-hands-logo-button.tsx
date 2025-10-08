@@ -8,9 +8,9 @@ export function AllHandsLogoButton() {
 
   return (
     <TooltipButton
-      tooltip={t(I18nKey.BRANDING$ALL_HANDS_AI)}
+      tooltip={"OpenHands"}
       ariaLabel={t(I18nKey.BRANDING$ALL_HANDS_LOGO)}
-      navLinkTo="/"
+      href="https://github.com/All-Hands-AI/OpenHands/blob/main/community.md"
     >
       <AllHandsLogo width={46} height={30} />
     </TooltipButton>
