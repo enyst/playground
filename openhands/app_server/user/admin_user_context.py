@@ -6,6 +6,7 @@ from pydantic import SecretStr
 
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
 from openhands.app_server.user.user_models import UserInfo
+from openhands.app_server.user.token_source import TokenSource
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.server.user_auth.user_auth import AuthType
@@ -35,11 +36,8 @@ class AdminUserContext(UserContext):
     async def get_provider_handler(self) -> ProviderHandler:
         raise NotImplementedError()
 
-    async def get_access_token(self) -> SecretStr | None:
-        return None
-
-    async def get_auth_type(self) -> AuthType | None:
-        return None
+    async def get_token_source(self) -> TokenSource:
+        raise NotImplementedError()
 
 
 class AdminUserContextInjector(UserContextInjector):

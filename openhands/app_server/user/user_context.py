@@ -10,6 +10,7 @@ from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.server.user_auth.user_auth import AuthType
+from openhands.app_server.user.token_source import TokenSource
 
 
 class UserContext(ABC):
@@ -48,12 +49,8 @@ class UserContext(ABC):
         """Get a provider handler preconfigured for the current user."""
 
     @abstractmethod
-    async def get_access_token(self) -> SecretStr | None:
-        """Get the current access token, refreshing as needed."""
-
-    @abstractmethod
-    async def get_auth_type(self) -> AuthType | None:
-        """Get the current auth type."""
+    async def get_token_source(self) -> TokenSource:
+        """Get a per-request TokenSource for access + provider tokens and auth type."""
 
 
 class UserContextInjector(DiscriminatedUnionMixin, ABC):

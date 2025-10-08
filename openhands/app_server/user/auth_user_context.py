@@ -6,6 +6,7 @@ from pydantic import PrivateAttr, SecretStr
 
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
 from openhands.app_server.user.user_models import UserInfo
+from openhands.app_server.user.token_source import AuthTokenSource, TokenSource
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
 from openhands.server.user_auth.user_auth import AuthType, UserAuth, get_user_auth
@@ -20,6 +21,7 @@ class AuthUserContext(UserContext):
     user_auth: UserAuth
     _user_info: UserInfo | None = None
     _provider_handler: ProviderHandler | None = None
+    _token_source: TokenSource | None = None
 
     async def get_user_id(self) -> str | None:
         # If you have an auth object here you are logged in. If user_id is None
@@ -43,10 +45,11 @@ class AuthUserContext(UserContext):
     async def get_provider_handler(self):
         provider_handler = self._provider_handler
         if not provider_handler:
-            provider_tokens = await self.user_auth.get_provider_tokens()
+            token_source = await self.get_token_source()
+            provider_tokens = await token_source.get_provider_tokens()
             assert provider_tokens is not None
             user_id = await self.get_user_id()
-            access_token = await self.get_access_token()
+            access_token = await token_source.get_access_token()
             provider_handler = ProviderHandler(
                 provider_tokens=provider_tokens,
                 external_auth_id=user_id,
@@ -77,11 +80,12 @@ class AuthUserContext(UserContext):
 
         return results
 
-    async def get_access_token(self) -> SecretStr | None:
-        return await self.user_auth.get_access_token()
-
-    async def get_auth_type(self) -> AuthType | None:
-        return self.user_auth.get_auth_type()
+    async def get_token_source(self) -> TokenSource:
+        token_source = self._token_source
+        if token_source is None:
+            token_source = AuthTokenSource(self.user_auth)
+            self._token_source = token_source
+        return token_source
 
 
 class AuthUserContextInjector(UserContextInjector):
