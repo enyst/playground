@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
 from fastapi import Depends, Request
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, SecretStr
 
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
 from openhands.app_server.user.user_models import UserInfo
 from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
-from openhands.server.user_auth.user_auth import UserAuth, get_user_auth
+from openhands.server.user_auth.user_auth import AuthType, UserAuth, get_user_auth
 from openhands.utils.import_utils import get_impl
 
 
@@ -46,8 +46,11 @@ class AuthUserContext(UserContext):
             provider_tokens = await self.user_auth.get_provider_tokens()
             assert provider_tokens is not None
             user_id = await self.get_user_id()
+            access_token = await self.get_access_token()
             provider_handler = ProviderHandler(
-                provider_tokens=provider_tokens, external_auth_id=user_id
+                provider_tokens=provider_tokens,
+                external_auth_id=user_id,
+                external_auth_token=access_token,
             )
             self._provider_handler = provider_handler
         return provider_handler
@@ -73,6 +76,12 @@ class AuthUserContext(UserContext):
                 results[name] = StaticSecret(value=custom_secret.secret)
 
         return results
+
+    async def get_access_token(self) -> SecretStr | None:
+        return await self.user_auth.get_access_token()
+
+    async def get_auth_type(self) -> AuthType | None:
+        return self.user_auth.get_auth_type()
 
 
 class AuthUserContextInjector(UserContextInjector):

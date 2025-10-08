@@ -2,6 +2,9 @@ from datetime import UTC, datetime
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+
+from openhands.app_server.config import user_injector
+from openhands.app_server.user.user_context import UserContext
 from pydantic import BaseModel, field_validator
 from server.constants import LITE_LLM_API_KEY, LITE_LLM_API_URL
 from storage.api_key_store import ApiKeyStore
@@ -175,7 +178,8 @@ class LlmApiKeyResponse(BaseModel):
 
 
 @api_router.post('', response_model=ApiKeyCreateResponse)
-async def create_api_key(key_data: ApiKeyCreate, user_id: str = Depends(get_user_id)):
+async def create_api_key(key_data: ApiKeyCreate, user: UserContext = Depends(user_injector())):
+    user_id = await user.get_user_id() or ''
     """Create a new API key for the authenticated user."""
     try:
         api_key = api_key_store.create_api_key(
@@ -207,7 +211,8 @@ async def create_api_key(key_data: ApiKeyCreate, user_id: str = Depends(get_user
 
 
 @api_router.get('', response_model=list[ApiKeyResponse])
-async def list_api_keys(user_id: str = Depends(get_user_id)):
+async def list_api_keys(user: UserContext = Depends(user_injector())):
+    user_id = await user.get_user_id() or ''
     """List all API keys for the authenticated user."""
     try:
         keys = api_key_store.list_api_keys(user_id)
@@ -235,7 +240,8 @@ async def list_api_keys(user_id: str = Depends(get_user_id)):
 
 
 @api_router.delete('/{key_id}')
-async def delete_api_key(key_id: int, user_id: str = Depends(get_user_id)):
+async def delete_api_key(key_id: int, user: UserContext = Depends(user_injector())):
+    user_id = await user.get_user_id() or ''
     """Delete an API key."""
     try:
         # First, verify the key belongs to the user
@@ -273,7 +279,8 @@ async def delete_api_key(key_id: int, user_id: str = Depends(get_user_id)):
 
 
 @api_router.get('/llm/byor', response_model=LlmApiKeyResponse)
-async def get_llm_api_key_for_byor(user_id: str = Depends(get_user_id)):
+async def get_llm_api_key_for_byor(user: UserContext = Depends(user_injector())):
+    user_id = await user.get_user_id() or ''
     """Get the LLM API key for BYOR (Bring Your Own Runtime) for the authenticated user."""
     try:
         # Check if the BYOR key exists in the database
@@ -306,7 +313,8 @@ async def get_llm_api_key_for_byor(user_id: str = Depends(get_user_id)):
 
 
 @api_router.post('/llm/byor/refresh', response_model=LlmApiKeyResponse)
-async def refresh_llm_api_key_for_byor(user_id: str = Depends(get_user_id)):
+async def refresh_llm_api_key_for_byor(user: UserContext = Depends(user_injector())):
+    user_id = await user.get_user_id() or ''
     """Refresh the LLM API key for BYOR (Bring Your Own Runtime) for the authenticated user."""
     logger.info('Starting BYOR LLM API key refresh', extra={'user_id': user_id})
 

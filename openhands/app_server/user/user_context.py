@@ -1,16 +1,24 @@
 from abc import ABC, abstractmethod
 from typing import Awaitable, Callable
 
+from pydantic import SecretStr
+
 from openhands.app_server.user.user_models import (
     UserInfo,
 )
-from openhands.integrations.provider import ProviderType
+from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
+from openhands.server.user_auth.user_auth import AuthType
 
 
 class UserContext(ABC):
-    """Service for managing users."""
+    """Service for managing users.
+
+    Unified per-request identity and auth boundary. Implementations must ensure
+    that user and token verification are performed internally so that routes/services
+    don't need to repeat auth checks.
+    """
 
     # Read methods
 
@@ -24,7 +32,7 @@ class UserContext(ABC):
 
     @abstractmethod
     async def get_authenticated_git_url(self, repository: str) -> str:
-        """Get the provider tokens for the user"""
+        """Get an authenticated git URL for the repository"""
 
     @abstractmethod
     async def get_latest_token(self, provider_type: ProviderType) -> str | None:
@@ -32,7 +40,20 @@ class UserContext(ABC):
 
     @abstractmethod
     async def get_secrets(self) -> dict[str, SecretSource]:
-        """Get custom secrets and github provider secrets for the conversation."""
+        """Get custom secrets and provider secrets for the conversation."""
+
+    # New unified identity/auth accessors
+    @abstractmethod
+    async def get_provider_handler(self) -> ProviderHandler:
+        """Get a provider handler preconfigured for the current user."""
+
+    @abstractmethod
+    async def get_access_token(self) -> SecretStr | None:
+        """Get the current access token, refreshing as needed."""
+
+    @abstractmethod
+    async def get_auth_type(self) -> AuthType | None:
+        """Get the current auth type."""
 
 
 class UserContextInjector(DiscriminatedUnionMixin, ABC):

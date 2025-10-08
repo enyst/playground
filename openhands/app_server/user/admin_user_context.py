@@ -2,11 +2,13 @@ from dataclasses import dataclass
 from typing import Callable
 
 from fastapi import Request
+from pydantic import SecretStr
 
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
 from openhands.app_server.user.user_models import UserInfo
-from openhands.integrations.provider import ProviderType
+from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
+from openhands.server.user_auth.user_auth import AuthType
 
 
 @dataclass
@@ -29,6 +31,15 @@ class AdminUserContext(UserContext):
 
     async def get_secrets(self) -> dict[str, SecretSource]:
         raise NotImplementedError()
+
+    async def get_provider_handler(self) -> ProviderHandler:
+        raise NotImplementedError()
+
+    async def get_access_token(self) -> SecretStr | None:
+        return None
+
+    async def get_auth_type(self) -> AuthType | None:
+        return None
 
 
 class AdminUserContextInjector(UserContextInjector):
