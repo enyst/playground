@@ -18,12 +18,12 @@ Everyone should feel empowered to contribute to OpenHands. Whether it’s by mak
 OpenHands gives everyone the building blocks to create state-of-the-art developer experiences. We experiment constantly and love building new things.
 Coding, development practices, and communities are changing rapidly. We won’t hesitate to change direction and make big bets.
 
-**Community Ownership**
-OpenHands belongs to everyone who uses and builds it. Every improvement is shared, every breakthrough becomes a building block, and contributors own a piece of the future we're creating together.
+**Open Collaboration, Shared Progress**
+In OpenHands, advances propagate to everyone: every improvement is immediately available, and every breakthrough becomes a building block for the next. The collective intelligence of a global community working in the open will always outpace what can be done behind closed doors.
 
 
 **Open Source and Freedom**
-AI is quickly becoming the most important layer in the software stack. If that layer is proprietary and closed, then innovation, learning, and opportunity are gated. “Free as in freedom” matters: the right to run, study, modify, and share the software—and the agents that build it. We see open models, open agents, and open interfaces as essential public infrastructure for the next era of software.
+AI is quickly becoming the most important layer in the software stack. If that layer is proprietary and closed, then innovation, learning, and opportunity are gated. “Free as in freedom” matters: the right to run, study, modify, and share the software—and the agents that build it. We see open models, open agents, and open interfaces as essential public infrastructure for the next era of software. Agentic technology is too important, too transformative to be controlled by any single entity.
 
 **Pragmatism, Not Lock-in**
 We’ll integrate with proprietary systems when it helps users, but we won’t accept lock-in as the end state. We favor open alternatives, clean abstractions, and architectures that keep switching costs low and community ownership high.
