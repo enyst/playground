@@ -37,9 +37,6 @@ from openhands.events.observation import (
     NullObservation,
 )
 from openhands.experiments.experiment_manager import ExperimentConfig
-from openhands.integrations.provider import (
-    PROVIDER_TOKEN_TYPE,
-)
 from openhands.integrations.service_types import (
     CreateMicroagent,
     ProviderType,
@@ -67,8 +64,6 @@ from openhands.server.shared import (
 from openhands.server.types import LLMAuthenticationError, MissingSettingsError
 from openhands.server.user_auth import (
     get_auth_type,
-    get_provider_tokens,
-    get_user_id,
     get_user_secrets,
     get_user_settings,
     get_user_settings_store,
@@ -466,8 +461,9 @@ async def get_conversation(
 @app.delete('/conversations/{conversation_id}')
 async def delete_conversation(
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> bool | JSONResponse:
+    user_id = await user.get_user_id()
     conversation_store = await ConversationStoreImpl.get_instance(config, user_id)
     try:
         await conversation_store.get_metadata(conversation_id)
@@ -588,8 +584,7 @@ async def _get_conversation_info(
 async def start_conversation(
     providers_set: ProvidersSetModel,
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str = Depends(get_user_id),
-    provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     settings: Settings = Depends(get_user_settings),
     conversation_store: ConversationStore = Depends(get_conversation_store),
 ) -> ConversationResponse | JSONResponse:
@@ -604,7 +599,10 @@ async def start_conversation(
         extra={'session_id': conversation_id},
     )
 
-    # Log token fetch status
+    # Log token fetch status via UserContext
+    token_source = await user.get_token_source()
+    provider_tokens = await token_source.get_provider_tokens()
+    user_id = await user.get_user_id()
     if provider_tokens:
         logger.info(
             f'/start endpoint: Fetched provider tokens: {list(provider_tokens.keys())}',
@@ -664,7 +662,7 @@ async def start_conversation(
 @app.post('/conversations/{conversation_id}/stop')
 async def stop_conversation(
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> ConversationResponse | JSONResponse:
     """Stop an agent loop for a conversation.
 
@@ -675,6 +673,7 @@ async def stop_conversation(
 
     try:
         # Check if the conversation is running
+        user_id = await user.get_user_id()
         agent_loop_info = await conversation_manager.get_agent_loop_info(
             user_id=user_id, filter_to_sids={conversation_id}
         )
@@ -770,7 +769,7 @@ class UpdateConversationRequest(BaseModel):
 async def update_conversation(
     data: UpdateConversationRequest,
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     conversation_store: ConversationStore = Depends(get_conversation_store),
 ) -> bool | JSONResponse:
     """Update conversation metadata.
@@ -790,6 +789,7 @@ async def update_conversation(
     Raises:
         HTTPException: If conversation is not found or user lacks permission
     """
+    user_id = await user.get_user_id()
     logger.info(
         f'Updating conversation {conversation_id} with title: {data.title}',
         extra={'session_id': conversation_id, 'user_id': user_id},
