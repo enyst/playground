@@ -6,7 +6,7 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import base62
+import base62  # type: ignore[import-untyped]
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from jinja2 import Environment, FileSystemLoader
@@ -19,6 +19,10 @@ from openhands.app_server.app_conversation.app_conversation_service import (
     AppConversationService,
 )
 from openhands.app_server.config import app_conversation_injector
+
+# Centralized UserContext dependency
+from openhands.app_server.config import user_injector as _user_injector  # noqa: E402
+from openhands.app_server.user.user_context import UserContext  # noqa: E402
 from openhands.core.config.llm_config import LLMConfig
 from openhands.core.config.mcp_config import MCPConfig
 from openhands.core.logger import openhands_logger as logger
@@ -35,7 +39,6 @@ from openhands.events.observation import (
 from openhands.experiments.experiment_manager import ExperimentConfig
 from openhands.integrations.provider import (
     PROVIDER_TOKEN_TYPE,
-    ProviderHandler,
 )
 from openhands.integrations.service_types import (
     CreateMicroagent,
@@ -85,6 +88,9 @@ from openhands.storage.locations import get_experiment_config_filename
 from openhands.storage.settings.settings_store import SettingsStore
 from openhands.utils.async_utils import wait_all
 from openhands.utils.conversation_summary import get_default_conversation_title
+
+USER_CONTEXT_DEP = _user_injector()  # noqa: E402
+
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())
 app_conversation_service_dependency = Depends(app_conversation_injector())
@@ -201,11 +207,10 @@ class ProvidersSetModel(BaseModel):
 @app.post('/conversations')
 async def new_conversation(
     data: InitSessionRequest,
-    user_id: str = Depends(get_user_id),
-    provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     user_secrets: UserSecrets = Depends(get_user_secrets),
     auth_type: AuthType | None = Depends(get_auth_type),
-) -> ConversationResponse:
+) -> ConversationResponse | JSONResponse:
     """Initialize a new session or join an existing one.
 
     After successful initialization, the client should connect to the WebSocket
@@ -240,11 +245,15 @@ async def new_conversation(
 
     try:
         if repository:
-            provider_handler = ProviderHandler(provider_tokens)
+            handler = await user.get_provider_handler(strict=False)
             # Check against git_provider, otherwise check all provider apis
-            await provider_handler.verify_repo_provider(repository, git_provider)
+            await handler.verify_repo_provider(repository, git_provider)
 
         conversation_id = getattr(data, 'conversation_id', None) or uuid.uuid4().hex
+        # Retrieve identity and tokens from UserContext
+        user_id = await user.get_user_id()
+        token_source = await user.get_token_source()
+        provider_tokens = await token_source.get_provider_tokens()
         agent_loop_info = await create_new_conversation(
             user_id=user_id,
             git_provider_tokens=provider_tokens,
@@ -458,7 +467,7 @@ async def get_conversation(
 async def delete_conversation(
     conversation_id: str = Depends(validate_conversation_id),
     user_id: str | None = Depends(get_user_id),
-) -> bool:
+) -> bool | JSONResponse:
     conversation_store = await ConversationStoreImpl.get_instance(config, user_id)
     try:
         await conversation_store.get_metadata(conversation_id)
@@ -583,7 +592,7 @@ async def start_conversation(
     provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
     settings: Settings = Depends(get_user_settings),
     conversation_store: ConversationStore = Depends(get_conversation_store),
-) -> ConversationResponse:
+) -> ConversationResponse | JSONResponse:
     """Start an agent loop for a conversation.
 
     This endpoint calls the conversation_manager's maybe_start_agent_loop method
@@ -656,7 +665,7 @@ async def start_conversation(
 async def stop_conversation(
     conversation_id: str = Depends(validate_conversation_id),
     user_id: str = Depends(get_user_id),
-) -> ConversationResponse:
+) -> ConversationResponse | JSONResponse:
     """Stop an agent loop for a conversation.
 
     This endpoint calls the conversation_manager's close_session method
@@ -763,7 +772,7 @@ async def update_conversation(
     conversation_id: str = Depends(validate_conversation_id),
     user_id: str | None = Depends(get_user_id),
     conversation_store: ConversationStore = Depends(get_conversation_store),
-) -> bool:
+) -> bool | JSONResponse:
     """Update conversation metadata.
 
     This endpoint allows updating conversation details like title.
@@ -897,7 +906,7 @@ async def get_microagent_management_conversations(
     page_id: str | None = None,
     limit: int = 20,
     conversation_store: ConversationStore = Depends(get_conversation_store),
-    provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> ConversationInfoResultSet:
     """Get conversations for the microagent management page with pagination support.
 
@@ -919,7 +928,7 @@ async def get_microagent_management_conversations(
     )
 
     # Check if the last PR is active (not closed/merged)
-    provider_handler = ProviderHandler(provider_tokens)
+    provider_handler = await user.get_provider_handler()  # requires auth/tokens
 
     # Apply additional filters
     final_filtered_results = []
@@ -970,7 +979,7 @@ def _to_conversation_info(app_conversation: AppConversation) -> ConversationInfo
         app_conversation.sandbox_status, ConversationStatus.STOPPED
     )
 
-    runtime_status_mapping = {
+    runtime_status_mapping: dict[AgentExecutionStatus, RuntimeStatus] = {
         AgentExecutionStatus.ERROR: RuntimeStatus.ERROR,
         AgentExecutionStatus.IDLE: RuntimeStatus.READY,
         AgentExecutionStatus.RUNNING: RuntimeStatus.READY,
@@ -980,7 +989,7 @@ def _to_conversation_info(app_conversation: AppConversation) -> ConversationInfo
         AgentExecutionStatus.STUCK: RuntimeStatus.ERROR,
     }
     runtime_status = runtime_status_mapping.get(
-        app_conversation.agent_status, RuntimeStatus.ERROR
+        app_conversation.agent_status or AgentExecutionStatus.ERROR, RuntimeStatus.ERROR
     )
     title = (
         app_conversation.title
