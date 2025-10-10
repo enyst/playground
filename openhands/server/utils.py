@@ -2,13 +2,16 @@ import uuid
 
 from fastapi import Depends, HTTPException, Request, status
 
+from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
 from openhands.server.shared import (
     ConversationStoreImpl,
     config,
     conversation_manager,
 )
-from openhands.server.user_auth import get_user_id
+from openhands.server.user_auth import (
+    get_user_id,  # legacy fallback; prefer UserContext
+)
 from openhands.storage.conversation.conversation_store import ConversationStore
 from openhands.storage.data_models.conversation_metadata import ConversationMetadata
 
@@ -63,7 +66,14 @@ async def get_conversation_store(request: Request) -> ConversationStore | None:
     )
     if conversation_store:
         return conversation_store
-    user_id = await get_user_id(request)
+
+    # Prefer UserContext from request, fallback to legacy get_user_id
+    user_context: UserContext | None = getattr(request.state, 'user_context', None)
+    if user_context is not None:
+        user_id = await user_context.get_user_id()
+    else:
+        user_id = await get_user_id(request)
+
     conversation_store = await ConversationStoreImpl.get_instance(config, user_id)
     request.state.conversation_store = conversation_store
     return conversation_store
@@ -93,10 +103,16 @@ async def get_conversation_metadata(
         )
 
 
-async def get_conversation(
-    conversation_id: str, user_id: str | None = Depends(get_user_id)
-):
+async def get_conversation(conversation_id: str, request: Request):
     """Grabs conversation id set by middleware. Adds the conversation_id to the openapi schema."""
+    # Prefer UserContext for user_id scoping
+    user_context: UserContext | None = getattr(request.state, 'user_context', None)
+    user_id: str | None
+    if user_context is not None:
+        user_id = await user_context.get_user_id()
+    else:
+        user_id = await get_user_id(request)
+
     conversation = await conversation_manager.attach_to_conversation(
         conversation_id, user_id
     )

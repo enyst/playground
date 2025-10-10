@@ -1,26 +1,23 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
+from openhands.app_server.config import user_injector as _user_injector
+from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
-from openhands.integrations.provider import (
-    PROVIDER_TOKEN_TYPE,
-    ProviderType,
-)
+from openhands.integrations.provider import ProviderType
 from openhands.server.dependencies import get_dependencies
 from openhands.server.routes.secrets import invalidate_legacy_secrets_store
-from openhands.server.settings import (
-    GETSettingsModel,
-)
+from openhands.server.settings import GETSettingsModel
 from openhands.server.shared import config
 from openhands.server.user_auth import (
-    get_provider_tokens,
     get_secrets_store,
-    get_user_settings,
     get_user_settings_store,
 )
 from openhands.storage.data_models.settings import Settings
 from openhands.storage.secrets.secrets_store import SecretsStore
 from openhands.storage.settings.settings_store import SettingsStore
+
+USER_CONTEXT_DEP = _user_injector()
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())
 
@@ -34,24 +31,26 @@ app = APIRouter(prefix='/api', dependencies=get_dependencies())
     },
 )
 async def load_settings(
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     settings_store: SettingsStore = Depends(get_user_settings_store),
-    settings: Settings = Depends(get_user_settings),
     secrets_store: SecretsStore = Depends(get_secrets_store),
 ) -> GETSettingsModel | JSONResponse:
     try:
-        if not settings:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={'error': 'Settings not found'},
-            )
+        # Get user settings snapshot via UserContext
+        user_info = await user.get_user_info()
 
         # On initial load, user secrets may not be populated with values migrated from settings store
+        # We still use stores here for legacy migration, but do not surface them in signatures elsewhere
+        settings = Settings(
+            **user_info.model_dump(include=set(Settings.model_fields.keys()))
+        )
         user_secrets = await invalidate_legacy_secrets_store(
             settings, settings_store, secrets_store
         )
 
-        # If invalidation is successful, then the returned user secrets holds the most recent values
+        # Determine provider tokens set via TokenSource (or user_secrets if migration returned them)
+        token_source = await user.get_token_source()
+        provider_tokens = await token_source.get_provider_tokens()
         git_providers = (
             user_secrets.provider_tokens if user_secrets else provider_tokens
         )
@@ -76,8 +75,11 @@ async def load_settings(
         return settings_with_token_data
     except Exception as e:
         logger.warning(f'Invalid token: {e}')
-        # Get user_id from settings if available
-        user_id = getattr(settings, 'user_id', 'unknown') if settings else 'unknown'
+        # Get user_id from context if available
+        try:
+            user_id = await user.get_user_id()
+        except Exception:
+            user_id = 'unknown'
         logger.info(
             f'Returning 401 Unauthorized - Invalid token for user_id: {user_id}'
         )

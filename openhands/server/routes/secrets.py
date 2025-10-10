@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
+from openhands.app_server.config import user_injector as _user_injector
+from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
 from openhands.integrations.provider import PROVIDER_TOKEN_TYPE, CustomSecret
 from openhands.integrations.service_types import ProviderType
@@ -13,14 +15,14 @@ from openhands.server.settings import (
     POSTProviderModel,
 )
 from openhands.server.user_auth import (
-    get_provider_tokens,
     get_secrets_store,
-    get_user_secrets,
 )
 from openhands.storage.data_models.settings import Settings
 from openhands.storage.data_models.user_secrets import UserSecrets
 from openhands.storage.secrets.secrets_store import SecretsStore
 from openhands.storage.settings.settings_store import SettingsStore
+
+USER_CONTEXT_DEP = _user_injector()
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())
 
@@ -104,8 +106,10 @@ async def check_provider_tokens(
 async def store_provider_tokens(
     provider_info: POSTProviderModel,
     secrets_store: SecretsStore = Depends(get_secrets_store),
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> JSONResponse:
+    token_source = await user.get_token_source()
+    provider_tokens = await token_source.get_provider_tokens()
     provider_err_msg = await check_provider_tokens(provider_info, provider_tokens)
     if provider_err_msg:
         # We don't have direct access to user_id here, but we can log the provider info
@@ -183,9 +187,10 @@ async def unset_provider_tokens(
 
 @app.get('/secrets', response_model=GETCustomSecrets)
 async def load_custom_secrets_names(
-    user_secrets: UserSecrets | None = Depends(get_user_secrets),
+    secrets_store: SecretsStore = Depends(get_secrets_store),
 ) -> GETCustomSecrets | JSONResponse:
     try:
+        user_secrets = await secrets_store.load()
         if not user_secrets:
             return GETCustomSecrets(custom_secrets=[])
 
