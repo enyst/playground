@@ -1,5 +1,43 @@
 # Enterprise auth primitive audit and UserContext/TokenSource refactor plan
 
+
+## New findings: routes with FastAPI Depends on auth primitives (OpenHands + enterprise)
+
+The following routes still use FastAPI Depends() to pull user_auth-related primitives directly. These should be migrated to use UserContext + TokenSource where applicable, or explicitly left as-is if they are bootstrapping auth or need direct stores.
+
+OpenHands server routes:
+- openhands/server/routes/conversation.py
+  - user_id: str | None = Depends(get_user_id)
+- openhands/server/routes/files.py
+  - user_id: str = Depends(get_user_id)
+- openhands/server/routes/secrets.py
+  - secrets_store: SecretsStore = Depends(get_secrets_store)
+  - provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens)
+  - user_secrets: UserSecrets | None = Depends(get_user_secrets)
+- openhands/server/routes/settings.py
+  - provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens)
+  - settings_store: SettingsStore = Depends(get_user_settings_store)
+  - settings: Settings = Depends(get_user_settings)
+
+OpenHands manage_conversations routes:
+- openhands/server/routes/manage_conversations.py
+  - user_secrets: UserSecrets = Depends(get_user_secrets)
+  - auth_type: AuthType | None = Depends(get_auth_type)
+  - user_settings: SettingsStore = Depends(get_user_settings_store)
+  - settings: Settings = Depends(get_user_settings)
+
+Enterprise routes:
+- enterprise/server/routes/email.py — migrated to UserContext for identity; retains get_user_auth(request) inside handler for token refresh and cookie setting (acceptable for now)
+- enterprise/server/routes/auth.py — auth bootstrap flows; keep as-is for now
+
+Recommendation:
+- For OpenHands routes listed above, replace these Depends(...) with UserContext + TokenSource accessors where possible:
+  - user id -> await user.require_user_id() or await user.get_user_id()
+  - provider tokens -> (await user.get_token_source()).get_provider_tokens()
+  - secrets/settings stores -> consider adding UserContext helpers or pass via services that already use UserContext; otherwise migrate call sites to services that hide stores.
+- Defer changes where they are intentionally part of auth bootstrap or low-level storage access.
+
+
 Scope: identify enterprise services using auth primitives (get_user_auth, get_user_id, get_access_token, get_provider_tokens) or constructing ProviderHandler directly; propose how to migrate to centralized UserContext and TokenSource. Keep V1 scoping by user_id.
 
 
