@@ -8,6 +8,7 @@ import requests
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Depends,
     HTTPException,
     Request,
     status,
@@ -22,13 +23,14 @@ from server.auth.constants import (
     JIRA_DC_CLIENT_SECRET,
     JIRA_DC_ENABLE_OAUTH,
 )
-from server.auth.saas_user_auth import SaasUserAuth
+# from server.auth.saas_user_auth import SaasUserAuth
 from server.auth.token_manager import TokenManager
 from server.constants import WEB_HOST
 from storage.redis import create_redis_client
 
 from openhands.core.logger import openhands_logger as logger
-from openhands.server.user_auth.user_auth import get_user_auth
+from openhands.app_server.config import user_injector
+from openhands.app_server.user.user_context import UserContext
 
 # Environment variable to disable Jira DC webhooks
 JIRA_DC_WEBHOOKS_ENABLED = os.environ.get('JIRA_DC_WEBHOOKS_ENABLED', '0') in (
@@ -272,13 +274,13 @@ async def jira_dc_events(
 
 @jira_dc_integration_router.post('/workspaces')
 async def create_jira_dc_workspace(
-    request: Request, workspace_data: JiraDcWorkspaceCreate
+    workspace_data: JiraDcWorkspaceCreate,
+    user: UserContext = Depends(user_injector()),
 ):
     """Create a new Jira DC workspace registration."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
-        user_email = await user_auth.get_user_email()
+        user_id = await user.require_user_id()
+        user_email = await user.get_user_email()
 
         if JIRA_DC_ENABLE_OAUTH:
             # OAuth flow enabled - create session and redirect to OAuth
@@ -396,12 +398,11 @@ async def create_jira_dc_workspace(
 
 
 @jira_dc_integration_router.post('/workspaces/link')
-async def create_workspace_link(request: Request, link_data: JiraDcLinkCreate):
+async def create_workspace_link(link_data: JiraDcLinkCreate, user: UserContext = Depends(user_injector())):
     """Register a user mapping to a Jira DC workspace."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
-        user_email = await user_auth.get_user_email()
+        user_id = await user.require_user_id()
+        user_email = await user.get_user_email()
 
         target_workspace = link_data.workspace_name
 
@@ -586,11 +587,10 @@ async def jira_dc_callback(request: Request, code: str, state: str):
     '/workspaces/link',
     response_model=JiraDcUserResponse,
 )
-async def get_current_workspace_link(request: Request):
+async def get_current_workspace_link(user: UserContext = Depends(user_injector())):
     """Get current user's Jira DC integration details."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
+        user_id = await user.require_user_id()
 
         user = await jira_dc_manager.integration_store.get_user_by_active_workspace(
             user_id
@@ -638,11 +638,10 @@ async def get_current_workspace_link(request: Request):
 
 
 @jira_dc_integration_router.post('/workspaces/unlink')
-async def unlink_workspace(request: Request):
+async def unlink_workspace(user: UserContext = Depends(user_injector())):
     """Unlink user from Jira DC integration by setting status to inactive."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
+        user_id = await user.require_user_id()
 
         user = await jira_dc_manager.integration_store.get_user_by_active_workspace(
             user_id
@@ -687,11 +686,9 @@ async def unlink_workspace(request: Request):
     '/workspaces/validate/{workspace_name}',
     response_model=JiraDcValidateWorkspaceResponse,
 )
-async def validate_workspace_integration(request: Request, workspace_name: str):
+async def validate_workspace_integration(workspace_name: str, user: UserContext = Depends(user_injector())):
     """Validate if the workspace has an active Jira DC integration."""
     try:
-        await get_user_auth(request)
-
         # Validate workspace_name format
         if not re.match(r'^[a-zA-Z0-9_.-]+$', workspace_name):
             raise HTTPException(
