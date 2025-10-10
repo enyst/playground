@@ -286,6 +286,17 @@ class LinearManager(Manager):
                 linear_user,
                 workspace,
             )
+            # Inject TokenSource to simplify provider token access inside views
+            try:
+                from openhands.app_server.user.token_source import AuthTokenSource
+
+                if hasattr(linear_view, 'token_source') and getattr(
+                    linear_view, 'token_source'
+                ) is None:
+                    linear_view.token_source = AuthTokenSource(saas_user_auth)
+            except Exception:
+                # Best-effort wiring; views will fallback internally otherwise
+                pass
         except Exception as e:
             logger.error(
                 f'[Linear] Failed to create linear view: {str(e)}', exc_info=True
