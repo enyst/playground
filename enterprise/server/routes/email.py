@@ -5,13 +5,13 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 from server.auth.constants import KEYCLOAK_CLIENT_ID
 from server.auth.keycloak_manager import get_keycloak_admin
-from server.auth.saas_user_auth import SaasUserAuth
+# from server.auth.saas_user_auth import SaasUserAuth
 from server.routes.auth import set_response_cookie
 
 from openhands.core.logger import openhands_logger as logger
 from openhands.app_server.config import user_injector
 from openhands.app_server.user.user_context import UserContext
-from openhands.server.user_auth.user_auth import get_user_auth
+from openhands.server.user_auth import get_user_auth
 
 # Email validation regex pattern
 EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
