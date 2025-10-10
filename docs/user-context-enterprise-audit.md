@@ -7,9 +7,9 @@ The following routes still use FastAPI Depends() to pull user_auth-related primi
 
 OpenHands server routes:
 - openhands/server/routes/conversation.py
-  - user_id: str | None = Depends(get_user_id)
+  - migrated: uses UserContext for identity in search_events; imports order fixed
 - openhands/server/routes/files.py
-  - user_id: str = Depends(get_user_id)
+  - migrated: injects UserContext; removed Depends(get_user_id) from git_changes
 - openhands/server/routes/secrets.py
   - secrets_store: SecretsStore = Depends(get_secrets_store)
   - provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens)
