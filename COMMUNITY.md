@@ -27,6 +27,8 @@ OpenHands gives everyone the building blocks to create state-of-the-art develope
 Coding, development practices, and communities are changing rapidly. We won’t hesitate to change direction and make big bets.
 
 **Principles**
+Beyond our two core values, we operate by these guiding principles.
+
 
 **Open Collaboration, Shared Progress**
 In OpenHands, advances propagate to everyone: every improvement is immediately available, and every breakthrough becomes a building block for the next.
