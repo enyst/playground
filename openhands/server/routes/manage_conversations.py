@@ -64,8 +64,6 @@ from openhands.server.shared import (
 from openhands.server.types import LLMAuthenticationError, MissingSettingsError
 from openhands.server.user_auth import (
     get_auth_type,
-    get_user_secrets,
-    get_user_settings,
     get_user_settings_store,
 )
 from openhands.server.user_auth.user_auth import AuthType
@@ -77,8 +75,6 @@ from openhands.storage.data_models.conversation_metadata import (
     ConversationTrigger,
 )
 from openhands.storage.data_models.conversation_status import ConversationStatus
-from openhands.storage.data_models.settings import Settings
-from openhands.storage.data_models.user_secrets import UserSecrets
 from openhands.storage.locations import get_experiment_config_filename
 from openhands.storage.settings.settings_store import SettingsStore
 from openhands.utils.async_utils import wait_all
@@ -203,7 +199,6 @@ class ProvidersSetModel(BaseModel):
 async def new_conversation(
     data: InitSessionRequest,
     user: UserContext = Depends(USER_CONTEXT_DEP),
-    user_secrets: UserSecrets = Depends(get_user_secrets),
     auth_type: AuthType | None = Depends(get_auth_type),
 ) -> ConversationResponse | JSONResponse:
     """Initialize a new session or join an existing one.
@@ -249,10 +244,11 @@ async def new_conversation(
         user_id = await user.get_user_id()
         token_source = await user.get_token_source()
         provider_tokens = await token_source.get_provider_tokens()
+        # Custom secrets handled via SecretSource inside services; pass None here (legacy still supported)
         agent_loop_info = await create_new_conversation(
             user_id=user_id,
             git_provider_tokens=provider_tokens,
-            custom_secrets=user_secrets.custom_secrets if user_secrets else None,
+            custom_secrets=None,
             selected_repository=repository,
             selected_branch=selected_branch,
             initial_user_msg=initial_user_msg,
@@ -585,7 +581,6 @@ async def start_conversation(
     providers_set: ProvidersSetModel,
     conversation_id: str = Depends(validate_conversation_id),
     user: UserContext = Depends(USER_CONTEXT_DEP),
-    settings: Settings = Depends(get_user_settings),
     conversation_store: ConversationStore = Depends(get_conversation_store),
 ) -> ConversationResponse | JSONResponse:
     """Start an agent loop for a conversation.
