@@ -26,7 +26,7 @@ OpenHands gives everyone the building blocks to create state-of-the-art develope
 
 Coding, development practices, and communities are changing rapidly. We won’t hesitate to change direction and make big bets.
 
-**Principles**
+**Guiding Principles**
 Beyond our two core values, we operate by these guiding principles.
 
 
