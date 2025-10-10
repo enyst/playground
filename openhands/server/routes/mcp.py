@@ -15,11 +15,9 @@ from openhands.integrations.provider import ProviderToken
 from openhands.integrations.service_types import GitService, ProviderType
 from openhands.server.shared import ConversationStoreImpl, config, server_config
 from openhands.server.types import AppMode
-from openhands.server.user_auth import (
-    get_access_token,
-    get_provider_tokens,
-    get_user_id,
-)
+from openhands.server.user_auth import get_user_id
+from openhands.app_server.user.auth_user_context import AuthUserContext
+from openhands.server.user_auth.user_auth import get_user_auth
 from openhands.storage.data_models.conversation_metadata import ConversationMetadata
 
 mcp_server = FastMCP(
@@ -31,6 +29,12 @@ CONVERSATION_URL = HOST + '/conversations/{}'
 
 
 async def get_conversation_link(
+
+async def _get_user_context():
+    request = get_http_request()
+    user_auth = await get_user_auth(request)
+    return AuthUserContext(user_auth)
+
     service: GitService, conversation_id: str, body: str
 ) -> str:
     """Appends a followup link, in the PR body, to the OpenHands conversation that opened the PR"""
@@ -103,9 +107,11 @@ async def create_pr(
     headers = request.headers
     conversation_id = headers.get('X-OpenHands-ServerConversation-ID', None)
 
-    provider_tokens = await get_provider_tokens(request)
-    access_token = await get_access_token(request)
-    user_id = await get_user_id(request)
+    user = await _get_user_context()
+    token_source = await user.get_token_source()
+    provider_tokens = await token_source.get_provider_tokens()
+    access_token = await token_source.get_access_token()
+    user_id = await user.require_user_id()
 
     github_token = (
         provider_tokens.get(ProviderType.GITHUB, ProviderToken())
@@ -176,9 +182,11 @@ async def create_mr(
     headers = request.headers
     conversation_id = headers.get('X-OpenHands-ServerConversation-ID', None)
 
-    provider_tokens = await get_provider_tokens(request)
-    access_token = await get_access_token(request)
-    user_id = await get_user_id(request)
+    user = await _get_user_context()
+    token_source = await user.get_token_source()
+    provider_tokens = await token_source.get_provider_tokens()
+    access_token = await token_source.get_access_token()
+    user_id = await user.require_user_id()
 
     github_token = (
         provider_tokens.get(ProviderType.GITLAB, ProviderToken())
@@ -243,9 +251,11 @@ async def create_bitbucket_pr(
     headers = request.headers
     conversation_id = headers.get('X-OpenHands-ServerConversation-ID', None)
 
-    provider_tokens = await get_provider_tokens(request)
-    access_token = await get_access_token(request)
-    user_id = await get_user_id(request)
+    user = await _get_user_context()
+    token_source = await user.get_token_source()
+    provider_tokens = await token_source.get_provider_tokens()
+    access_token = await token_source.get_access_token()
+    user_id = await user.require_user_id()
 
     bitbucket_token = (
         provider_tokens.get(ProviderType.BITBUCKET, ProviderToken())

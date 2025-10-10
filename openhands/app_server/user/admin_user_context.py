@@ -3,9 +3,10 @@ from typing import Callable
 
 from fastapi import Request
 
+from openhands.app_server.user.token_source import TokenSource
 from openhands.app_server.user.user_context import UserContext, UserContextInjector
-from openhands.app_server.user.user_models import UserInfo
-from openhands.integrations.provider import ProviderType
+from openhands.app_server.user.user_models import Identity, UserInfo
+from openhands.integrations.provider import ProviderHandler, ProviderType
 from openhands.sdk.conversation.secret_source import SecretSource
 
 
@@ -18,6 +19,15 @@ class AdminUserContext(UserContext):
     async def get_user_id(self) -> str | None:
         return self.user_id
 
+    async def require_user_id(self) -> str:
+        raise NotImplementedError()
+
+    async def get_identity(self) -> Identity:
+        raise NotImplementedError()
+
+    async def get_user_email(self) -> str | None:
+        raise NotImplementedError()
+
     async def get_user_info(self) -> UserInfo:
         raise NotImplementedError()
 
@@ -28,6 +38,12 @@ class AdminUserContext(UserContext):
         raise NotImplementedError()
 
     async def get_secrets(self) -> dict[str, SecretSource]:
+        raise NotImplementedError()
+
+    async def get_provider_handler(self, strict: bool = True) -> ProviderHandler:
+        raise NotImplementedError()
+
+    async def get_token_source(self) -> TokenSource:
         raise NotImplementedError()
 
 

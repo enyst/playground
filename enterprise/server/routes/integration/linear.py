@@ -4,19 +4,20 @@ import re
 import uuid
 
 import requests
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from integrations.linear.linear_manager import LinearManager
 from integrations.models import Message, SourceType
 from pydantic import BaseModel, Field, field_validator
 from server.auth.constants import LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET
-from server.auth.saas_user_auth import SaasUserAuth
+# from server.auth.saas_user_auth import SaasUserAuth
 from server.auth.token_manager import TokenManager
 from server.constants import WEB_HOST
 from storage.redis import create_redis_client
 
 from openhands.core.logger import openhands_logger as logger
-from openhands.server.user_auth.user_auth import get_user_auth
+from openhands.app_server.config import user_injector
+from openhands.app_server.user.user_context import UserContext
 
 # Environment variable to disable Linear webhooks
 LINEAR_WEBHOOKS_ENABLED = os.environ.get('LINEAR_WEBHOOKS_ENABLED', '0') in (
@@ -265,13 +266,13 @@ async def linear_events(
 
 @linear_integration_router.post('/workspaces')
 async def create_linear_workspace(
-    request: Request, workspace_data: LinearWorkspaceCreate
+    workspace_data: LinearWorkspaceCreate,
+    user: UserContext = Depends(user_injector()),
 ):
     """Create a new Linear workspace registration."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
-        user_email = await user_auth.get_user_email()
+        user_id = await user.require_user_id()
+        user_email = await user.get_user_email()
 
         state = str(uuid.uuid4())
 
@@ -328,12 +329,11 @@ async def create_linear_workspace(
 
 
 @linear_integration_router.post('/workspaces/link')
-async def create_workspace_link(request: Request, link_data: LinearLinkCreate):
+async def create_workspace_link(link_data: LinearLinkCreate, user: UserContext = Depends(user_injector())):
     """Register a user mapping to a Linear workspace."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
-        user_email = await user_auth.get_user_email()
+        user_id = await user.require_user_id()
+        user_email = await user.get_user_email()
 
         state = str(uuid.uuid4())
 
@@ -517,11 +517,10 @@ async def linear_callback(request: Request, code: str, state: str):
     '/workspaces/link',
     response_model=LinearUserResponse,
 )
-async def get_current_workspace_link(request: Request):
+async def get_current_workspace_link(user: UserContext = Depends(user_injector())):
     """Get current user's Linear integration details."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
+        user_id = await user.require_user_id()
 
         user = await linear_manager.integration_store.get_user_by_active_workspace(
             user_id
@@ -570,11 +569,10 @@ async def get_current_workspace_link(request: Request):
 
 
 @linear_integration_router.post('/workspaces/unlink')
-async def unlink_workspace(request: Request):
+async def unlink_workspace(user: UserContext = Depends(user_injector())):
     """Unlink user from Linear integration by setting status to inactive."""
     try:
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_id = await user_auth.get_user_id()
+        user_id = await user.require_user_id()
 
         user = await linear_manager.integration_store.get_user_by_active_workspace(
             user_id
@@ -619,7 +617,7 @@ async def unlink_workspace(request: Request):
     '/workspaces/validate/{workspace_name}',
     response_model=LinearValidateWorkspaceResponse,
 )
-async def validate_workspace_integration(request: Request, workspace_name: str):
+async def validate_workspace_integration(workspace_name: str, user: UserContext = Depends(user_injector())):
     """Validate if the workspace has an active Linear integration."""
     try:
         # Validate workspace_name format
@@ -629,8 +627,7 @@ async def validate_workspace_integration(request: Request, workspace_name: str):
                 detail='workspace_name can only contain alphanumeric characters, hyphens, underscores, and periods',
             )
 
-        user_auth: SaasUserAuth = await get_user_auth(request)
-        user_email = await user_auth.get_user_email()
+        user_email = await user.get_user_email()
         if not user_email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
