@@ -4,6 +4,7 @@ from integrations.jira_dc.jira_dc_types import (
     JiraDcViewInterface,
     StartingConvoException,
 )
+from openhands.app_server.user.token_source import TokenSource, AuthTokenSource
 from integrations.models import JobContext
 from integrations.utils import CONVERSATION_URL, get_final_agent_observation
 from jinja2 import Environment
@@ -36,6 +37,8 @@ class JiraDcNewConversationView(JiraDcViewInterface):
     selected_repo: str | None
     conversation_id: str
 
+    token_source: TokenSource | None = None
+
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
 
@@ -59,7 +62,8 @@ class JiraDcNewConversationView(JiraDcViewInterface):
         if not self.selected_repo:
             raise StartingConvoException('No repository selected for this conversation')
 
-        provider_tokens = await self.saas_user_auth.get_provider_tokens()
+        ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+        provider_tokens = await ts.get_provider_tokens()
         user_secrets = await self.saas_user_auth.get_user_secrets()
         instructions, user_msg = self._get_instructions(jinja_env)
 
@@ -111,6 +115,8 @@ class JiraDcExistingConversationView(JiraDcViewInterface):
     jira_dc_user: JiraDcUser
     jira_dc_workspace: JiraDcWorkspace
     selected_repo: str | None
+    token_source: TokenSource | None = None
+
     conversation_id: str
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
@@ -139,13 +145,14 @@ class JiraDcExistingConversationView(JiraDcViewInterface):
             if not metadata:
                 raise StartingConvoException('Conversation no longer exists.')
 
-            provider_tokens = await self.saas_user_auth.get_provider_tokens()
+            ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+            provider_tokens = await ts.get_provider_tokens()
             if provider_tokens is None:
                 raise ValueError('Could not load provider tokens')
             providers_set = list(provider_tokens.keys())
 
             conversation_init_data = await setup_init_conversation_settings(
-                user_id, self.conversation_id, providers_set
+                user_id, self.conversation_id, providers_set, provider_tokens
             )
 
             # Either join ongoing conversation, or restart the conversation

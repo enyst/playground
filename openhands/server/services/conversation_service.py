@@ -125,7 +125,8 @@ async def start_conversation(
 
     session_init_args['git_provider_tokens'] = git_provider_tokens
     session_init_args['selected_repository'] = conversation_metadata.selected_repository
-    session_init_args['custom_secrets'] = custom_secrets
+    if custom_secrets is not None:
+        session_init_args['custom_secrets'] = custom_secrets
     session_init_args['selected_branch'] = conversation_metadata.selected_branch
     session_init_args['git_provider'] = conversation_metadata.git_provider
     session_init_args['conversation_instructions'] = conversation_instructions
