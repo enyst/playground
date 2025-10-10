@@ -25,6 +25,9 @@ class AdminUserContext(UserContext):
     async def get_identity(self) -> Identity:
         raise NotImplementedError()
 
+    async def get_user_email(self) -> str | None:
+        raise NotImplementedError()
+
     async def get_user_info(self) -> UserInfo:
         raise NotImplementedError()
 

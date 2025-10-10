@@ -38,6 +38,10 @@ class UserContext(ABC):
         """Get the user info including persisted settings."""
 
     @abstractmethod
+    async def get_user_email(self) -> str | None:
+        """Convenience accessor for the user's email if available."""
+
+    @abstractmethod
     async def get_authenticated_git_url(self, repository: str) -> str:
         """Get an authenticated git URL for the repository"""
 

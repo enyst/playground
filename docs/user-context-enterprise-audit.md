@@ -2,6 +2,15 @@
 
 Scope: identify enterprise services using auth primitives (get_user_auth, get_user_id, get_access_token, get_provider_tokens) or constructing ProviderHandler directly; propose how to migrate to centralized UserContext and TokenSource. Keep V1 scoping by user_id.
 
+
+## Status (current)
+- UserContext: added get_user_email() and implemented it in AuthUserContext; AdminUserContext intentionally raises NotImplementedError.
+- Jira routes migrated to DI with UserContext for identity/email; removed direct get_user_auth usage and SaasUserAuth import; cleaned unused Request params:
+  - create_jira_workspace, create_workspace_link, get_current_workspace_link, unlink_workspace, validate_workspace_integration.
+  - OAuth callback remains unchanged (continues to rely on integration_session in Redis).
+- Next up: migrate Linear and Jira DC integration routes with the same DI pattern; keep OAuth callbacks using integration sessions.
+- TokenSource/ProviderHandler guidance: routes should resolve via user.get_token_source() / user.get_provider_handler(strict=...) instead of using UserAuth directly.
+
 Guiding principles
 - Inject UserContext in FastAPI routes via: `from openhands.app_server.config import user_injector as _user_injector; USER_CONTEXT_DEP = _user_injector()` and `user: UserContext = Depends(USER_CONTEXT_DEP)`
 - Replace direct calls to get_user_auth/get_user_id/get_access_token/get_provider_tokens with:
