@@ -7,6 +7,8 @@ from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
 from starlette.background import BackgroundTask
 
+from openhands.app_server.config import user_injector as _user_injector
+from openhands.app_server.user.user_context import UserContext
 from openhands.core.exceptions import AgentRuntimeUnavailableError
 from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import (
@@ -22,10 +24,11 @@ from openhands.server.dependencies import get_dependencies
 from openhands.server.file_config import FILES_TO_IGNORE
 from openhands.server.files import POSTUploadFilesModel
 from openhands.server.session.conversation import ServerConversation
-from openhands.server.user_auth import get_user_id
 from openhands.server.utils import get_conversation, get_conversation_store
 from openhands.storage.conversation.conversation_store import ConversationStore
 from openhands.utils.async_utils import call_sync_from_async
+
+USER_CONTEXT_DEP = _user_injector()
 
 app = APIRouter(
     prefix='/api/conversations/{conversation_id}', dependencies=get_dependencies()
@@ -230,7 +233,7 @@ def zip_current_workspace(
 async def git_changes(
     conversation: ServerConversation = Depends(get_conversation),
     conversation_store: ConversationStore = Depends(get_conversation_store),
-    user_id: str = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> list[dict[str, str]] | JSONResponse:
     runtime: Runtime = conversation.runtime
 

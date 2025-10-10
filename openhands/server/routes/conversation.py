@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from openhands.app_server.config import user_injector as _user_injector
+from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
 from openhands.events.action.message import MessageAction
 from openhands.events.event_filter import EventFilter
@@ -13,9 +15,10 @@ from openhands.runtime.base import Runtime
 from openhands.server.dependencies import get_dependencies
 from openhands.server.session.conversation import ServerConversation
 from openhands.server.shared import conversation_manager, file_store
-from openhands.server.user_auth import get_user_id
 from openhands.server.utils import get_conversation, get_conversation_metadata
 from openhands.storage.data_models.conversation_metadata import ConversationMetadata
+
+USER_CONTEXT_DEP = _user_injector()
 
 app = APIRouter(
     prefix='/api/conversations/{conversation_id}', dependencies=get_dependencies()
@@ -112,7 +115,7 @@ async def search_events(
     filter: EventFilter | None = None,
     limit: int = 20,
     metadata: ConversationMetadata = Depends(get_conversation_metadata),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ):
     """Search through the event stream with filtering and pagination.
 
@@ -140,6 +143,7 @@ async def search_events(
         )
 
     # Create an event store to access the events directly
+    user_id = await user.get_user_id()
     event_store = EventStore(
         sid=conversation_id,
         file_store=file_store,
