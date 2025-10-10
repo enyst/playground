@@ -18,13 +18,13 @@ OpenHands server routes:
   - provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens)
   - settings_store: SettingsStore = Depends(get_user_settings_store)
   - settings: Settings = Depends(get_user_settings)
+- Status update (V1): settings.py and secrets.py migrated to use UserContext and TokenSource; legacy stores retained only for migration assistance. utils.get_conversation now resolves user_id from Request via UserContext and changed signature to accept Request.
+
 
 OpenHands manage_conversations routes:
 - openhands/server/routes/manage_conversations.py
-  - user_secrets: UserSecrets = Depends(get_user_secrets)
-  - auth_type: AuthType | None = Depends(get_auth_type)
-  - user_settings: SettingsStore = Depends(get_user_settings_store)
-  - settings: Settings = Depends(get_user_settings)
+  - migrated: removed Depends(get_user_secrets) and Depends(get_user_settings); uses UserContext + TokenSource
+  - still: auth_type: AuthType | None = Depends(get_auth_type) retained for route behavior
 
 Enterprise routes:
 - enterprise/server/routes/email.py — migrated to UserContext for identity; retains get_user_auth(request) inside handler for token refresh and cookie setting (acceptable for now)
