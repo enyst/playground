@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from integrations.jira.jira_types import JiraViewInterface, StartingConvoException
+from openhands.app_server.user.token_source import TokenSource, AuthTokenSource
 from integrations.models import JobContext
 from integrations.utils import CONVERSATION_URL, get_final_agent_observation
 from jinja2 import Environment
@@ -33,6 +34,8 @@ class JiraNewConversationView(JiraViewInterface):
     selected_repo: str | None
     conversation_id: str
 
+    token_source: TokenSource | None = None
+
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
 
@@ -56,7 +59,8 @@ class JiraNewConversationView(JiraViewInterface):
         if not self.selected_repo:
             raise StartingConvoException('No repository selected for this conversation')
 
-        provider_tokens = await self.saas_user_auth.get_provider_tokens()
+        ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+        provider_tokens = await ts.get_provider_tokens()
         user_secrets = await self.saas_user_auth.get_user_secrets()
         instructions, user_msg = self._get_instructions(jinja_env)
 
@@ -108,6 +112,8 @@ class JiraExistingConversationView(JiraViewInterface):
     jira_user: JiraUser
     jira_workspace: JiraWorkspace
     selected_repo: str | None
+    token_source: TokenSource | None = None
+
     conversation_id: str
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
@@ -136,12 +142,12 @@ class JiraExistingConversationView(JiraViewInterface):
             if not metadata:
                 raise StartingConvoException('Conversation no longer exists.')
 
-            provider_tokens = await self.saas_user_auth.get_provider_tokens()
-            # Should we raise here if there are no providers?
+            ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+            provider_tokens = await ts.get_provider_tokens()
             providers_set = list(provider_tokens.keys()) if provider_tokens else []
 
             conversation_init_data = await setup_init_conversation_settings(
-                user_id, self.conversation_id, providers_set
+                user_id, self.conversation_id, providers_set, provider_tokens
             )
 
             # Either join ongoing conversation, or restart the conversation
