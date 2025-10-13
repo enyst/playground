@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from integrations.linear.linear_types import LinearViewInterface, StartingConvoException
-from openhands.app_server.user.token_source import AuthTokenSource
 from openhands.app_server.user.user_context import UserContext
 from integrations.models import JobContext
 from integrations.utils import CONVERSATION_URL, get_final_agent_observation
@@ -35,7 +34,9 @@ class LinearNewConversationView(LinearViewInterface):
     selected_repo: str | None
     conversation_id: str
 
-    user_context: UserContext | None = None
+    # UserContext is required for identity and tokens
+    user_context: UserContext
+
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
@@ -59,11 +60,7 @@ class LinearNewConversationView(LinearViewInterface):
 
         if not self.selected_repo:
             raise StartingConvoException('No repository selected for this conversation')
-        ts = (
-            (await self.user_context.get_token_source())
-            if self.user_context
-            else AuthTokenSource(self.saas_user_auth)
-        )
+        ts = await self.user_context.get_token_source()
         provider_tokens = await ts.get_provider_tokens()
 
 
@@ -119,8 +116,9 @@ class LinearExistingConversationView(LinearViewInterface):
     linear_workspace: LinearWorkspace
     selected_repo: str | None
     conversation_id: str
+    # UserContext is required for identity and tokens
+    user_context: UserContext
 
-    user_context: UserContext | None = None
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
@@ -148,11 +146,7 @@ class LinearExistingConversationView(LinearViewInterface):
             if not metadata:
                 raise StartingConvoException('Conversation no longer exists.')
 
-            ts = (
-                (await self.user_context.get_token_source())
-                if self.user_context
-                else AuthTokenSource(self.saas_user_auth)
-            )
+            ts = await self.user_context.get_token_source()
             provider_tokens = await ts.get_provider_tokens()
             if provider_tokens is None:
                 raise ValueError('Could not load provider tokens')
@@ -207,6 +201,7 @@ class LinearFactory:
         saas_user_auth: UserAuth,
         linear_user: LinearUser,
         linear_workspace: LinearWorkspace,
+        user_context: UserContext,
     ) -> LinearViewInterface:
         """Create appropriate Linear view based on the message and user state"""
 
@@ -229,6 +224,7 @@ class LinearFactory:
                 linear_workspace=linear_workspace,
                 selected_repo=None,
                 conversation_id=conversation.conversation_id,
+                user_context=user_context,
             )
 
         return LinearNewConversationView(
@@ -238,4 +234,5 @@ class LinearFactory:
             linear_workspace=linear_workspace,
             selected_repo=None,  # Will be set later after repo inference
             conversation_id='',  # Will be set when conversation is created
+            user_context=user_context,
         )

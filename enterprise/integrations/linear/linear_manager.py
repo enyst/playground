@@ -279,24 +279,18 @@ class LinearManager(Manager):
             return
 
         try:
-            # Create Linear view
+            # Create Linear view with required UserContext
+            from openhands.app_server.user.auth_user_context import AuthUserContext
+
+            user_context = AuthUserContext(user_auth=saas_user_auth)
+
             linear_view = await LinearFactory.create_linear_view_from_payload(
                 job_context,
                 saas_user_auth,
                 linear_user,
                 workspace,
+                user_context,
             )
-            # Inject UserContext for identity/tokens in views
-            try:
-                from openhands.app_server.user.auth_user_context import AuthUserContext
-
-                if hasattr(linear_view, 'user_context') and getattr(
-                    linear_view, 'user_context'
-                ) is None:
-                    linear_view.user_context = AuthUserContext(user_auth=saas_user_auth)
-            except Exception:
-                # Best-effort wiring; views will fallback internally otherwise
-                pass
         except Exception as e:
             logger.error(
                 f'[Linear] Failed to create linear view: {str(e)}', exc_info=True
