@@ -9,7 +9,7 @@ from server.auth.saas_user_auth import SaasUserAuth
 from server.routes.auth import set_response_cookie
 
 from openhands.core.logger import openhands_logger as logger
-from openhands.app_server.config import user_injector
+from openhands.app_server.config import depends_user_context
 from openhands.app_server.user.user_context import UserContext
 from openhands.server.user_auth import get_user_auth
 
@@ -31,7 +31,7 @@ class EmailUpdate(BaseModel):
 
 @api_router.post('')
 async def update_email(
-    email_data: EmailUpdate, request: Request, user: UserContext = Depends(user_injector())
+    email_data: EmailUpdate, request: Request, user: UserContext = Depends(depends_user_context())
 ):
     # Email validation is now handled by the Pydantic model
     # If we get here, the email has already passed validation
@@ -94,7 +94,7 @@ async def update_email(
 
 
 @api_router.put('/verify')
-async def verify_email(request: Request, user: UserContext = Depends(user_injector())):
+async def verify_email(request: Request, user: UserContext = Depends(depends_user_context())):
     user_id = await user.require_user_id()
     await _verify_email(request=request, user_id=user_id)
 

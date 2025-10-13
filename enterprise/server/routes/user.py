@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 
-from openhands.app_server.config import user_injector
+from openhands.app_server.config import depends_user_context
 from openhands.app_server.user.user_context import UserContext
 from openhands.integrations.service_types import (
     Branch,
@@ -24,7 +24,7 @@ saas_user_router = APIRouter(prefix='/api/user', dependencies=get_dependencies()
 @saas_user_router.get('/installations', response_model=list[str])
 async def saas_get_user_installations(
     provider: ProviderType,
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ):
     handler = await user.get_provider_handler()
     if provider == ProviderType.GITHUB:
@@ -44,7 +44,7 @@ async def saas_get_user_repositories(
     page: int | None = None,
     per_page: int | None = None,
     installation_id: str | None = None,
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> list[Repository] | JSONResponse:
     handler = await user.get_provider_handler()
     try:
@@ -56,7 +56,7 @@ async def saas_get_user_repositories(
 
 
 @saas_user_router.get('/info', response_model=User)
-async def saas_get_user(user: UserContext = Depends(user_injector())) -> User | JSONResponse:
+async def saas_get_user(user: UserContext = Depends(depends_user_context())) -> User | JSONResponse:
     handler = await user.get_provider_handler()
     try:
         return await handler.get_user()
@@ -71,7 +71,7 @@ async def saas_search_repositories(
     sort: str = 'stars',
     order: str = 'desc',
     selected_provider: ProviderType | None = None,
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> list[Repository] | JSONResponse:
     handler = await user.get_provider_handler()
     try:
@@ -83,7 +83,7 @@ async def saas_search_repositories(
 
 @saas_user_router.get('/suggested-tasks', response_model=list[SuggestedTask])
 async def saas_get_suggested_tasks(
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> list[SuggestedTask] | JSONResponse:
     handler = await user.get_provider_handler()
     try:
@@ -98,7 +98,7 @@ async def saas_get_repository_branches(
     repository: str,
     page: int = 1,
     per_page: int = 30,
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> PaginatedBranchesResponse | JSONResponse:
     handler = await user.get_provider_handler()
     try:
@@ -114,7 +114,7 @@ async def saas_search_branches(
     query: str,
     per_page: int = 30,
     selected_provider: ProviderType | None = None,
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> list[Branch] | JSONResponse:
     handler = await user.get_provider_handler()
     try:
@@ -130,7 +130,7 @@ async def saas_search_branches(
 )
 async def saas_get_repository_microagents(
     repository_name: str,
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> list[MicroagentResponse] | JSONResponse:
     try:
         handler = await user.get_provider_handler()
@@ -149,7 +149,7 @@ async def saas_get_repository_microagent_content(
     file_path: str = Query(
         ..., description='Path to the microagent file within the repository'
     ),
-    user: UserContext = Depends(user_injector()),
+    user: UserContext = Depends(depends_user_context()),
 ) -> MicroagentContentResponse | JSONResponse:
     try:
         handler = await user.get_provider_handler()

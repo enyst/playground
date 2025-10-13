@@ -9,7 +9,7 @@ from storage.stored_conversation_metadata import StoredConversationMetadata
 
 from openhands.events.event_store import EventStore
 from openhands.server.shared import file_store
-from openhands.app_server.config import user_injector
+from openhands.app_server.config import depends_user_context
 from openhands.app_server.user.user_context import UserContext
 from openhands.utils.async_utils import call_sync_from_async
 
@@ -108,7 +108,7 @@ async def submit_conversation_feedback(feedback: FeedbackRequest):
 
 
 @router.get('/conversation/{conversation_id}/batch')
-async def get_batch_feedback(conversation_id: str, user: UserContext = Depends(user_injector())):
+async def get_batch_feedback(conversation_id: str, user: UserContext = Depends(depends_user_context())):
     """
     Get feedback for all events in a conversation.
 

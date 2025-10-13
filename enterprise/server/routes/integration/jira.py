@@ -16,7 +16,7 @@ from server.constants import WEB_HOST
 from storage.redis import create_redis_client
 
 from openhands.core.logger import openhands_logger as logger
-from openhands.app_server.config import user_injector
+from openhands.app_server.config import depends_user_context
 from openhands.app_server.user.user_context import UserContext
 
 # Environment variable to disable Jira webhooks
@@ -265,7 +265,7 @@ async def jira_events(
 
 
 @jira_integration_router.post('/workspaces')
-async def create_jira_workspace(workspace_data: JiraWorkspaceCreate, user: UserContext = Depends(user_injector())):
+async def create_jira_workspace(workspace_data: JiraWorkspaceCreate, user: UserContext = Depends(depends_user_context())):
     """Create a new Jira workspace registration."""
     try:
         user_id = await user.require_user_id()
@@ -331,7 +331,7 @@ async def create_jira_workspace(workspace_data: JiraWorkspaceCreate, user: UserC
 
 
 @jira_integration_router.post('/workspaces/link')
-async def create_workspace_link(link_data: JiraLinkCreate, user: UserContext = Depends(user_injector())):
+async def create_workspace_link(link_data: JiraLinkCreate, user: UserContext = Depends(depends_user_context())):
     """Register a user mapping to a Jira workspace."""
     try:
         user_id = await user.require_user_id()
@@ -534,7 +534,7 @@ async def jira_callback(request: Request, code: str, state: str):
     '/workspaces/link',
     response_model=JiraUserResponse,
 )
-async def get_current_workspace_link(user: UserContext = Depends(user_injector())):
+async def get_current_workspace_link(user: UserContext = Depends(depends_user_context())):
     """Get current user's Jira integration details."""
     try:
         user_id = await user.require_user_id()
@@ -586,7 +586,7 @@ async def get_current_workspace_link(user: UserContext = Depends(user_injector()
 
 
 @jira_integration_router.post('/workspaces/unlink')
-async def unlink_workspace(user: UserContext = Depends(user_injector())):
+async def unlink_workspace(user: UserContext = Depends(depends_user_context())):
     """Unlink user from Jira integration by setting status to inactive."""
     try:
         user_id = await user.require_user_id()
@@ -634,7 +634,7 @@ async def unlink_workspace(user: UserContext = Depends(user_injector())):
     '/workspaces/validate/{workspace_name}',
     response_model=JiraValidateWorkspaceResponse,
 )
-async def validate_workspace_integration(workspace_name: str, user: UserContext = Depends(user_injector())):
+async def validate_workspace_integration(workspace_name: str, user: UserContext = Depends(depends_user_context())):
     """Validate if the user's organization has an active Jira integration."""
     try:
         # Validate workspace_name format
