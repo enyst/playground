@@ -222,7 +222,6 @@ class SlackNewConversationView(SlackViewInterface):
 
 @dataclass
 class SlackNewConversationFromRepoFormView(SlackNewConversationView):
-    user_context: UserContext
     def _verify_necessary_values_are_set(self):
         # Exclude selected repo check from parent
         # User can start conversations without a repo when specified via the repo selection form
@@ -232,7 +231,6 @@ class SlackNewConversationFromRepoFormView(SlackNewConversationView):
 @dataclass
 class SlackUpdateExistingConversationView(SlackNewConversationView):
     slack_conversation: SlackConversation
-    user_context: UserContext
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         client = WebClient(token=self.bot_access_token)
