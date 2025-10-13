@@ -81,7 +81,6 @@ async def test_setup_with_provided_tokens_uses_real_tokens(
                     user_id=user_id,
                     conversation_id=conversation_id,
                     providers_set=providers_set,
-                    provider_tokens=mock_provider_tokens,
                 )
 
                 # Verify real tokens are used
@@ -147,7 +146,6 @@ async def test_setup_without_tokens_non_saas_uses_user_secrets(mock_settings):
                     user_id=user_id,
                     conversation_id=conversation_id,
                     providers_set=providers_set,
-                    provider_tokens=None,
                 )
 
                 # Verify user_secrets tokens are used

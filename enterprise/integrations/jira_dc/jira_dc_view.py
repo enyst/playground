@@ -149,12 +149,10 @@ class JiraDcExistingConversationView(JiraDcViewInterface):
 
             ts = await self.user_context.get_token_source()
             provider_tokens = await ts.get_provider_tokens()
-            if provider_tokens is None:
-                raise ValueError('Could not load provider tokens')
-            providers_set = list(provider_tokens.keys())
+            providers_set = list(provider_tokens.keys()) if provider_tokens else []
 
             conversation_init_data = await setup_init_conversation_settings(
-                user_id, self.conversation_id, providers_set, provider_tokens
+                user_id, self.conversation_id, providers_set
             )
 
             # Either join ongoing conversation, or restart the conversation

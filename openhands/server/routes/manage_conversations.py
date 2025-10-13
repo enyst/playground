@@ -590,20 +590,7 @@ async def start_conversation(
         extra={'session_id': conversation_id},
     )
 
-    # Log token fetch status via UserContext
-    token_source = await user.get_token_source()
-    provider_tokens = await token_source.get_provider_tokens()
     user_id = await user.get_user_id()
-    if provider_tokens:
-        logger.info(
-            f'/start endpoint: Fetched provider tokens: {list(provider_tokens.keys())}',
-            extra={'session_id': conversation_id},
-        )
-    else:
-        logger.warning(
-            '/start endpoint: No provider tokens fetched (provider_tokens is None/empty)',
-            extra={'session_id': conversation_id},
-        )
 
     try:
         # Check that the conversation exists
@@ -620,7 +607,7 @@ async def start_conversation(
 
         # Set up conversation init data with provider information
         conversation_init_data = await setup_init_conversation_settings(
-            user_id, conversation_id, providers_set.providers_set or [], provider_tokens
+            user_id, conversation_id, providers_set.providers_set or []
         )
 
         # Start the agent loop
