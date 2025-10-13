@@ -27,6 +27,7 @@ from storage.slack_user import SlackUser
 
 from openhands.core.logger import openhands_logger as logger
 from openhands.integrations.provider import ProviderHandler
+from openhands.app_server.user.auth_user_context import AuthUserContext
 from openhands.integrations.service_types import Repository
 from openhands.server.shared import config, server_config
 from openhands.server.types import LLMAuthenticationError, MissingSettingsError
@@ -185,8 +186,9 @@ class SlackManager(Manager):
         )
 
         try:
+            user_context = AuthUserContext(user_auth=saas_user_auth) if saas_user_auth else None
             slack_view = SlackFactory.create_slack_view_from_payload(
-                message, slack_user, saas_user_auth
+                message, slack_user, saas_user_auth, user_context
             )
         except Exception as e:
             logger.error(
