@@ -64,8 +64,10 @@ class SlackCallbackProcessor(ConversationCallbackProcessor):
             slack_user, saas_user_auth = await slack_manager.authenticate_user(
                 self.slack_user_id
             )
+            from openhands.app_server.user.auth_user_context import AuthUserContext
+            user_context = AuthUserContext(user_auth=saas_user_auth) if saas_user_auth else None
             slack_view = SlackFactory.create_slack_view_from_payload(
-                message_obj, slack_user, saas_user_auth
+                message_obj, slack_user, saas_user_auth, user_context
             )
             await slack_manager.send_message(
                 slack_manager.create_outgoing_message(message), slack_view
