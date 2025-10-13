@@ -1,4 +1,53 @@
 # Enterprise auth primitive audit and UserContext/TokenSource refactor plan
+## UserContext: Context Object for OpenHands
+
+UserContext is an implementation of Context Object pattern, in OpenHands.
+
+What it is
+- A per-request context that encapsulates identity and credential access for a user
+- The single object you pass through routes, services, factories, and managers
+- The only way to obtain provider tokens: await user.get_token_source()
+
+What it provides
+- Identity and scoping
+  - get_user_id(), get_identity(), get_user_email()
+  - Ensures all storage/services are scoped to the same user_id
+- Credentials access (lazy, centralized)
+  - get_token_source() returns a TokenSource that hides refresh/cookie details
+  - token_source.get_provider_tokens() yields immutable provider token map
+  - No route should create or manage TokenSource directly
+- Convenience facades
+  - Future-safe helpers for provider handler, authenticated git URLs, and secrets
+  - Keeps callsites small and consistent
+
+How to use it
+- In FastAPI routes: inject UserContext via the configured injector dependency
+- In enterprise webhooks/background flows: synthesize an AuthUserContext and pass it through managers/factories into views
+- In all code that needs tokens: use ts = await user.get_token_source(); tokens = await ts.get_provider_tokens()
+- Do NOT thread TokenSource/Auth primitives in function signatures
+
+What it is not
+- Not a persistence object; do not store it beyond request lifecycle
+- Not a business-logic container; keep it thin, with only contextual info and accessors
+- Not a long-lived cache; only allow minimal, safe memoization (e.g., of TokenSource)
+
+Benefits
+- Simpler signatures: remove user_id, provider_tokens, and auth primitives from callsites
+- Consistency: one path to tokens/identity everywhere, reducing edge-case bugs
+- Encapsulation: refresh/cookie/SSO differences stay behind TokenSource
+- Testability: routes/services can be exercised by plugging a fake UserContext
+- Portability: background/webhook flows follow the same API via AuthUserContext
+
+Migration guidance
+- Replace TokenSource/Auth parameters in signatures with UserContext
+- Fetch tokens exclusively via user.get_token_source()
+- For background/webhook flows, always construct AuthUserContext and pass it down
+- For conversation bootstrap, prefer setup_init_conversation_settings with user_id coming from the same UserContext
+
+References used for this section
+- OpenHands code: openhands/app_server/user/*, openhands/server/routes/*, enterprise/integrations/*
+- Context Object pattern (java-design-patterns): conceptual reference for centralizing request context
+
 
 
 ## New findings: routes with FastAPI Depends on auth primitives (OpenHands + enterprise)
