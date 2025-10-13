@@ -18,14 +18,13 @@ from openhands.app_server.app_conversation.app_conversation_models import (
 from openhands.app_server.app_conversation.app_conversation_service import (
     AppConversationService,
 )
-from openhands.app_server.config import app_conversation_injector
-
-# Centralized UserContext dependency
-from openhands.app_server.config import user_injector as _user_injector  # noqa: E402
-from openhands.app_server.user.user_context import UserContext  # noqa: E402
 from openhands.app_server.config import (
     depends_app_conversation_service,
+    depends_user_context,
 )
+
+# Centralized UserContext dependency
+from openhands.app_server.user.user_context import UserContext  # noqa: E402
 from openhands.core.config.llm_config import LLMConfig
 from openhands.core.config.mcp_config import MCPConfig
 from openhands.core.logger import openhands_logger as logger
@@ -81,7 +80,7 @@ from openhands.storage.locations import get_experiment_config_filename
 from openhands.utils.async_utils import wait_all
 from openhands.utils.conversation_summary import get_default_conversation_title
 
-USER_CONTEXT_DEP = _user_injector()  # noqa: E402
+USER_CONTEXT_DEP = depends_user_context()  # FastAPI dependency factory
 
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())

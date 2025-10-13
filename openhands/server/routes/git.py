@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 
-from openhands.app_server.config import user_injector as _user_injector
+from openhands.app_server.config import depends_user_context
 from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
 from openhands.integrations.service_types import (
@@ -21,7 +21,7 @@ from openhands.microagent.types import (
 from openhands.server.dependencies import get_dependencies
 from openhands.server.shared import server_config
 
-USER_CONTEXT_DEP = _user_injector()
+USER_CONTEXT_DEP = depends_user_context()
 
 app = APIRouter(prefix='/api/user', dependencies=get_dependencies())
 

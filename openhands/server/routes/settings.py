@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from openhands.app_server.config import user_injector as _user_injector
+from openhands.app_server.config import depends_user_context
 from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
 from openhands.integrations.provider import ProviderType
@@ -17,7 +17,7 @@ from openhands.storage.data_models.settings import Settings
 from openhands.storage.secrets.secrets_store import SecretsStore
 from openhands.storage.settings.settings_store import SettingsStore
 
-USER_CONTEXT_DEP = _user_injector()
+USER_CONTEXT_DEP = depends_user_context()
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())
 
