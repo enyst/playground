@@ -290,23 +290,16 @@ class JiraDcManager(Manager):
 
         try:
             # Create Jira DC view
+            from openhands.app_server.user.auth_user_context import AuthUserContext
+
+            user_context = AuthUserContext(user_auth=saas_user_auth)
             jira_dc_view = await JiraDcFactory.create_jira_dc_view_from_payload(
                 job_context,
                 saas_user_auth,
                 jira_dc_user,
                 workspace,
+                user_context,
             )
-            # Inject TokenSource to simplify provider token access inside views
-            try:
-                from openhands.app_server.user.token_source import AuthTokenSource
-
-                if hasattr(jira_dc_view, 'token_source') and getattr(
-                    jira_dc_view, 'token_source'
-                ) is None:
-                    jira_dc_view.token_source = AuthTokenSource(saas_user_auth)
-            except Exception:
-                # Best-effort wiring; views will fallback internally otherwise
-                pass
         except Exception as e:
             logger.error(
                 f'[Jira DC] Failed to create jira dc view: {str(e)}', exc_info=True

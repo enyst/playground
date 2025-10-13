@@ -4,7 +4,7 @@ from integrations.jira_dc.jira_dc_types import (
     JiraDcViewInterface,
     StartingConvoException,
 )
-from openhands.app_server.user.token_source import TokenSource, AuthTokenSource
+from openhands.app_server.user.user_context import UserContext
 from integrations.models import JobContext
 from integrations.utils import CONVERSATION_URL, get_final_agent_observation
 from jinja2 import Environment
@@ -37,7 +37,8 @@ class JiraDcNewConversationView(JiraDcViewInterface):
     selected_repo: str | None
     conversation_id: str
 
-    token_source: TokenSource | None = None
+    # UserContext is required for identity and tokens
+    user_context: UserContext
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
@@ -62,7 +63,7 @@ class JiraDcNewConversationView(JiraDcViewInterface):
         if not self.selected_repo:
             raise StartingConvoException('No repository selected for this conversation')
 
-        ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+        ts = await self.user_context.get_token_source()
         provider_tokens = await ts.get_provider_tokens()
         user_secrets = await self.saas_user_auth.get_user_secrets()
         instructions, user_msg = self._get_instructions(jinja_env)
@@ -115,9 +116,10 @@ class JiraDcExistingConversationView(JiraDcViewInterface):
     jira_dc_user: JiraDcUser
     jira_dc_workspace: JiraDcWorkspace
     selected_repo: str | None
-    token_source: TokenSource | None = None
-
     conversation_id: str
+
+    # UserContext is required for identity and tokens
+    user_context: UserContext
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
@@ -145,7 +147,7 @@ class JiraDcExistingConversationView(JiraDcViewInterface):
             if not metadata:
                 raise StartingConvoException('Conversation no longer exists.')
 
-            ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+            ts = await self.user_context.get_token_source()
             provider_tokens = await ts.get_provider_tokens()
             if provider_tokens is None:
                 raise ValueError('Could not load provider tokens')
@@ -200,6 +202,7 @@ class JiraDcFactory:
         saas_user_auth: UserAuth,
         jira_dc_user: JiraDcUser,
         jira_dc_workspace: JiraDcWorkspace,
+        user_context: UserContext,
     ) -> JiraDcViewInterface:
         """Create appropriate Jira DC view based on the payload."""
 
@@ -218,6 +221,7 @@ class JiraDcFactory:
                 jira_dc_workspace=jira_dc_workspace,
                 selected_repo=None,
                 conversation_id=conversation.conversation_id,
+                user_context=user_context,
             )
 
         return JiraDcNewConversationView(
@@ -227,4 +231,5 @@ class JiraDcFactory:
             jira_dc_workspace=jira_dc_workspace,
             selected_repo=None,  # Will be set later after repo inference
             conversation_id='',  # Will be set when conversation is created
+            user_context=user_context,
         )

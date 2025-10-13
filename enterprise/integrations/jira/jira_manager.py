@@ -276,23 +276,16 @@ class JiraManager(Manager):
 
         try:
             # Create Jira view
+            from openhands.app_server.user.auth_user_context import AuthUserContext
+
+            user_context = AuthUserContext(user_auth=saas_user_auth)
             jira_view = await JiraFactory.create_jira_view_from_payload(
                 job_context,
                 saas_user_auth,
                 jira_user,
                 workspace,
+                user_context,
             )
-            # Inject TokenSource to simplify provider token access inside views
-            try:
-                from openhands.app_server.user.token_source import AuthTokenSource
-
-                if hasattr(jira_view, 'token_source') and getattr(
-                    jira_view, 'token_source'
-                ) is None:
-                    jira_view.token_source = AuthTokenSource(saas_user_auth)
-            except Exception:
-                # Best-effort wiring; views will fallback internally otherwise
-                pass
         except Exception as e:
             logger.error(f'[Jira] Failed to create jira view: {str(e)}', exc_info=True)
             await self._send_error_comment(
