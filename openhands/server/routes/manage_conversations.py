@@ -75,7 +75,6 @@ from openhands.storage.data_models.conversation_metadata import (
 )
 from openhands.storage.data_models.conversation_status import ConversationStatus
 from openhands.storage.locations import get_experiment_config_filename
-from openhands.storage.settings.settings_store import SettingsStore
 from openhands.utils.async_utils import wait_all
 from openhands.utils.conversation_summary import get_default_conversation_title
 
