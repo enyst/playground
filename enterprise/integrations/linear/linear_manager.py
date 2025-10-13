@@ -286,14 +286,14 @@ class LinearManager(Manager):
                 linear_user,
                 workspace,
             )
-            # Inject TokenSource to simplify provider token access inside views
+            # Inject UserContext for identity/tokens in views
             try:
-                from openhands.app_server.user.token_source import AuthTokenSource
+                from openhands.app_server.user.auth_user_context import AuthUserContext
 
-                if hasattr(linear_view, 'token_source') and getattr(
-                    linear_view, 'token_source'
+                if hasattr(linear_view, 'user_context') and getattr(
+                    linear_view, 'user_context'
                 ) is None:
-                    linear_view.token_source = AuthTokenSource(saas_user_auth)
+                    linear_view.user_context = AuthUserContext(user_auth=saas_user_auth)
             except Exception:
                 # Best-effort wiring; views will fallback internally otherwise
                 pass
