@@ -23,6 +23,9 @@ from openhands.app_server.config import app_conversation_injector
 # Centralized UserContext dependency
 from openhands.app_server.config import user_injector as _user_injector  # noqa: E402
 from openhands.app_server.user.user_context import UserContext  # noqa: E402
+from openhands.app_server.config import (
+    depends_app_conversation_service,
+)
 from openhands.core.config.llm_config import LLMConfig
 from openhands.core.config.mcp_config import MCPConfig
 from openhands.core.logger import openhands_logger as logger
@@ -82,7 +85,7 @@ USER_CONTEXT_DEP = _user_injector()  # noqa: E402
 
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())
-app_conversation_service_dependency = Depends(app_conversation_injector())
+app_conversation_service_dependency = depends_app_conversation_service()
 
 
 def _filter_conversations_by_age(

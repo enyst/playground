@@ -7,7 +7,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 from jwt import InvalidTokenError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from openhands.agent_server.models import ConversationInfo, Success
 from openhands.app_server.app_conversation.app_conversation_info_service import (
@@ -17,44 +16,42 @@ from openhands.app_server.app_conversation.app_conversation_models import (
     AppConversationInfo,
 )
 from openhands.app_server.config import (
-    app_conversation_info_injector,
-    db_service,
-    event_callback_injector,
-    event_injector,
+    depends_app_conversation_info_service,
+    depends_db_session,
+    depends_event_service,
+    depends_jwt_service,
+    depends_sandbox_service,
+    get_event_callback_service,
     get_global_config,
-    jwt_service,
-    sandbox_injector,
 )
 from openhands.app_server.errors import AuthError
 from openhands.app_server.event.event_service import EventService
-from openhands.app_server.event_callback.event_callback_service import (
-    EventCallbackService,
-)
 from openhands.app_server.sandbox.sandbox_models import SandboxInfo
 from openhands.app_server.sandbox.sandbox_service import SandboxService
+from openhands.app_server.services.injector import InjectorState
 from openhands.app_server.services.jwt_service import JwtService
-from openhands.app_server.user.admin_user_context import resolve_admin
+from openhands.app_server.user.admin_user_context import (
+    USER_CONTEXT_ATTR,
+    AdminUserContext,
+    as_admin,
+)
 from openhands.app_server.user.user_context import UserContext
 from openhands.integrations.provider import ProviderType
 from openhands.sdk import Event
 
 router = APIRouter(prefix='/webhooks', tags=['Webhooks'])
-sandbox_service_dependency = Depends(sandbox_injector())
-event_service_dependency = Depends(event_injector())
-event_callback_service_dependency = Depends(event_callback_injector())
-app_conversation_info_service_dependency = Depends(app_conversation_info_injector())
-jwt_dependency = Depends(jwt_service)
+sandbox_service_dependency = depends_sandbox_service()
+event_service_dependency = depends_event_service()
+app_conversation_info_service_dependency = depends_app_conversation_info_service()
+jwt_dependency = depends_jwt_service()
 config = get_global_config()
-# Create db dependency at module level to avoid B008
-db_session_dependency = Depends(db_service().unmanaged_session_dependency)
+db_session_dependency = depends_db_session()
 _logger = logging.getLogger(__name__)
 
 
 async def valid_sandbox(
     sandbox_id: str,
-    user_context: UserContext = Depends(
-        resolve_admin
-    ),  # Admin access for this function
+    user_context: UserContext = Depends(as_admin),
     session_api_key: str = Depends(
         APIKeyHeader(name='X-Session-API-Key', auto_error=False)
     ),
@@ -66,19 +63,25 @@ async def valid_sandbox(
     return sandbox_info
 
 
-async def validate_conversation(
+async def valid_conversation(
     conversation_id: UUID,
     sandbox_info: SandboxInfo,
     app_conversation_info_service: AppConversationInfoService = app_conversation_info_service_dependency,
-):
+) -> AppConversationInfo:
     app_conversation_info = (
         await app_conversation_info_service.get_app_conversation_info(conversation_id)
     )
     if not app_conversation_info:
-        return
+        # Conversation does not yet exist - create a stub
+        return AppConversationInfo(
+            id=conversation_id,
+            sandbox_id=sandbox_info.id,
+            created_by_user_id=sandbox_info.created_by_user_id,
+        )
     if app_conversation_info.created_by_user_id != sandbox_info.created_by_user_id:
         # Make sure that the conversation and sandbox were created by the same user
         raise AuthError()
+    return app_conversation_info
 
 
 @router.post('/{sandbox_id}/conversations')
@@ -88,17 +91,23 @@ async def on_conversation_update(
     app_conversation_info_service: AppConversationInfoService = app_conversation_info_service_dependency,
 ) -> Success:
     """Webhook callback for when a conversation starts, pauses, resumes, or deletes."""
-    await validate_conversation(
+    existing = await valid_conversation(
         conversation_info.id, sandbox_info, app_conversation_info_service
     )
 
     app_conversation_info = AppConversationInfo(
         id=conversation_info.id,
-        title=f'Conversation {conversation_info.id}',
+        # TODO: As of writing, ConversationInfo from AgentServer does not have a title
+        title=existing.title or f'Conversation {conversation_info.id}',
         sandbox_id=sandbox_info.id,
         created_by_user_id=sandbox_info.created_by_user_id,
         llm_model=conversation_info.agent.llm.model,
-        # Git parameters are required here...
+        # Git parameters
+        selected_repository=existing.selected_repository,
+        selected_branch=existing.selected_branch,
+        git_provider=existing.git_provider,
+        trigger=existing.trigger,
+        pr_number=existing.pr_number,
     )
     await app_conversation_info_service.save_app_conversation_info(
         app_conversation_info
@@ -112,14 +121,12 @@ async def on_event(
     events: list[Event],
     conversation_id: UUID,
     sandbox_info: SandboxInfo = Depends(valid_sandbox),
-    db_session: AsyncSession = db_session_dependency,
     app_conversation_info_service: AppConversationInfoService = app_conversation_info_service_dependency,
     event_service: EventService = event_service_dependency,
-    event_callback_service: EventCallbackService = event_callback_service_dependency,
 ) -> Success:
     """Webhook callback for when event stream events occur."""
 
-    await validate_conversation(
+    app_conversation_info = await valid_conversation(
         conversation_id, sandbox_info, app_conversation_info_service
     )
 
@@ -131,7 +138,7 @@ async def on_event(
 
         asyncio.create_task(
             _run_callbacks_in_bg_and_close(
-                event_callback_service, conversation_id, events, db_session
+                conversation_id, app_conversation_info.created_by_user_id, events
             )
         )
 
@@ -167,15 +174,15 @@ async def get_secret(
 
 
 async def _run_callbacks_in_bg_and_close(
-    event_callback_service: EventCallbackService,
     conversation_id: UUID,
+    user_id: str | None,
     events: list[Event],
-    session: AsyncSession,
 ):
     """Run all callbacks and close the session"""
-    try:
+    state = InjectorState()
+    setattr(state, USER_CONTEXT_ATTR, AdminUserContext(user_id=user_id))
+
+    async with get_event_callback_service(state) as event_callback_service:
         # We don't use asynio.gather here because callbacks must be run in sequence.
         for event in events:
             await event_callback_service.execute_callbacks(conversation_id, event)
-    finally:
-        await session.close()

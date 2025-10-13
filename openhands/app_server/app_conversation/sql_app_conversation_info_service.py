@@ -6,7 +6,7 @@ on SQL operations:
 - Batch operations for efficient data retrieval
 - Integration with SandboxService for sandbox information
 - HTTP client integration for agent status retrieval
-- Full async/await support using SQL async sessions
+- Full async/await support using SQL async db_sessions
 
 Security and permission checks are handled by wrapper services.
 
@@ -20,11 +20,11 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import AsyncGenerator
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Request
 from sqlalchemy import Column, DateTime, Float, Integer, Select, String, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +38,7 @@ from openhands.app_server.app_conversation.app_conversation_models import (
     AppConversationInfoPage,
     AppConversationSortOrder,
 )
+from openhands.app_server.services.injector import InjectorState
 from openhands.app_server.user.user_context import UserContext
 from openhands.app_server.utils.sql_utils import (
     Base,
@@ -96,7 +97,7 @@ class SQLAppConversationInfoService(AppConversationInfoService):
     This allows storing a record of a conversation even after its sandbox ceases to exist
     """
 
-    session: AsyncSession
+    db_session: AsyncSession
     user_context: UserContext
 
     async def search_app_conversation_info(
@@ -150,7 +151,7 @@ class SQLAppConversationInfoService(AppConversationInfoService):
         # Apply limit and get one extra to check if there are more results
         query = query.limit(limit + 1)
 
-        result = await self.session.execute(query)
+        result = await self.db_session.execute(query)
         rows = result.scalars().all()
 
         # Check if there are more results
@@ -192,7 +193,7 @@ class SQLAppConversationInfoService(AppConversationInfoService):
             updated_at__lt=updated_at__lt,
         )
 
-        result = await self.session.execute(query)
+        result = await self.db_session.execute(query)
         count = result.scalar()
         return count or 0
 
@@ -239,7 +240,7 @@ class SQLAppConversationInfoService(AppConversationInfoService):
         query = query.where(
             StoredConversationMetadata.conversation_id == str(conversation_id)
         )
-        result_set = await self.session.execute(query)
+        result_set = await self.db_session.execute(query)
         result = result_set.scalar_one_or_none()
         if result:
             return self._to_info(result)
@@ -255,7 +256,7 @@ class SQLAppConversationInfoService(AppConversationInfoService):
         query = query.where(
             StoredConversationMetadata.conversation_id.in_(conversation_id_strs)
         )
-        result = await self.session.execute(query)
+        result = await self.db_session.execute(query)
         rows = result.scalars().all()
         info_by_id = {info.conversation_id: info for info in rows if info}
         results: list[AppConversationInfo | None] = []
@@ -276,7 +277,7 @@ class SQLAppConversationInfoService(AppConversationInfoService):
             query = select(StoredConversationMetadata).where(
                 StoredConversationMetadata.conversation_id == info.id
             )
-            result = await self.session.execute(query)
+            result = await self.db_session.execute(query)
             existing = result.scalar_one_or_none()
             assert existing is None or existing.created_by_user_id == user_id
 
@@ -310,8 +311,8 @@ class SQLAppConversationInfoService(AppConversationInfoService):
             sandbox_id=info.sandbox_id,
         )
 
-        await self.session.merge(stored)
-        await self.session.commit()
+        await self.db_session.merge(stored)
+        await self.db_session.commit()
         return info
 
     async def _secure_select(self):
@@ -347,6 +348,10 @@ class SQLAppConversationInfoService(AppConversationInfoService):
             accumulated_token_usage=token_usage,
         )
 
+        # Get timestamps
+        created_at = self._fix_timezone(stored.created_at)
+        updated_at = self._fix_timezone(stored.last_updated_at)
+
         return AppConversationInfo(
             id=UUID(stored.conversation_id),
             created_by_user_id=stored.user_id if stored.user_id else None,
@@ -361,27 +366,33 @@ class SQLAppConversationInfoService(AppConversationInfoService):
             pr_number=stored.pr_number,
             llm_model=stored.llm_model,
             metrics=metrics,
-            created_at=stored.created_at,
-            updated_at=stored.last_updated_at,
+            created_at=created_at,
+            updated_at=updated_at,
         )
+
+    def _fix_timezone(self, value: datetime) -> datetime:
+        """Sqlite does not stpre timezones - and since we can't update the existing models
+        we assume UTC if the timezone is missing."""
+        if not value.tzinfo:
+            value = value.replace(tzinfo=UTC)
+        return value
 
 
 class SQLAppConversationInfoServiceInjector(AppConversationInfoServiceInjector):
-    def get_injector(self) -> Callable[..., Awaitable[AppConversationInfoService]]:
+    async def inject(
+        self, state: InjectorState, request: Request | None = None
+    ) -> AsyncGenerator[AppConversationInfoService, None]:
         # Define inline to prevent circular lookup
-        from openhands.app_server.config import db_service, user_injector
+        from openhands.app_server.config import (
+            get_db_session,
+            get_user_context,
+        )
 
-        # Create dependencies at module level to avoid B008
-        user_dependency = Depends(user_injector())
-        _db_dependency = Depends(db_service().managed_session_dependency)
-
-        async def resolve_app_conversation_service(
-            user_context: UserContext = user_dependency,
-            session: AsyncSession = _db_dependency,
-        ) -> AppConversationInfoService:
+        async with (
+            get_user_context(state, request) as user_context,
+            get_db_session(state, request) as db_session,
+        ):
             service = SQLAppConversationInfoService(
-                session=session, user_context=user_context
+                db_session=db_session, user_context=user_context
             )
-            return service
-
-        return resolve_app_conversation_service
+            yield service

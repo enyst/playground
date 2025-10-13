@@ -1,13 +1,17 @@
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Awaitable, Callable
 
 from openhands.app_server.errors import SandboxError
 from openhands.app_server.sandbox.sandbox_spec_models import (
     SandboxSpecInfo,
     SandboxSpecInfoPage,
 )
+from openhands.app_server.services.injector import Injector
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
+
+# The version of the agent server to use for deployments.
+# Typically this will be the same as the values from the pyproject.toml
+AGENT_SERVER_VERSION = 'f8ca02c4a3b847bfc50b3c5e579ce126c511fefc'
 
 
 class SandboxSpecService(ABC):
@@ -32,7 +36,7 @@ class SandboxSpecService(ABC):
     async def get_default_sandbox_spec(self) -> SandboxSpecInfo:
         """Get the default sandbox spec."""
         page = await self.search_sandbox_specs()
-        if not page:
+        if not page.items:
             raise SandboxError('No sandbox specs available!')
         return page.items[0]
 
@@ -49,9 +53,7 @@ class SandboxSpecService(ABC):
         return results
 
 
-class SandboxSpecServiceInjector(DiscriminatedUnionMixin, ABC):
-    @abstractmethod
-    def get_injector(
-        self,
-    ) -> Callable[..., SandboxSpecService | Awaitable[SandboxSpecService]]:
-        """Get a resolver for an instance of sandbox spec service."""
+class SandboxSpecServiceInjector(
+    DiscriminatedUnionMixin, Injector[SandboxSpecService], ABC
+):
+    pass

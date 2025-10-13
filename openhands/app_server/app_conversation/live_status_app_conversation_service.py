@@ -3,13 +3,12 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from pathlib import Path
 from time import time
-from typing import AsyncGenerator, Awaitable, Callable, Sequence
+from typing import AsyncGenerator, Sequence
 from uuid import UUID
 
 import httpx
-from fastapi import Depends
+from fastapi import Request
 from pydantic import Field, SecretStr, TypeAdapter
 
 from openhands.agent_server.models import (
@@ -48,6 +47,8 @@ from openhands.app_server.sandbox.sandbox_models import (
     SandboxStatus,
 )
 from openhands.app_server.sandbox.sandbox_service import SandboxService
+from openhands.app_server.sandbox.sandbox_spec_service import SandboxSpecService
+from openhands.app_server.services.injector import InjectorState
 from openhands.app_server.services.jwt_service import JwtService
 from openhands.app_server.user.user_context import UserContext
 from openhands.app_server.utils.async_remote_workspace import AsyncRemoteWorkspace
@@ -60,7 +61,6 @@ from openhands.tools.preset.default import get_default_agent
 
 _conversation_info_type_adapter = TypeAdapter(list[ConversationInfo | None])
 _logger = logging.getLogger(__name__)
-WORKSPACE_DIR = Path('/home/openhands/workspace')
 GIT_TOKEN = 'GIT_TOKEN'
 
 
@@ -72,6 +72,7 @@ class LiveStatusAppConversationService(GitAppConversationService):
     app_conversation_info_service: AppConversationInfoService
     app_conversation_start_task_service: AppConversationStartTaskService
     sandbox_service: SandboxService
+    sandbox_spec_service: SandboxSpecService
     jwt_service: JwtService
     sandbox_startup_timeout: int
     sandbox_startup_poll_frequency: int
@@ -171,9 +172,15 @@ class LiveStatusAppConversationService(GitAppConversationService):
             assert sandbox is not None
             agent_server_url = self._get_agent_server_url(sandbox)
 
+            # Get the working dir
+            sandbox_spec = await self.sandbox_spec_service.get_sandbox_spec(
+                sandbox.sandbox_spec_id
+            )
+            assert sandbox_spec is not None
+
             # Run setup scripts
             workspace = AsyncRemoteWorkspace(
-                working_dir=str(WORKSPACE_DIR),
+                working_dir=sandbox_spec.working_dir,
                 server_url=agent_server_url,
                 session_api_key=sandbox.session_api_key,
             )
@@ -183,7 +190,9 @@ class LiveStatusAppConversationService(GitAppConversationService):
             # Build the start request
             start_conversation_request = (
                 await self._build_start_conversation_request_for_user(
-                    request.initial_message, request.git_provider
+                    request.initial_message,
+                    request.git_provider,
+                    sandbox_spec.working_dir,
                 )
             )
 
@@ -208,11 +217,17 @@ class LiveStatusAppConversationService(GitAppConversationService):
             user_id = await self.user_context.get_user_id()
             app_conversation_info = AppConversationInfo(
                 id=info.id,
+                # TODO: As of writing, StartConversationRequest from AgentServer does not have a title
                 title=f'Conversation {info.id}',
                 sandbox_id=sandbox.id,
                 created_by_user_id=user_id,
                 llm_model=start_conversation_request.agent.llm.model,
-                # TODO: Lots of git parameters required
+                # Git parameters
+                selected_repository=request.selected_repository,
+                selected_branch=request.selected_branch,
+                git_provider=request.git_provider,
+                trigger=request.trigger,
+                pr_number=request.pr_number,
             )
             await self.app_conversation_info_service.save_app_conversation_info(
                 app_conversation_info
@@ -228,13 +243,6 @@ class LiveStatusAppConversationService(GitAppConversationService):
             task.status = AppConversationStartTaskStatus.ERROR
             task.detail = str(exc)
             yield task
-
-    async def batch_get_app_conversation_start_tasks(
-        self, app_conversation_start_task_ids
-    ):
-        return await self.app_conversation_start_task_service.batch_get_app_conversation_start_tasks(
-            app_conversation_start_task_ids
-        )
 
     async def _build_app_conversations(
         self, app_conversation_infos: Sequence[AppConversationInfo | None]
@@ -414,6 +422,7 @@ class LiveStatusAppConversationService(GitAppConversationService):
         self,
         initial_message: SendMessageRequest | None,
         git_provider: ProviderType | None,
+        working_dir: str,
     ) -> StartConversationRequest:
         user = await self.user_context.get_user_info()
 
@@ -443,7 +452,7 @@ class LiveStatusAppConversationService(GitAppConversationService):
                 if static_token:
                     secrets[GIT_TOKEN] = StaticSecret(value=SecretStr(static_token))
 
-        workspace = LocalWorkspace(working_dir=str(WORKSPACE_DIR))
+        workspace = LocalWorkspace(working_dir=working_dir)
 
         llm = LLM(
             model=user.llm_model,
@@ -483,40 +492,33 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
         ),
     )
 
-    def get_injector(self) -> Callable[..., Awaitable[AppConversationService]]:
+    async def inject(
+        self, state: InjectorState, request: Request | None = None
+    ) -> AsyncGenerator[AppConversationService, None]:
         from openhands.app_server.config import (
-            app_conversation_info_injector,
-            app_conversation_start_task_injector,
+            get_app_conversation_info_service,
+            get_app_conversation_start_task_service,
             get_global_config,
-            httpx_client_injector,
-            jwt_service,
-            sandbox_injector,
-            user_injector,
+            get_httpx_client,
+            get_jwt_service,
+            get_sandbox_service,
+            get_sandbox_spec_service,
+            get_user_context,
         )
 
-        user_dependency = Depends(user_injector())
-        sandbox_service_dependency = Depends(sandbox_injector())
-        app_conversation_info_service_dependency = Depends(
-            app_conversation_info_injector()
-        )
-        app_conversation_start_task_service_dependency = Depends(
-            app_conversation_start_task_injector()
-        )
-        jwt_service_dependency = Depends(jwt_service)
-        httpx_client_injector_dependency = Depends(httpx_client_injector())
-
-        async def resolve(
-            user_context: UserContext = user_dependency,
-            sandbox_service: SandboxService = sandbox_service_dependency,
-            app_conversation_info_service: AppConversationInfoService = (
-                app_conversation_info_service_dependency
-            ),
-            app_conversation_start_task_service: AppConversationStartTaskService = (
-                app_conversation_start_task_service_dependency
-            ),
-            jwt_service: JwtService = jwt_service_dependency,
-            httpx_client: httpx.AsyncClient = httpx_client_injector_dependency,
-        ) -> AppConversationService:
+        async with (
+            get_user_context(state, request) as user_context,
+            get_sandbox_service(state, request) as sandbox_service,
+            get_sandbox_spec_service(state, request) as sandbox_spec_service,
+            get_app_conversation_info_service(
+                state, request
+            ) as app_conversation_info_service,
+            get_app_conversation_start_task_service(
+                state, request
+            ) as app_conversation_start_task_service,
+            get_jwt_service(state, request) as jwt_service,
+            get_httpx_client(state, request) as httpx_client,
+        ):
             access_token_hard_timeout = None
             if self.access_token_hard_timeout:
                 access_token_hard_timeout = timedelta(
@@ -530,10 +532,11 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
                 if isinstance(sandbox_service, DockerSandboxService):
                     web_url = f'http://host.docker.internal:{sandbox_service.host_port}'
 
-            return LiveStatusAppConversationService(
+            yield LiveStatusAppConversationService(
                 init_git_in_empty_workspace=self.init_git_in_empty_workspace,
                 user_context=user_context,
                 sandbox_service=sandbox_service,
+                sandbox_spec_service=sandbox_spec_service,
                 app_conversation_info_service=app_conversation_info_service,
                 app_conversation_start_task_service=app_conversation_start_task_service,
                 jwt_service=jwt_service,
@@ -543,5 +546,3 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
                 web_url=web_url,
                 access_token_hard_timeout=access_token_hard_timeout,
             )
-
-        return resolve

@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import AsyncGenerator, Awaitable, Callable
+from typing import AsyncGenerator
 from uuid import UUID
 
 from openhands.app_server.app_conversation.app_conversation_models import (
@@ -11,6 +11,7 @@ from openhands.app_server.app_conversation.app_conversation_models import (
     AppConversationStartRequest,
     AppConversationStartTask,
 )
+from openhands.app_server.services.injector import Injector
 from openhands.sdk import Workspace
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
@@ -86,14 +87,6 @@ class AppConversationService(ABC):
         )
 
     @abstractmethod
-    async def batch_get_app_conversation_start_tasks(
-        self, task_ids: list[UUID]
-    ) -> list[AppConversationStartTask | None]:
-        """Get a batch AppConversationStartTask by id, returning none for those missing.
-
-        Typically used to poll and determine if a conversation started."""
-
-    @abstractmethod
     async def run_setup_scripts(
         self, task: AppConversationStartTask, workspace: Workspace
     ) -> AsyncGenerator[AppConversationStartTask, None]:
@@ -101,9 +94,7 @@ class AppConversationService(ABC):
         yield task
 
 
-class AppConversationServiceInjector(DiscriminatedUnionMixin, ABC):
-    @abstractmethod
-    def get_injector(
-        self,
-    ) -> Callable[..., AppConversationService | Awaitable[AppConversationService]]:
-        """Get a resolver for an instance of sandbox spec service limited to the current user."""
+class AppConversationServiceInjector(
+    DiscriminatedUnionMixin, Injector[AppConversationService], ABC
+):
+    pass

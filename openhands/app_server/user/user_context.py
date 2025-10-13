@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Awaitable, Callable
 
 from openhands.app_server.user.token_source import TokenSource
+from openhands.app_server.services.injector import Injector
 from openhands.app_server.user.user_models import (
     Identity,
     UserInfo,
@@ -65,12 +65,7 @@ class UserContext(ABC):
         """Get a per-request TokenSource for access + provider tokens and auth type."""
 
 
-class UserContextInjector(DiscriminatedUnionMixin, ABC):
-    @abstractmethod
-    def get_injector(self) -> Callable[..., UserContext | Awaitable[UserContext]]:
-        """Get a resolver for instances of user service limited to the current user. Caches the user context
-        in the current request as the `user_context` attribute"""
+class UserContextInjector(DiscriminatedUnionMixin, Injector[UserContext], ABC):
+    """Injector for user contexts."""
 
-    @abstractmethod
-    async def get_for_user(self, user_id: str | None) -> UserContext:
-        """Get a user context for the user with the id given."""
+    pass
