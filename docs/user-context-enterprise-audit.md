@@ -74,6 +74,36 @@ What simplified vs. what didn’t
   - The main developer-facing simplification appears in FastAPI routes; managers will require deeper structural changes to materially simplify (e.g., moving more orchestration into service layer APIs that accept UserContext/TokenSource).
 
 Recommended focus next
+Decision: TokenSource is encapsulated inside UserContext
+- We will pass UserContext across routes, services, and background code, not TokenSource.
+- UserContext owns token acquisition and caches per-request data. Typical calls:
+  - user_id = await user.require_user_id()
+  - provider_handler = await user.get_provider_handler()
+  - provider_tokens = await (await user.get_token_source()).get_provider_tokens()  # available when needed, but prefer provider_handler
+  - access_token = await (await user.get_token_source()).get_access_token()
+- Rationale: keeps identity and token plumbing in one place, preserves V1 user_id scoping for DB, reduces future churn if auth internals change.
+
+Background/webhook flows pattern
+- Managers should avoid passing TokenSource into views. Instead:
+  1) Construct a UserContext for the mapped OpenHands user.
+     - Example (enterprise manager):
+       ```py
+       from openhands.app_server.user.auth_user_context import AuthUserContext
+       user_context = AuthUserContext(user_auth=saas_user_auth)
+       view.user_context = user_context
+       ```
+  2) Views call await self.user_context.get_provider_handler() or await self.user_context.get_token_source().get_provider_tokens().
+  3) Alternatively (service-level orchestration), create an injector state for background execution, mirroring webhook_router.py:
+       ```py
+       from openhands.app_server.user.admin_user_context import USER_CONTEXT_ATTR
+       from openhands.app_server.services.injector import InjectorState
+       state = InjectorState()
+       setattr(state, USER_CONTEXT_ATTR, user_context)  # user_context may be AuthUserContext
+       async with get_event_callback_service(state) as svc:
+           await svc.execute_callbacks(...)
+       ```
+- Use AdminUserContext only for server-owned privileged callbacks. For user-owned flows (Jira/Linear/Jira-DC), prefer AuthUserContext.
+
 - Prioritize FastAPI routes where DI benefits are clearest and measurable:
   - Confirm/manage conversations routes to always accept UserContext, and ensure downstream services only need user.user_id and tokens from user.token_source.
   - Audit remaining OSS routes for primitive Depends usage and migrate to UserContext + TokenSource.
