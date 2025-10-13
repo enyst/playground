@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 from integrations.linear.linear_types import LinearViewInterface, StartingConvoException
-from openhands.app_server.user.token_source import TokenSource, AuthTokenSource
+from openhands.app_server.user.token_source import AuthTokenSource
+from openhands.app_server.user.user_context import UserContext
 from integrations.models import JobContext
 from integrations.utils import CONVERSATION_URL, get_final_agent_observation
 from jinja2 import Environment
@@ -34,7 +35,7 @@ class LinearNewConversationView(LinearViewInterface):
     selected_repo: str | None
     conversation_id: str
 
-    token_source: TokenSource | None = None
+    user_context: UserContext | None = None
 
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
@@ -58,7 +59,11 @@ class LinearNewConversationView(LinearViewInterface):
 
         if not self.selected_repo:
             raise StartingConvoException('No repository selected for this conversation')
-        ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+        ts = (
+            (await self.user_context.get_token_source())
+            if self.user_context
+            else AuthTokenSource(self.saas_user_auth)
+        )
         provider_tokens = await ts.get_provider_tokens()
 
 
@@ -115,6 +120,8 @@ class LinearExistingConversationView(LinearViewInterface):
     selected_repo: str | None
     conversation_id: str
 
+    user_context: UserContext | None = None
+
     def _get_instructions(self, jinja_env: Environment) -> tuple[str, str]:
         """Instructions passed when conversation is first initialized"""
 
@@ -141,7 +148,11 @@ class LinearExistingConversationView(LinearViewInterface):
             if not metadata:
                 raise StartingConvoException('Conversation no longer exists.')
 
-            ts = self.token_source or AuthTokenSource(self.saas_user_auth)
+            ts = (
+                (await self.user_context.get_token_source())
+                if self.user_context
+                else AuthTokenSource(self.saas_user_auth)
+            )
             provider_tokens = await ts.get_provider_tokens()
             if provider_tokens is None:
                 raise ValueError('Could not load provider tokens')
