@@ -1,15 +1,9 @@
-from types import MappingProxyType
-from typing import cast
-
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
-from pydantic import SecretStr
 
+from openhands.app_server.config import depends_user_context
+from openhands.app_server.user.user_context import UserContext
 from openhands.core.logger import openhands_logger as logger
-from openhands.integrations.provider import (
-    PROVIDER_TOKEN_TYPE,
-    ProviderHandler,
-)
 from openhands.integrations.service_types import (
     AuthenticationError,
     Branch,
@@ -26,11 +20,8 @@ from openhands.microagent.types import (
 )
 from openhands.server.dependencies import get_dependencies
 from openhands.server.shared import server_config
-from openhands.server.user_auth import (
-    get_access_token,
-    get_provider_tokens,
-    get_user_id,
-)
+
+USER_CONTEXT_DEP = depends_user_context()
 
 app = APIRouter(prefix='/api/user', dependencies=get_dependencies())
 
@@ -38,28 +29,19 @@ app = APIRouter(prefix='/api/user', dependencies=get_dependencies())
 @app.get('/installations', response_model=list[str])
 async def get_user_installations(
     provider: ProviderType,
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ):
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens,
-            external_auth_token=access_token,
-            external_auth_id=user_id,
+    handler = await user.get_provider_handler()
+
+    if provider == ProviderType.GITHUB:
+        return await handler.get_github_installations()
+    elif provider == ProviderType.BITBUCKET:
+        return await handler.get_bitbucket_workspaces()
+    else:
+        return JSONResponse(
+            content=f"Provider {provider} doesn't support installations",
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
-
-        if provider == ProviderType.GITHUB:
-            return await client.get_github_installations()
-        elif provider == ProviderType.BITBUCKET:
-            return await client.get_bitbucket_workspaces()
-        else:
-            return JSONResponse(
-                content=f"Provider {provider} doesn't support installations",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
-    raise AuthenticationError('Git provider token required. (such as GitHub).')
 
 
 @app.get('/repositories', response_model=list[Repository])
@@ -69,64 +51,39 @@ async def get_user_repositories(
     page: int | None = None,
     per_page: int | None = None,
     installation_id: str | None = None,
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> list[Repository] | JSONResponse:
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens,
-            external_auth_token=access_token,
-            external_auth_id=user_id,
+    handler = await user.get_provider_handler()
+    try:
+        return await handler.get_repositories(
+            sort,
+            server_config.app_mode,
+            selected_provider,
+            page,
+            per_page,
+            installation_id,
         )
 
-        try:
-            return await client.get_repositories(
-                sort,
-                server_config.app_mode,
-                selected_provider,
-                page,
-                per_page,
-                installation_id,
-            )
-
-        except UnknownException as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    logger.info(
-        f'Returning 401 Unauthorized - Git provider token required for user_id: {user_id}'
-    )
-    raise AuthenticationError('Git provider token required. (such as GitHub).')
+    except UnknownException as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @app.get('/info', response_model=User)
 async def get_user(
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> User | JSONResponse:
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens, external_auth_token=access_token
+    handler = await user.get_provider_handler()
+
+    try:
+        return await handler.get_user()
+    except UnknownException as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-        try:
-            user: User = await client.get_user()
-            return user
-
-        except UnknownException as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    logger.info(
-        f'Returning 401 Unauthorized - Git provider token required for user_id: {user_id}'
-    )
-    raise AuthenticationError('Git provider token required. (such as GitHub).')
 
 
 @app.get('/search/repositories', response_model=list[Repository])
@@ -136,32 +93,20 @@ async def search_repositories(
     sort: str = 'stars',
     order: str = 'desc',
     selected_provider: ProviderType | None = None,
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> list[Repository] | JSONResponse:
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens,
-            external_auth_token=access_token,
-            external_auth_id=user_id,
+    handler = await user.get_provider_handler(strict=False)
+    try:
+        repos: list[Repository] = await handler.search_repositories(
+            selected_provider, query, per_page, sort, order
         )
-        try:
-            repos: list[Repository] = await client.search_repositories(
-                selected_provider, query, per_page, sort, order
-            )
-            return repos
+        return repos
 
-        except UnknownException as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    logger.info(
-        f'Returning 401 Unauthorized - Git provider token required for user_id: {user_id}'
-    )
-    raise AuthenticationError('Git provider token required.')
+    except UnknownException as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @app.get('/search/branches', response_model=list[Branch])
@@ -170,48 +115,31 @@ async def search_branches(
     query: str,
     per_page: int = 30,
     selected_provider: ProviderType | None = None,
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> list[Branch] | JSONResponse:
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens,
-            external_auth_token=access_token,
-            external_auth_id=user_id,
+    handler = await user.get_provider_handler(strict=False)
+    try:
+        branches: list[Branch] = await handler.search_branches(
+            selected_provider, repository, query, per_page
         )
-        try:
-            branches: list[Branch] = await client.search_branches(
-                selected_provider, repository, query, per_page
-            )
-            return branches
+        return branches
 
-        except AuthenticationError as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_401_UNAUTHORIZED,
-            )
+    except AuthenticationError as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
-        except UnknownException as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    logger.info(
-        f'Returning 401 Unauthorized - Git provider token required for user_id: {user_id}'
-    )
-    return JSONResponse(
-        content='Git provider token required.',
-        status_code=status.HTTP_401_UNAUTHORIZED,
-    )
+    except UnknownException as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @app.get('/suggested-tasks', response_model=list[SuggestedTask])
 async def get_suggested_tasks(
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> list[SuggestedTask] | JSONResponse:
     """Get suggested tasks for the authenticated user across their most recently pushed repositories.
 
@@ -219,21 +147,16 @@ async def get_suggested_tasks(
     - PRs owned by the user
     - Issues assigned to the user.
     """
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens, external_auth_token=access_token
-        )
-        try:
-            tasks: list[SuggestedTask] = await client.get_suggested_tasks()
-            return tasks
+    handler = await user.get_provider_handler()
+    try:
+        tasks: list[SuggestedTask] = await handler.get_suggested_tasks()
+        return tasks
 
-        except UnknownException as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-    logger.info(f'Returning 401 Unauthorized - No providers set for user_id: {user_id}')
-    raise AuthenticationError('No providers set.')
+    except UnknownException as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @app.get('/repository/branches', response_model=PaginatedBranchesResponse)
@@ -241,9 +164,7 @@ async def get_repository_branches(
     repository: str,
     page: int = 1,
     per_page: int = 30,
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> PaginatedBranchesResponse | JSONResponse:
     """Get branches for a repository.
 
@@ -255,26 +176,18 @@ async def get_repository_branches(
     Returns:
         A paginated response with branches for the repository
     """
-    if provider_tokens:
-        client = ProviderHandler(
-            provider_tokens=provider_tokens, external_auth_token=access_token
+    handler = await user.get_provider_handler(strict=False)
+    try:
+        branches_response: PaginatedBranchesResponse = await handler.get_branches(
+            repository, page=page, per_page=per_page
         )
-        try:
-            branches_response: PaginatedBranchesResponse = await client.get_branches(
-                repository, page=page, per_page=per_page
-            )
-            return branches_response
+        return branches_response
 
-        except UnknownException as e:
-            return JSONResponse(
-                content=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    logger.info(
-        f'Returning 401 Unauthorized - Git provider token required for user_id: {user_id}'
-    )
-    raise AuthenticationError('Git provider token required. (such as GitHub).')
+    except UnknownException as e:
+        return JSONResponse(
+            content=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 def _extract_repo_name(repository_name: str) -> str:
@@ -295,9 +208,7 @@ def _extract_repo_name(repository_name: str) -> str:
 )
 async def get_repository_microagents(
     repository_name: str,
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> list[MicroagentResponse] | JSONResponse:
     """Scan the microagents directory of a repository and return the list of microagents.
 
@@ -320,12 +231,7 @@ async def get_repository_microagents(
     """
     try:
         # Create provider handler for API authentication
-        provider_handler = ProviderHandler(
-            provider_tokens=provider_tokens
-            or cast(PROVIDER_TOKEN_TYPE, MappingProxyType({})),
-            external_auth_token=access_token,
-            external_auth_id=user_id,
-        )
+        provider_handler = await user.get_provider_handler(strict=False)
 
         # Fetch microagents using the provider handler
         microagents = await provider_handler.get_microagents(repository_name)
@@ -361,9 +267,7 @@ async def get_repository_microagent_content(
     file_path: str = Query(
         ..., description='Path to the microagent file within the repository'
     ),
-    provider_tokens: PROVIDER_TOKEN_TYPE | None = Depends(get_provider_tokens),
-    access_token: SecretStr | None = Depends(get_access_token),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> MicroagentContentResponse | JSONResponse:
     """Fetch the content of a specific microagent file from a repository.
 
@@ -382,12 +286,7 @@ async def get_repository_microagent_content(
     """
     try:
         # Create provider handler for API authentication
-        provider_handler = ProviderHandler(
-            provider_tokens=provider_tokens
-            or cast(PROVIDER_TOKEN_TYPE, MappingProxyType({})),
-            external_auth_token=access_token,
-            external_auth_id=user_id,
-        )
+        provider_handler = await user.get_provider_handler(strict=False)
 
         # Fetch file content using the provider handler
         response = await provider_handler.get_microagent_content(

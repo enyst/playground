@@ -279,12 +279,17 @@ class LinearManager(Manager):
             return
 
         try:
-            # Create Linear view
+            # Create Linear view with required UserContext
+            from openhands.app_server.user.auth_user_context import AuthUserContext
+
+            user_context = AuthUserContext(user_auth=saas_user_auth)
+
             linear_view = await LinearFactory.create_linear_view_from_payload(
                 job_context,
                 saas_user_auth,
                 linear_user,
                 workspace,
+                user_context,
             )
         except Exception as e:
             logger.error(

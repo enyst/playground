@@ -5,6 +5,7 @@ from jinja2 import Environment
 from storage.slack_user import SlackUser
 
 from openhands.server.user_auth.user_auth import UserAuth
+from openhands.app_server.user.user_context import UserContext
 
 
 class SlackViewInterface(SummaryExtractionTracker, ABC):
@@ -13,6 +14,7 @@ class SlackViewInterface(SummaryExtractionTracker, ABC):
     slack_user_id: str
     slack_to_openhands_user: SlackUser | None
     saas_user_auth: UserAuth | None
+    user_context: UserContext | None
     channel_id: str
     message_ts: str
     thread_ts: str | None

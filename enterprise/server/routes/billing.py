@@ -25,7 +25,8 @@ from storage.database import session_maker
 from storage.subscription_access import SubscriptionAccess
 from storage.user_settings import UserSettings
 
-from openhands.server.user_auth import get_user_id
+from openhands.app_server.config import depends_user_context
+from openhands.app_server.user.user_context import UserContext
 
 stripe.api_key = STRIPE_API_KEY
 billing_router = APIRouter(prefix='/api/billing')
@@ -75,7 +76,9 @@ def calculate_credits(user_info: LiteLlmUserInfo) -> float:
 
 # Endpoint to retrieve user's current credit balance
 @billing_router.get('/credits')
-async def get_credits(user_id: str = Depends(get_user_id)) -> GetCreditsResponse:
+async def get_credits(user: UserContext = Depends(depends_user_context())) -> GetCreditsResponse:
+    user_id = await user.require_user_id()
+
     if not stripe_service.STRIPE_API_KEY:
         return GetCreditsResponse()
     async with httpx.AsyncClient() as client:
@@ -87,9 +90,11 @@ async def get_credits(user_id: str = Depends(get_user_id)) -> GetCreditsResponse
 # Endpoint to retrieve user's current subscription access
 @billing_router.get('/subscription-access')
 async def get_subscription_access(
-    user_id: str = Depends(get_user_id),
+    user: UserContext = Depends(depends_user_context()),
 ) -> SubscriptionAccessResponse | None:
     """Get details of the currently valid subscription for the user."""
+    user_id = await user.require_user_id()
+
     with session_maker() as session:
         now = datetime.now(UTC)
         subscription_access = (
@@ -113,18 +118,16 @@ async def get_subscription_access(
 
 # Endpoint to check if a user has entered a payment method into stripe
 @billing_router.post('/has-payment-method')
-async def has_payment_method(user_id: str = Depends(get_user_id)) -> bool:
-    if not user_id:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+async def has_payment_method(user: UserContext = Depends(depends_user_context())) -> bool:
+    user_id = await user.require_user_id()
     return await stripe_service.has_payment_method(user_id)
 
 
 # Endpoint to cancel user's subscription
 @billing_router.post('/cancel-subscription')
-async def cancel_subscription(user_id: str = Depends(get_user_id)) -> JSONResponse:
+async def cancel_subscription(user: UserContext = Depends(depends_user_context())) -> JSONResponse:
     """Cancel user's active subscription at the end of the current billing period."""
-    if not user_id:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+    user_id = await user.require_user_id()
 
     with session_maker() as session:
         # Find the user's active subscription
@@ -194,8 +197,10 @@ async def cancel_subscription(user_id: str = Depends(get_user_id)) -> JSONRespon
 # Endpoint to create a new setup intent in stripe
 @billing_router.post('/create-customer-setup-session')
 async def create_customer_setup_session(
-    request: Request, user_id: str = Depends(get_user_id)
+    request: Request, user: UserContext = Depends(depends_user_context())
 ) -> CreateBillingSessionResponse:
+    user_id = await user.require_user_id()
+
     customer_id = await stripe_service.find_or_create_customer(user_id)
     checkout_session = await stripe.checkout.Session.create_async(
         customer=customer_id,
@@ -212,8 +217,10 @@ async def create_customer_setup_session(
 async def create_checkout_session(
     body: CreateCheckoutSessionRequest,
     request: Request,
-    user_id: str = Depends(get_user_id),
+    user: UserContext = Depends(depends_user_context()),
 ) -> CreateBillingSessionResponse:
+    user_id = await user.require_user_id()
+
     customer_id = await stripe_service.find_or_create_customer(user_id)
     checkout_session = await stripe.checkout.Session.create_async(
         customer=customer_id,
@@ -266,9 +273,11 @@ async def create_checkout_session(
 async def create_subscription_checkout_session(
     request: Request,
     billing_session_type: BillingSessionType = BillingSessionType.MONTHLY_SUBSCRIPTION,
-    user_id: str = Depends(get_user_id),
+    user: UserContext = Depends(depends_user_context()),
 ) -> CreateBillingSessionResponse:
     # Prevent duplicate subscriptions for the same user
+    user_id = await user.require_user_id()
+
     with session_maker() as session:
         now = datetime.now(UTC)
         existing_active_subscription = (
@@ -340,11 +349,11 @@ async def create_subscription_checkout_session(
 async def create_subscription_checkout_session_via_get(
     request: Request,
     billing_session_type: BillingSessionType = BillingSessionType.MONTHLY_SUBSCRIPTION,
-    user_id: str = Depends(get_user_id),
+    user: UserContext = Depends(depends_user_context()),
 ) -> RedirectResponse:
     """Create a subscription checkout session using a GET request (For easier copy / paste to URL bar)."""
     response = await create_subscription_checkout_session(
-        request, billing_session_type, user_id
+        request, billing_session_type, user
     )
     return RedirectResponse(response.redirect_url)
 

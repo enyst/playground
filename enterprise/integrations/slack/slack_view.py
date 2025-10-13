@@ -20,6 +20,7 @@ from openhands.server.services.conversation_service import (
 )
 from openhands.server.shared import ConversationStoreImpl, config, conversation_manager
 from openhands.server.user_auth.user_auth import UserAuth
+from openhands.app_server.user.user_context import UserContext
 from openhands.storage.data_models.conversation_metadata import ConversationTrigger
 from openhands.utils.async_utils import GENERAL_TIMEOUT, call_async_from_sync
 
@@ -40,6 +41,7 @@ class SlackUnkownUserView(SlackViewInterface):
     slack_user_id: str
     slack_to_openhands_user: SlackUser | None
     saas_user_auth: UserAuth | None
+    user_context: UserContext | None
     channel_id: str
     message_ts: str
     thread_ts: str | None
@@ -69,6 +71,7 @@ class SlackNewConversationView(SlackViewInterface):
     slack_user_id: str
     slack_to_openhands_user: SlackUser
     saas_user_auth: UserAuth
+    user_context: UserContext
     channel_id: str
     message_ts: str
     thread_ts: str | None
@@ -184,7 +187,8 @@ class SlackNewConversationView(SlackViewInterface):
         """
         self._verify_necessary_values_are_set()
 
-        provider_tokens = await self.saas_user_auth.get_provider_tokens()
+        ts = await self.user_context.get_token_source()
+        provider_tokens = await ts.get_provider_tokens()
         user_secrets = await self.saas_user_auth.get_user_secrets()
         user_instructions, conversation_instructions = self._get_instructions(jinja)
 
@@ -267,7 +271,8 @@ class SlackUpdateExistingConversationView(SlackNewConversationView):
         if not metadata:
             raise StartingConvoException('Conversation no longer exists.')
 
-        provider_tokens = await saas_user_auth.get_provider_tokens()
+        ts = await self.user_context.get_token_source()
+        provider_tokens = await ts.get_provider_tokens()
 
         # Should we raise here if there are no provider tokens?
         providers_set = list(provider_tokens.keys()) if provider_tokens else []
@@ -331,7 +336,7 @@ class SlackFactory:
         )
 
     def create_slack_view_from_payload(
-        message: Message, slack_user: SlackUser | None, saas_user_auth: UserAuth | None
+        message: Message, slack_user: SlackUser | None, saas_user_auth: UserAuth | None, user_context: UserContext | None
     ):
         payload = message.message
         slack_user_id = payload['slack_user_id']
@@ -360,6 +365,7 @@ class SlackFactory:
                 slack_user_id=slack_user_id,
                 slack_to_openhands_user=slack_user,
                 saas_user_auth=saas_user_auth,
+                user_context=user_context,
                 channel_id=channel_id,
                 message_ts=message_ts,
                 thread_ts=thread_ts,
@@ -389,6 +395,7 @@ class SlackFactory:
                 slack_user_id=slack_user_id,
                 slack_to_openhands_user=slack_user,
                 saas_user_auth=saas_user_auth,
+                user_context=user_context,
                 channel_id=channel_id,
                 message_ts=message_ts,
                 thread_ts=thread_ts,
@@ -407,6 +414,7 @@ class SlackFactory:
                 slack_user_id=slack_user_id,
                 slack_to_openhands_user=slack_user,
                 saas_user_auth=saas_user_auth,
+                user_context=user_context,
                 channel_id=channel_id,
                 message_ts=message_ts,
                 thread_ts=thread_ts,
@@ -424,6 +432,7 @@ class SlackFactory:
                 slack_user_id=slack_user_id,
                 slack_to_openhands_user=slack_user,
                 saas_user_auth=saas_user_auth,
+                user_context=user_context,
                 channel_id=channel_id,
                 message_ts=message_ts,
                 thread_ts=thread_ts,

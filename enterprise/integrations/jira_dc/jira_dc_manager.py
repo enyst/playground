@@ -290,11 +290,15 @@ class JiraDcManager(Manager):
 
         try:
             # Create Jira DC view
+            from openhands.app_server.user.auth_user_context import AuthUserContext
+
+            user_context = AuthUserContext(user_auth=saas_user_auth)
             jira_dc_view = await JiraDcFactory.create_jira_dc_view_from_payload(
                 job_context,
                 saas_user_auth,
                 jira_dc_user,
                 workspace,
+                user_context,
             )
         except Exception as e:
             logger.error(

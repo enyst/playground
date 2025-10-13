@@ -6,7 +6,7 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import base62
+import base62  # type: ignore[import-untyped]
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from jinja2 import Environment, FileSystemLoader
@@ -20,7 +20,11 @@ from openhands.app_server.app_conversation.app_conversation_service import (
 )
 from openhands.app_server.config import (
     depends_app_conversation_service,
+    depends_user_context,
 )
+
+# Centralized UserContext dependency
+from openhands.app_server.user.user_context import UserContext  # noqa: E402
 from openhands.core.config.llm_config import LLMConfig
 from openhands.core.config.mcp_config import MCPConfig
 from openhands.core.logger import openhands_logger as logger
@@ -35,10 +39,6 @@ from openhands.events.observation import (
     NullObservation,
 )
 from openhands.experiments.experiment_manager import ExperimentConfig
-from openhands.integrations.provider import (
-    PROVIDER_TOKEN_TYPE,
-    ProviderHandler,
-)
 from openhands.integrations.service_types import (
     CreateMicroagent,
     ProviderType,
@@ -66,11 +66,6 @@ from openhands.server.shared import (
 from openhands.server.types import LLMAuthenticationError, MissingSettingsError
 from openhands.server.user_auth import (
     get_auth_type,
-    get_provider_tokens,
-    get_user_id,
-    get_user_secrets,
-    get_user_settings,
-    get_user_settings_store,
 )
 from openhands.server.user_auth.user_auth import AuthType
 from openhands.server.utils import get_conversation as get_conversation_metadata
@@ -81,12 +76,12 @@ from openhands.storage.data_models.conversation_metadata import (
     ConversationTrigger,
 )
 from openhands.storage.data_models.conversation_status import ConversationStatus
-from openhands.storage.data_models.settings import Settings
-from openhands.storage.data_models.user_secrets import UserSecrets
 from openhands.storage.locations import get_experiment_config_filename
-from openhands.storage.settings.settings_store import SettingsStore
 from openhands.utils.async_utils import wait_all
 from openhands.utils.conversation_summary import get_default_conversation_title
+
+USER_CONTEXT_DEP = depends_user_context()  # FastAPI dependency factory
+
 
 app = APIRouter(prefix='/api', dependencies=get_dependencies())
 app_conversation_service_dependency = depends_app_conversation_service()
@@ -203,11 +198,9 @@ class ProvidersSetModel(BaseModel):
 @app.post('/conversations')
 async def new_conversation(
     data: InitSessionRequest,
-    user_id: str = Depends(get_user_id),
-    provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
-    user_secrets: UserSecrets = Depends(get_user_secrets),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     auth_type: AuthType | None = Depends(get_auth_type),
-) -> ConversationResponse:
+) -> ConversationResponse | JSONResponse:
     """Initialize a new session or join an existing one.
 
     After successful initialization, the client should connect to the WebSocket
@@ -242,15 +235,20 @@ async def new_conversation(
 
     try:
         if repository:
-            provider_handler = ProviderHandler(provider_tokens)
+            handler = await user.get_provider_handler(strict=False)
             # Check against git_provider, otherwise check all provider apis
-            await provider_handler.verify_repo_provider(repository, git_provider)
+            await handler.verify_repo_provider(repository, git_provider)
 
         conversation_id = getattr(data, 'conversation_id', None) or uuid.uuid4().hex
+        # Retrieve identity and tokens from UserContext
+        user_id = await user.get_user_id()
+        token_source = await user.get_token_source()
+        provider_tokens = await token_source.get_provider_tokens()
+        # Custom secrets handled via SecretSource inside services; pass None here (legacy still supported)
         agent_loop_info = await create_new_conversation(
             user_id=user_id,
             git_provider_tokens=provider_tokens,
-            custom_secrets=user_secrets.custom_secrets if user_secrets else None,
+            custom_secrets=None,
             selected_repository=repository,
             selected_branch=selected_branch,
             initial_user_msg=initial_user_msg,
@@ -459,8 +457,9 @@ async def get_conversation(
 @app.delete('/conversations/{conversation_id}')
 async def delete_conversation(
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str | None = Depends(get_user_id),
-) -> bool:
+    user: UserContext = Depends(USER_CONTEXT_DEP),
+) -> bool | JSONResponse:
+    user_id = await user.get_user_id()
     conversation_store = await ConversationStoreImpl.get_instance(config, user_id)
     try:
         await conversation_store.get_metadata(conversation_id)
@@ -479,7 +478,7 @@ async def delete_conversation(
 async def get_prompt(
     event_id: int,
     conversation_id: str = Depends(validate_conversation_id),
-    user_settings: SettingsStore = Depends(get_user_settings_store),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     metadata: ConversationMetadata = Depends(get_conversation_metadata),
 ):
     # get event store for the conversation
@@ -491,15 +490,13 @@ async def get_prompt(
     stringified_events = _get_contextual_events(event_store, event_id)
 
     # generate a prompt
-    settings = await user_settings.load()
-    if settings is None:
-        # placeholder for error handling
-        raise ValueError('Settings not found')
+    # Load settings from UserContext instead of store
+    user_info = await user.get_user_info()
 
     llm_config = LLMConfig(
-        model=settings.llm_model or '',
-        api_key=settings.llm_api_key,
-        base_url=settings.llm_base_url,
+        model=user_info.llm_model or '',
+        api_key=user_info.llm_api_key,
+        base_url=user_info.llm_base_url,
     )
 
     prompt_template = generate_prompt_template(stringified_events)
@@ -581,11 +578,9 @@ async def _get_conversation_info(
 async def start_conversation(
     providers_set: ProvidersSetModel,
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str = Depends(get_user_id),
-    provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
-    settings: Settings = Depends(get_user_settings),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     conversation_store: ConversationStore = Depends(get_conversation_store),
-) -> ConversationResponse:
+) -> ConversationResponse | JSONResponse:
     """Start an agent loop for a conversation.
 
     This endpoint calls the conversation_manager's maybe_start_agent_loop method
@@ -597,17 +592,7 @@ async def start_conversation(
         extra={'session_id': conversation_id},
     )
 
-    # Log token fetch status
-    if provider_tokens:
-        logger.info(
-            f'/start endpoint: Fetched provider tokens: {list(provider_tokens.keys())}',
-            extra={'session_id': conversation_id},
-        )
-    else:
-        logger.warning(
-            '/start endpoint: No provider tokens fetched (provider_tokens is None/empty)',
-            extra={'session_id': conversation_id},
-        )
+    user_id = await user.get_user_id()
 
     try:
         # Check that the conversation exists
@@ -624,7 +609,7 @@ async def start_conversation(
 
         # Set up conversation init data with provider information
         conversation_init_data = await setup_init_conversation_settings(
-            user_id, conversation_id, providers_set.providers_set or [], provider_tokens
+            user_id, conversation_id, providers_set.providers_set or []
         )
 
         # Start the agent loop
@@ -657,8 +642,8 @@ async def start_conversation(
 @app.post('/conversations/{conversation_id}/stop')
 async def stop_conversation(
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str = Depends(get_user_id),
-) -> ConversationResponse:
+    user: UserContext = Depends(USER_CONTEXT_DEP),
+) -> ConversationResponse | JSONResponse:
     """Stop an agent loop for a conversation.
 
     This endpoint calls the conversation_manager's close_session method
@@ -668,6 +653,7 @@ async def stop_conversation(
 
     try:
         # Check if the conversation is running
+        user_id = await user.get_user_id()
         agent_loop_info = await conversation_manager.get_agent_loop_info(
             user_id=user_id, filter_to_sids={conversation_id}
         )
@@ -763,9 +749,9 @@ class UpdateConversationRequest(BaseModel):
 async def update_conversation(
     data: UpdateConversationRequest,
     conversation_id: str = Depends(validate_conversation_id),
-    user_id: str | None = Depends(get_user_id),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     conversation_store: ConversationStore = Depends(get_conversation_store),
-) -> bool:
+) -> bool | JSONResponse:
     """Update conversation metadata.
 
     This endpoint allows updating conversation details like title.
@@ -783,6 +769,7 @@ async def update_conversation(
     Raises:
         HTTPException: If conversation is not found or user lacks permission
     """
+    user_id = await user.get_user_id()
     logger.info(
         f'Updating conversation {conversation_id} with title: {data.title}',
         extra={'session_id': conversation_id, 'user_id': user_id},
@@ -899,7 +886,7 @@ async def get_microagent_management_conversations(
     page_id: str | None = None,
     limit: int = 20,
     conversation_store: ConversationStore = Depends(get_conversation_store),
-    provider_tokens: PROVIDER_TOKEN_TYPE = Depends(get_provider_tokens),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
 ) -> ConversationInfoResultSet:
     """Get conversations for the microagent management page with pagination support.
 
@@ -921,7 +908,7 @@ async def get_microagent_management_conversations(
     )
 
     # Check if the last PR is active (not closed/merged)
-    provider_handler = ProviderHandler(provider_tokens)
+    provider_handler = await user.get_provider_handler()  # requires auth/tokens
 
     # Apply additional filters
     final_filtered_results = []
@@ -972,7 +959,7 @@ def _to_conversation_info(app_conversation: AppConversation) -> ConversationInfo
         app_conversation.sandbox_status, ConversationStatus.STOPPED
     )
 
-    runtime_status_mapping = {
+    runtime_status_mapping: dict[AgentExecutionStatus, RuntimeStatus] = {
         AgentExecutionStatus.ERROR: RuntimeStatus.ERROR,
         AgentExecutionStatus.IDLE: RuntimeStatus.READY,
         AgentExecutionStatus.RUNNING: RuntimeStatus.READY,
@@ -982,7 +969,7 @@ def _to_conversation_info(app_conversation: AppConversation) -> ConversationInfo
         AgentExecutionStatus.STUCK: RuntimeStatus.ERROR,
     }
     runtime_status = runtime_status_mapping.get(
-        app_conversation.agent_status, RuntimeStatus.ERROR
+        app_conversation.agent_status or AgentExecutionStatus.ERROR, RuntimeStatus.ERROR
     )
     title = (
         app_conversation.title
