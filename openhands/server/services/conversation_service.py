@@ -250,7 +250,9 @@ async def setup_init_conversation_settings(
     git_provider_tokens: PROVIDER_TOKEN_TYPE | None = None
     try:
         if user_id:
-            from openhands.server.user_auth.user_auth import get_for_user as get_user_auth_for_user
+            from openhands.server.user_auth.user_auth import (
+                get_for_user as get_user_auth_for_user,
+            )
 
             user_auth = await get_user_auth_for_user(user_id)
             tokens = await user_auth.get_provider_tokens()
