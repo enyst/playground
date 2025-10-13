@@ -1,23 +1,10 @@
 # Enterprise auth primitive audit and UserContext/TokenSource refactor plan
-Baseline marker (enyst/playground v1-integration)
-- Commit: 37797d5ead018f0a1d9b5ab0a0bcd01b1c780258 (short: 37797d5ea)
-- Author: Tim O'Farrell
-- Date: 2025-10-07 16:24:26 -0600
-- Subject: Lint fixes
-- Source: git log playground/v1-integration
 
-
-## UserContext: Context Object for OpenHands
-Working branch marker (user-context-refactor)
-- Commit: e0b7c198381431583ec4eaf27e6f6ca269e7119e (short: e0b7c1983)
-- Author: enyst
-- Date: 2025-10-13 08:16:44 +0000
-- Subject: docs: record baseline commit for enyst/playground v1-integration at top of audit doc
-- Source: git log HEAD
-
-
-
-UserContext is an implementation of Context Object pattern, in OpenHands.
+UserContext is an implementation of Context Object pattern, in OpenHands. It's the
+starting point for finding the right data structures for auth/validation objects,
+which allows us to eliminate special cases and endless validation in business logic.
+It's mostly the same with _the boundary interface_ between OpenHands and the largest
+application built on it, the /enterprise Saas.
 
 What it is
 - A per-request context that encapsulates identity and credential access for a user
