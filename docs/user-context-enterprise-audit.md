@@ -8,6 +8,14 @@ Baseline marker (enyst/playground v1-integration)
 
 
 ## UserContext: Context Object for OpenHands
+Working branch marker (user-context-refactor)
+- Commit: e0b7c198381431583ec4eaf27e6f6ca269e7119e (short: e0b7c1983)
+- Author: enyst
+- Date: 2025-10-13 08:16:44 +0000
+- Subject: docs: record baseline commit for enyst/playground v1-integration at top of audit doc
+- Source: git log HEAD
+
+
 
 UserContext is an implementation of Context Object pattern, in OpenHands.
 
