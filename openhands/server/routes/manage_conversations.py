@@ -64,7 +64,6 @@ from openhands.server.shared import (
 from openhands.server.types import LLMAuthenticationError, MissingSettingsError
 from openhands.server.user_auth import (
     get_auth_type,
-    get_user_settings_store,
 )
 from openhands.server.user_auth.user_auth import AuthType
 from openhands.server.utils import get_conversation as get_conversation_metadata
@@ -478,7 +477,7 @@ async def delete_conversation(
 async def get_prompt(
     event_id: int,
     conversation_id: str = Depends(validate_conversation_id),
-    user_settings: SettingsStore = Depends(get_user_settings_store),
+    user: UserContext = Depends(USER_CONTEXT_DEP),
     metadata: ConversationMetadata = Depends(get_conversation_metadata),
 ):
     # get event store for the conversation
@@ -490,15 +489,13 @@ async def get_prompt(
     stringified_events = _get_contextual_events(event_store, event_id)
 
     # generate a prompt
-    settings = await user_settings.load()
-    if settings is None:
-        # placeholder for error handling
-        raise ValueError('Settings not found')
+    # Load settings from UserContext instead of store
+    user_info = await user.get_user_info()
 
     llm_config = LLMConfig(
-        model=settings.llm_model or '',
-        api_key=settings.llm_api_key,
-        base_url=settings.llm_base_url,
+        model=user_info.llm_model or '',
+        api_key=user_info.llm_api_key,
+        base_url=user_info.llm_base_url,
     )
 
     prompt_template = generate_prompt_template(stringified_events)
