@@ -42,6 +42,55 @@ Scope: identify enterprise services using auth primitives (get_user_auth, get_us
 
 
 ## Status (current)
+## Enterprise webhooks and the DI boundary
+
+Observation
+- Webhook routes do enter FastAPI, but after signature verification they schedule background tasks and return immediately. The heavy processing runs outside the request handler, so FastAPI dependency injection (DI) isn’t available there.
+- Example: enterprise/server/routes/integration/jira.py POST /integration/jira/events validates signature and enqueues processing via BackgroundTasks: background_tasks.add_task(jira_manager.receive_message, message).
+- The Jira/Linear/Jira-DC managers and their views execute in that background context. Because there is no Request/Depends, we can’t inject UserContext directly. Instead we pass identity in via an adapter.
+
+Implication
+- Use UserContext in user-initiated integration management routes (create/link workspace, etc.), where we are inside FastAPI DI.
+- For webhook processing paths, managers obtain saas_user_auth (by mapping external user → keycloak user) and then we inject a TokenSource into views (e.g., AuthTokenSource(saas_user_auth)). This keeps provider token acquisition centralized without depending on FastAPI DI.
+
+Current implementation (branch status)
+- Jira webhook route: enterprise/server/routes/integration/jira.py enqueues JiraManager.receive_message in a BackgroundTasks job; DI is used in the management routes (/workspaces, /workspaces/link) via UserContext.
+- Managers wire TokenSource into views after they are created (best-effort, guarded):
+  - enterprise/integrations/jira/jira_manager.py: after JiraFactory.create_jira_view_from_payload(...), set view.token_source = AuthTokenSource(saas_user_auth) if the attribute exists.
+  - enterprise/integrations/linear/linear_manager.py: same pattern for Linear views.
+  - enterprise/integrations/jira_dc/jira_dc_manager.py: same pattern for Jira-DC views.
+- Views consume TokenSource instead of calling user_auth directly:
+  - enterprise/integrations/jira_dc/jira_dc_view.py: token_source field added to New/Existing view dataclasses; both flows fetch provider_tokens via TokenSource and pass provider_tokens into setup_init_conversation_settings on resume.
+  - enterprise/integrations/linear/linear_view.py: New conversation view includes token_source and uses it; Existing conversation view now uses token_source to fetch provider_tokens, but the dataclass is missing a token_source field (follow-up fix required to add token_source: TokenSource | None = None to LinearExistingConversationView).
+- Service layer safeguard:
+  - openhands/server/services/conversation_service.py: start_conversation only sets custom_secrets when not None, avoiding overwriting store-provided secrets during resume.
+
+What simplified vs. what didn’t
+- Simplified:
+  - FastAPI routes in enterprise management endpoints can rely on a single UserContext for user_id and TokenSource, reducing scattered Depends(get_user_id/get_access_token/... ).
+  - Views no longer reach directly into user_auth; they depend on TokenSource, which can be provided by either DI-backed code (in routes) or manager wiring (in background tasks).
+- Didn’t simplify much (yet):
+  - Manager logic (jira/linear/jira_dc managers) still performs mapping from external identities (e.g., Jira account) to OpenHands user, creates views, fetches issue context, and orchestrates conversation operations. Injecting TokenSource here removes some auth plumbing but does not substantially reduce the branching/flow control in managers.
+  - The main developer-facing simplification appears in FastAPI routes; managers will require deeper structural changes to materially simplify (e.g., moving more orchestration into service layer APIs that accept UserContext/TokenSource).
+
+Recommended focus next
+- Prioritize FastAPI routes where DI benefits are clearest and measurable:
+  - Confirm/manage conversations routes to always accept UserContext, and ensure downstream services only need user.user_id and tokens from user.token_source.
+  - Audit remaining OSS routes for primitive Depends usage and migrate to UserContext + TokenSource.
+  - Ensure response models remain valid (some tests fail when mixing union of response_model types).
+- Enterprise follow-ups (targeted):
+  - Linear: add token_source: TokenSource | None = None to LinearExistingConversationView dataclass to match usage.
+  - Verify Jira-DC existing conversation path after indentation fix and provider_tokens pass-through.
+  - Consider adding optional parameters to managers to accept a ProviderHandler/TokenSource from routes (for flows that are route-driven) and default to current internal construction for webhooks.
+
+References (source of facts)
+- Webhook background task handoff: enterprise/server/routes/integration/jira.py (POST /integration/jira/events) uses BackgroundTasks.add_task to call JiraManager.receive_message.
+- Manager wiring of TokenSource: enterprise/integrations/jira/jira_manager.py, enterprise/integrations/linear/linear_manager.py, enterprise/integrations/jira_dc/jira_dc_manager.py (after creating views, set view.token_source = AuthTokenSource when attribute exists).
+- Views consuming TokenSource:
+  - enterprise/integrations/jira_dc/jira_dc_view.py: token_source fields on New/Existing; provider_tokens passed to setup_init_conversation_settings in existing flow.
+  - enterprise/integrations/linear/linear_view.py: token_source on New view; Existing view uses token_source but lacks the field (pending fix).
+- Service guard for custom_secrets: openhands/server/services/conversation_service.py change to only set custom_secrets when not None.
+
 - UserContext: added get_user_email() and implemented it in AuthUserContext; AdminUserContext intentionally raises NotImplementedError.
 - Jira routes migrated to DI with UserContext for identity/email; removed direct get_user_auth usage and SaasUserAuth import; cleaned unused Request params:
   - create_jira_workspace, create_workspace_link, get_current_workspace_link, unlink_workspace, validate_workspace_integration.
