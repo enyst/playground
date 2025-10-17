@@ -5,29 +5,25 @@ The best AI software engineer is you.
 OpenHands is a power tool—not a walled garden. We build for agency, not dependency. Everything we ship should be
 inspectable, remixable, and forkable. If we ever get in your way, tell us—or fork us.
 
-## What “free as in freedom” means
-Freedom here isn’t about price. It’s about your rights as a builder:
-- Run: Use OpenHands however you want, wherever you want.
-- Study: Read the code, understand it, learn from it.
-- Modify: Change anything—models, agents, interfaces, and workflows.
-- Share: Give your improvements back, or share them with your team, your company, or the world.
+## Why Open Source AI matters
+AI is becoming the most important layer in software. If that layer is closed, innovation narrows and opportunity
+shrinks. OpenHands treats AI tooling as public infrastructure: inspectable, remixable, and forkable—with escape hatches
+built in so you always keep control.
 
-AI is becoming the most important layer in software. If that layer is closed, innovation narrows and opportunity shrinks.
-We design escape hatches into everything we do so you always keep control.
-
-## Principles we won’t compromise
+## Our design commitments
 **Community ownership**
 - Open by default. Your feedback, criticism, and contributions shape the project. If we ever drift, fork us.
 
+**No lock‑in by design**
+- OpenHands is open‑source for developers. We interoperate with the ecosystem—including proprietary services you might
+choose—but nothing closed is ever required. Clear abstractions and simple migration paths keep switching costs low and
+your choices yours.
+
 **Extensibility and interoperability**
-- Clean interfaces and plugin points. Small, composable parts. Bring your own stack: your models, your tools, your clouds.
+- Clean interfaces and plugin points. Small, composable parts. Bring your own stack: your models, your tools, your
+clouds.
 
-**Pragmatism, not lock‑in**
-- OpenHands itself is and remains open‑source for developers. We interoperate with the ecosystem—including proprietary
-services you may choose to use—but no closed service is ever required. We favor clear abstractions and simple migration
-paths so switching costs stay low and your choices stay yours.
-
-## How we build
+## How we work
 **High Openness**
 - Plans, wins, and failures happen in public. Thoughtful criticism is welcome.
 
@@ -39,12 +35,9 @@ OpenHands is a set of building blocks, not a walled product. Agents, interfaces,
 Your keyboard, your repo, your rules. We meet you where you are and get out of your way.
 
 ## How to participate
-- Use OpenHands, report issues, and share what you learn.
-- Open PRs—small fixes, big ideas, and everything in between.
-- Propose experiments; show the code, show the results.
-- Be kind, be direct, and help others build.
-
-See also: [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+- Use OpenHands, file issues and PRs, and share what you learn.
+- Start small or go big—examples and experiments are welcome.
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ## Relationship to All Hands
 OpenHands is supported by All Hands AI, Inc.—funding, infrastructure, and full‑time work so the project moves faster.
