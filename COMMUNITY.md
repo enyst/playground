@@ -1,60 +1,62 @@
-OpenHands is a community of engineers, academics, and enthusiasts reimagining software development for an AI-powered world.
+# Free as in Freedom: The OpenHands Community
 
-**Mission**
-OpenHands exists to advance Open Source AI—free as in freedom.
+The best AI software engineer is you.
 
-We believe the future of software development must not be locked behind proprietary models, agents, or interfaces. The most important developer platform shift in decades should be driven by the open-source community, not dictated by vendor lock-in.
+OpenHands is a power tool—not a walled garden. We build for agency, not dependency. Everything we ship should be
+inspectable, remixable, and forkable. If we ever get in your way, tell us—or fork us.
 
-Our mission is to make state-of-the-art AI development tools open, inspectable, remixable, and owned by the people who use them.
+## What “free as in freedom” means
+Freedom here isn’t about price. It’s about your rights as a builder:
+- Run: Use OpenHands however you want, wherever you want.
+- Study: Read the code, understand it, learn from it.
+- Modify: Change anything—models, agents, interfaces, and workflows.
+- Share: Give your improvements back, or share them with your team, your company, or the world.
 
-So we’re not only building friendly interfaces for AI-driven development—we’re also providing the building blocks to create new experiences tailored to your own habits, needs, and imagination. Everything we do aims to keep the door open: to learning, to contribution, and to the freedom to fork if we ever go astray.
+AI is becoming the most important layer in software. If that layer is closed, innovation narrows and opportunity shrinks.
+We design escape hatches into everything we do so you always keep control.
 
-**Ethos**
-We have two core values: High Openness and High Agency.
+## Principles we won’t compromise
+**Community ownership**
+- Open by default. Your feedback, criticism, and contributions shape the project. If we ever drift, fork us.
 
+**Extensibility and interoperability**
+- Clean interfaces and plugin points. Small, composable parts. Bring your own stack: your models, your tools, your clouds.
+
+**Pragmatism, not lock‑in**
+- OpenHands itself is and remains open‑source for developers. We interoperate with the ecosystem—including proprietary
+services you may choose to use—but no closed service is ever required. We favor clear abstractions and simple migration
+paths so switching costs stay low and your choices stay yours.
+
+## How we build
 **High Openness**
-We welcome anyone and everyone into our community by default. You don’t have to be a software developer to help us build. You don’t have to be pro-AI to help us learn.
-
-Our plans, our work, our successes, and our failures are all public record. We want the world to see not just the fruits of our work, but the whole process of growing it.
-
-We welcome thoughtful criticism, whether it’s a comment on a PR or feedback on the community as a whole.
+- Plans, wins, and failures happen in public. Thoughtful criticism is welcome.
 
 **High Agency**
-Everyone should feel empowered to contribute to OpenHands. Whether it’s by making a PR, hosting an event, sharing feedback, or just asking a question, don’t hold back.
+- Bias to ship. Encourage experiments and weird ideas. You don’t need permission to build.
 
-OpenHands gives everyone the building blocks to create state-of-the-art developer experiences. We experiment constantly and love building new things.
+## What we’re building together
+OpenHands is a set of building blocks, not a walled product. Agents, interfaces, and examples you can understand and remix.
+Your keyboard, your repo, your rules. We meet you where you are and get out of your way.
 
-Coding, development practices, and communities are changing rapidly. We won’t hesitate to change direction and make big bets.
+## How to participate
+- Use OpenHands, report issues, and share what you learn.
+- Open PRs—small fixes, big ideas, and everything in between.
+- Propose experiments; show the code, show the results.
+- Be kind, be direct, and help others build.
 
-**Guiding Principles**
-Beyond our two core values, we operate by these guiding principles.
+See also: [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
+## Relationship to All Hands
+OpenHands is supported by All Hands AI, Inc.—funding, infrastructure, and full‑time work so the project moves faster.
+Three of the earliest major contributors helped found the company:
+- Xingyao Wang
+- Graham Neubig
+- Robert Brennan
 
-**Open Collaboration, Shared Progress**
-In OpenHands, advances propagate to everyone: every improvement is immediately available, and every breakthrough becomes a building block for the next.
+Today we use a “benevolent dictator” model for speed and coherence. A future foundation is on the table as we grow.
+When incentives ever conflict, we will default to transparency and the long‑term health of the open project.
 
-The collective intelligence of a global community working in the open will always outpace what can be done behind closed doors.
-
-**Open Source and Freedom**
-AI is quickly becoming the most important layer in the software stack. If that layer is proprietary and closed, then innovation, learning, and opportunity are gated. “Free as in freedom” matters: the right to run, study, modify, and share the software—and the agents that build it. We see open models, open agents, and open interfaces as essential public infrastructure for the next era of software.
-
-Agentic technology is too important, too transformative to be controlled by any single entity.
-
-**Pragmatism, Not Lock-in**
-We’ll integrate with proprietary systems when it helps users, but we won’t accept lock-in as the end state. We favor open alternatives, clean abstractions, and architectures that keep switching costs low and community ownership high.
-
-**Relationship to All Hands**
-OpenHands is supported by the for-profit organization All Hands AI, Inc.
-
-All Hands was founded by three of the first major contributors to OpenHands:
-- Xingyao Wang, a UIUC PhD candidate who got OpenHands to the top of the SWE-bench leaderboards
-- Graham Neubig, a CMU Professor who rallied the academic community around OpenHands
-- Robert Brennan, a software engineer who architected the user-facing features of OpenHands
-
-All Hands is an important part of the OpenHands ecosystem. We’ve raised over $20M—mainly to hire developers and researchers who can work on OpenHands full-time, and to provide them with expensive infrastructure. (Join us!)
-
-But we see OpenHands as much larger, and ultimately more important, than All Hands. When our financial responsibility to investors is at odds with our social responsibility to the community—as it inevitably will be, from time to time—we promise to navigate that conflict thoughtfully and transparently.
-
-At some point, we may transfer custody of OpenHands to an open source foundation. But for now, the Benevolent Dictator approach helps us move forward with speed and intention. If we ever forget the “benevolent” part, please: fork us.
+## Closing
+We’re here to amplify your agency. If we ever forget that, remind us—or fork us.
 
 — The OpenHands community
