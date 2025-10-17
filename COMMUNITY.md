@@ -1,6 +1,6 @@
 # Free as in Freedom: The OpenHands Community
 
-The best AI software engineer is you.
+OpenHands exists to advance Open Source AI—free as in freedom
 
 OpenHands is a power tool—not a walled garden. We build for agency, not dependency. Everything we ship should be
 inspectable, remixable, and forkable. If we ever get in your way, tell us—or fork us.
