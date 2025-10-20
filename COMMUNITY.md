@@ -1,43 +1,55 @@
-# 🙌 The OpenHands Community
+# Free as in Freedom: The OpenHands Community
 
-The OpenHands community is built around the belief that (1) AI and AI agents are going to fundamentally change the way
-we build software, and (2) if this is true, we should do everything we can to make sure that the benefits provided by
-such powerful technology are accessible to everyone.
+OpenHands exists to advance Open Source AI—free as in freedom.
 
-If this resonates with you, we'd love to have you join us in our quest!
+OpenHands is a power tool—not a walled garden. We build for agency, not dependency. Everything we ship should be
+inspectable, remixable, and forkable. If we ever get in your way, tell us—or fork us.
 
-## 🤝 How to Join
+## Why Open Source AI matters
+AI is becoming the most important layer in software. If that layer is closed, innovation narrows and opportunity
+shrinks. OpenHands treats AI tooling as public infrastructure: inspectable, remixable, and forkable—with escape hatches
+built in so you always keep control.
 
-Check out our [How to Join the Community section.](https://github.com/All-Hands-AI/OpenHands?tab=readme-ov-file#-how-to-join-the-community)
+## Our design commitments
+**Community ownership**
+- Open by default. Your feedback, criticism, and contributions shape the project. If we ever drift, fork us.
 
-## 💪 Becoming a Contributor
+**No lock‑in by design**
+- OpenHands is open‑source for developers. We interoperate with the ecosystem—including proprietary services you might
+choose—but nothing closed is ever required. Clear abstractions and simple migration paths keep switching costs low and
+your choices yours.
 
-We welcome contributions from everyone! Whether you're a developer, a researcher, or simply enthusiastic about advancing
-the field of software engineering with AI, there are many ways to get involved:
+**Extensibility and interoperability**
+- Clean interfaces and plugin points. Small, composable parts. Bring your own stack: your models, your tools, your
+clouds.
 
-- **Code Contributions:** Help us develop new core functionality, improve our agents, improve the frontend and other
-interfaces, or anything else that would help make OpenHands better.
-- **Research and Evaluation:** Contribute to our understanding of LLMs in software engineering, participate in
-evaluating the models, or suggest improvements.
-- **Feedback and Testing:** Use the OpenHands toolset, report bugs, suggest features, or provide feedback on usability.
+## How we work
+**High Openness**
+- Plans, wins, and failures happen in public. Thoughtful criticism is welcome.
 
-For details, please check [CONTRIBUTING.md](./CONTRIBUTING.md).
+**High Agency**
+- Bias to ship. Encourage experiments and weird ideas. You don’t need permission to build.
 
-## Code of Conduct
+## What we’re building together
+OpenHands is a set of building blocks, not a walled product. Agents, interfaces, and examples you can understand and remix.
+Your keyboard, your repo, your rules. We meet you where you are and get out of your way.
 
-We have a [Code of Conduct](./CODE_OF_CONDUCT.md) that we expect all contributors to adhere to.
-Long story short, we are aiming for an open, welcoming, diverse, inclusive, and healthy community.
-All contributors are expected to contribute to building this sort of community.
+## How to participate
+- Use OpenHands, file issues and PRs, and share what you learn.
+- Start small or go big—examples and experiments are welcome.
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
-## 🛠️ Becoming a Maintainer
+## Relationship to All Hands
+OpenHands is supported by All Hands AI, Inc.—funding, infrastructure, and full‑time work so the project moves faster.
+Three of the earliest major contributors helped found the company:
+- Xingyao Wang
+- Graham Neubig
+- Robert Brennan
 
-For contributors who have made significant and sustained contributions to the project, there is a possibility of joining
-the maintainer team. The process for this is as follows:
+Today we use a “benevolent dictator” model for speed and coherence. A future foundation is on the table as we grow.
+When incentives ever conflict, we will default to transparency and the long‑term health of the open project.
 
-1. Any contributor who has made sustained and high-quality contributions to the codebase can be nominated by any
-maintainer. If you feel that you may qualify you can reach out to any of the maintainers that have reviewed your PRs and ask if you can be nominated.
-2. Once a maintainer nominates a new maintainer, there will be a discussion period among the maintainers for at least 3 days.
-3. If no concerns are raised the nomination will be accepted by acclamation, and if concerns are raised there will be a discussion and possible vote.
+## Closing
+We’re here to amplify your agency. If we ever forget that, remind us—or fork us.
 
-Note that just making many PRs does not immediately imply that you will become a maintainer. We will be looking
-at sustained high-quality contributions over a period of time, as well as good teamwork and adherence to our [Code of Conduct](./CODE_OF_CONDUCT.md).
+— The OpenHands community
