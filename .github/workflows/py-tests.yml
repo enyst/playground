@@ -122,6 +122,12 @@ jobs:
   # Run specific Windows python tests
   test-on-windows:
     name: Python Tests on Windows
+    needs: determine-changes
+    if: >
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'schedule' ||
+      needs.determine-changes.outputs.app == 'true' ||
+      needs.determine-changes.outputs.shared == 'true'
     runs-on: windows-latest
     strategy:
       matrix:
