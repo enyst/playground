@@ -54,3 +54,4 @@ NOTE: in the future we will simply replace the `GithubTokenManager` with keycloa
 - On Enterprise, the entire APP resolves around the Github User ID. This is because the cookie sets it, so `openhands/server` AND `enterprise/server` depend on it and completly ignore `request.state.github_token` (token is fetched from `GithubTokenManager` instead)
 
 Note that introducing Github User ID on OSS, for instance, will cause large breakages.
+\n<!-- enterprise test change -->
