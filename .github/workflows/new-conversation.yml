@@ -1,0 +1,99 @@
+name: Start New OpenHands Conversation
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository to work with (owner/repo format)'
+        required: false
+        type: string
+        default: 'All-Hands-AI/OpenHands'
+      branch:
+        description: 'Git branch to use'
+        required: false
+        type: string
+        default: 'main'
+      prompt_file:
+        description: 'Choose a prompt template'
+        required: false
+        type: choice
+        default: 'new_conversation.j2'
+        options:
+          - 'new_conversation.j2'
+          - 'debug_issue.j2'
+          - 'code_review.j2'
+          - 'feature_implementation.j2'
+      custom_prompt:
+        description: 'Custom prompt text (overrides prompt file if provided)'
+        required: false
+        type: string
+      poll:
+        description: 'Poll until conversation stops'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  start-conversation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests jinja2
+
+      - name: Start new conversation
+        env:
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: scripts
+        run: |
+
+          # Use defaults if inputs are empty
+          REPO="${{ inputs.repository }}"
+          BRANCH="${{ inputs.branch }}"
+          PROMPT_FILE="${{ inputs.prompt_file }}"
+          CUSTOM_PROMPT="${{ inputs.custom_prompt }}"
+
+          if [ -z "$REPO" ]; then
+            REPO="All-Hands-AI/OpenHands"
+          fi
+
+          if [ -z "$BRANCH" ]; then
+            BRANCH="main"
+          fi
+
+          if [ -z "$PROMPT_FILE" ]; then
+            PROMPT_FILE="new_conversation.j2"
+          fi
+
+          echo "Starting conversation for repository: $REPO (branch: $BRANCH)"
+          ARGS=( "new-conversation" "--repository" "$REPO" "--branch" "$BRANCH" )
+          if [ -n "$CUSTOM_PROMPT" ]; then
+            ARGS+=( "--custom-prompt" "$CUSTOM_PROMPT" )
+          else
+            ARGS+=( "--prompt-file" "$PROMPT_FILE" )
+          fi
+          if [ "${{ inputs.poll }}" = "true" ]; then ARGS+=( "--poll" ); fi
+
+          # Always comment on issue 95 (dedicated conversation log issue)
+          ARGS+=( "--comment-repo" "${{ github.repository }}" "--comment-issue" "95" )
+
+          echo "Running: python llm_conversation.py ${ARGS[*]}"
+          python llm_conversation.py "${ARGS[@]}"
+
+      - name: Output results
+        run: |
+          echo "✅ New conversation started successfully!"
+          echo "Check the workflow logs above for the conversation ID and link."

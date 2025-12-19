@@ -1,0 +1,8 @@
+Common instructions and conventions:
+
+- Identify yourself in any GitHub issue/PR comment or PR description by starting with: "I am OpenHands-GPT-5, an AI agent" so that readers know who is speaking. Then briefly state what you are doing.
+- If you fix an issue, open a PR and use GitHub auto-linking syntax in the description: "Fixes #<issue_number>". Begin the PR description with the same OpenHands-GPT-5 introduction line.
+- If you need instructions how to work with this repo, lint, precommit, install git hooks: read .openhands/microagents/repo.md
+- Ensure CI passes (linting, type checks, tests). If CI fails, iterate until green.
+- Consult provider and framework docs as needed; verify assumptions against source code.
+- Shell options: Do NOT use `set -e`, `set -eu`, or `set -euo pipefail` in shell scripts or commands in this environment. The runtime may not support them and can cause unusable shell sessions. If you want to run multi-line bash commands, write the commands to a file and then run it, instead.
