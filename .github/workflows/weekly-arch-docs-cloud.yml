@@ -1,0 +1,41 @@
+name: Weekly OpenHands Architecture Docs Audit (Cloud)
+# Model: GPT-5
+
+on:
+  schedule:
+    - cron: "0 6 * * 6"  # Every Saturday at 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  audit-architecture-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Print plan
+        run: |
+          echo "This workflow starts an OpenHands Cloud conversation to audit architecture docs weekly."
+
+      - name: Start Cloud conversation
+        run: |
+          set -e
+          python scripts/weekly_arch_docs_task.py \
+            --api-key "${{ secrets.OPENHANDS_API_KEY }}" \
+            --repo "${{ github.repository }}" \
+            --branch "main" \
+            --poll
