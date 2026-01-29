@@ -1,4 +1,4 @@
-<!-- Please mark the PR as draft, as long as you're working on it. Maintainers will review PRs marked as ready for review, which leads to lost time if your PR is not actually ready yet. So make sure you make it as draft and keep it in draft for as long as you don't need review yet. -->
+<!-- If you are still working on the PR, please mark it as draft. Maintainers will review PRs marked ready for review, which leads to lost time if your PR is actually not ready yet. Keep the PR marked as draft until it is finally ready for review -->
 
 ## Summary of PR
 
