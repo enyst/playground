@@ -3,6 +3,8 @@ name: Issue Duplicate Check via OpenHands Cloud
 on:
   issues:
     types: [opened]
+  schedule:
+    - cron: '0 9 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -12,6 +14,7 @@ on:
         options:
           - smoke-clone
           - issue-check
+          - auto-close
         default: smoke-clone
       issue_number:
         description: Existing issue number to analyze when mode is issue-check
@@ -22,6 +25,12 @@ on:
         required: false
         type: string
         default: enyst/playground
+      close_after_days:
+        description: Days to wait before auto-closing duplicate candidates in auto-close mode
+        required: false
+        type: string
+        default: '3'
+
 
 permissions:
   contents: read
@@ -104,14 +113,22 @@ jobs:
               with output_path.open('a', encoding='utf-8') as fh:
                   fh.write(f"{name}<<EOF\n{value}\nEOF\n")
 
+          canonical_issue_number = result.get('canonical_issue_number')
           with output_path.open('a', encoding='utf-8') as fh:
+              fh.write(f"should_comment={'true' if result.get('should_comment') else 'false'}\n")
               fh.write(f"is_duplicate={'true' if result.get('is_duplicate') else 'false'}\n")
+              fh.write(
+                  f"auto_close_candidate={'true' if result.get('auto_close_candidate') else 'false'}\n"
+              )
               fh.write(f"confidence={result.get('confidence', '')}\n")
+              fh.write(f"classification={result.get('classification', '')}\n")
+              fh.write(
+                  f"canonical_issue_number={canonical_issue_number if canonical_issue_number is not None else ''}\n"
+              )
               fh.write(f"conversation_url={result.get('conversation_url', '')}\n")
               fh.write(f"app_conversation_id={result.get('app_conversation_id', '')}\n")
 
           write_multiline('summary', str(result.get('summary', '')).strip())
-          write_multiline('comment_body', str(result.get('comment_body', '')).strip())
           write_multiline(
               'candidate_issues_json',
               json.dumps(result.get('candidate_issues', []), ensure_ascii=False),
@@ -120,7 +137,7 @@ jobs:
           candidate_lines = []
           for candidate in result.get('candidate_issues', []):
               candidate_lines.append(
-                  f"- #{candidate.get('number')}: {candidate.get('title')} ({candidate.get('url')})"
+                  f"- #{candidate.get('number')}: {candidate.get('title')} ({candidate.get('url')}) — {candidate.get('similarity_reason', '')}"
               )
 
           summary_path.write_text(
@@ -130,8 +147,12 @@ jobs:
                       "",
                       f"- Repository: {result.get('repository')}",
                       f"- Issue: #{result.get('issue_number')}",
-                      f"- Duplicate: {result.get('is_duplicate')}",
+                      f"- Should comment: {result.get('should_comment')}",
+                      f"- Exact duplicate: {result.get('is_duplicate')}",
+                      f"- Auto-close candidate: {result.get('auto_close_candidate')}",
+                      f"- Classification: {result.get('classification')}",
                       f"- Confidence: {result.get('confidence')}",
+                      f"- Canonical issue: {canonical_issue_number}",
                       f"- Conversation: {result.get('conversation_url')}",
                       "",
                       "### Summary",
@@ -146,19 +167,68 @@ jobs:
           )
           PY
 
-      - name: Post duplicate notice comment
-        if: steps.parsed_result.outputs.is_duplicate == 'true' && steps.parsed_result.outputs.comment_body != ''
+      - name: Post duplicate overlap notice
+        if: steps.parsed_result.outputs.should_comment == 'true'
         uses: actions/github-script@v7
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
-          COMMENT_BODY: ${{ steps.parsed_result.outputs.comment_body }}
-          COMMENT_MARKER: '<!-- openhands-duplicate-check -->'
+          SUMMARY: ${{ steps.parsed_result.outputs.summary }}
+          CANDIDATE_ISSUES_JSON: ${{ steps.parsed_result.outputs.candidate_issues_json }}
+          CLASSIFICATION: ${{ steps.parsed_result.outputs.classification }}
+          AUTO_CLOSE_CANDIDATE: ${{ steps.parsed_result.outputs.auto_close_candidate }}
+          CANONICAL_ISSUE_NUMBER: ${{ steps.parsed_result.outputs.canonical_issue_number }}
         with:
           github-token: ${{ secrets.PLAYGROUND_GH_TOKEN }}
           script: |
             const issueNumber = Number(process.env.ISSUE_NUMBER);
-            const marker = process.env.COMMENT_MARKER;
-            const body = `${process.env.COMMENT_BODY}\n\n${marker}\n_This comment was created by an AI assistant (OpenHands) on behalf of the repository maintainer._`;
+            const summary = (process.env.SUMMARY || '').trim();
+            const classification = process.env.CLASSIFICATION || 'no-match';
+            const autoClose = process.env.AUTO_CLOSE_CANDIDATE === 'true';
+            const candidates = JSON.parse(process.env.CANDIDATE_ISSUES_JSON || '[]');
+            const canonicalIssueNumber = Number(process.env.CANONICAL_ISSUE_NUMBER || candidates?.[0]?.number || 0);
+
+            if (!Array.isArray(candidates) || candidates.length === 0) {
+              core.warning(`No candidate issues were returned for issue #${issueNumber}; skipping comment.`);
+              return;
+            }
+
+            const marker = `<!-- openhands-duplicate-check canonical=${canonicalIssueNumber} auto-close=${autoClose ? 'true' : 'false'} -->`;
+            const header = candidates.length === 1
+              ? 'Found 1 possible duplicate issue:'
+              : `Found ${candidates.length} possible duplicate issues:`;
+            const candidateLines = candidates.map((candidate, index) => (
+              `${index + 1}. [#${candidate.number}](${candidate.url}) — ${candidate.title}`
+            ));
+
+            const sections = [];
+            if (summary) {
+              sections.push(summary, '');
+            }
+            sections.push(header, '', ...candidateLines);
+
+            if (classification === 'overlapping-scope') {
+              sections.push(
+                '',
+                'These may not be exact duplicates, but the scope appears to overlap enough that keeping discussion in one place may be more useful.'
+              );
+            }
+
+            if (autoClose) {
+              sections.push(
+                '',
+                'This issue will be automatically closed as a duplicate in 3 days.',
+                '',
+                '- If your issue is a duplicate, please close it and 👍 the existing issue instead',
+                '- To prevent auto-closure, add a comment or 👎 this comment'
+              );
+            }
+
+            sections.push(
+              '',
+              marker,
+              '_This comment was created by an AI assistant (OpenHands) on behalf of the repository maintainer._'
+            );
+            const body = sections.join('\n').trim();
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -167,7 +237,7 @@ jobs:
               per_page: 100,
             });
 
-            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            const existing = comments.find((comment) => comment.body && comment.body.includes('<!-- openhands-duplicate-check '));
             if (existing) {
               core.info(`Duplicate check comment already exists on issue #${issueNumber}; skipping.`);
               return;
@@ -179,3 +249,36 @@ jobs:
               issue_number: issueNumber,
               body,
             });
+
+  auto-close-duplicates:
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'auto-close')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: remote-openhands-runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Auto-close aged duplicate candidates
+        env:
+          GITHUB_TOKEN: ${{ secrets.PLAYGROUND_GH_TOKEN }}
+          CLOSE_AFTER_DAYS: ${{ inputs.close_after_days || '3' }}
+        run: |
+          python scripts/auto_close_duplicate_issues.py \
+            --repository "${{ github.repository }}" \
+            --close-after-days "$CLOSE_AFTER_DAYS" | tee "$RUNNER_TEMP/auto-close-summary.json"
+
+      - name: Summarize auto-close run
+        run: |
+          {
+            echo "## Auto-close duplicate candidates"
+            echo
+            cat "$RUNNER_TEMP/auto-close-summary.json"
+          } >> "$GITHUB_STEP_SUMMARY"
