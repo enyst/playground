@@ -119,7 +119,11 @@ def build_prompt(repository: str, issue: dict[str, Any]) -> str:
     issue_body = issue.get('body') or ''
     issue_url = issue.get('html_url', '')
 
-    return f"""You are checking whether a GitHub issue is basically a duplicate of an existing issue.
+    return f"""You are investigating whether a GitHub issue should be redirected to an existing issue because it is either:
+- an exact or near-exact duplicate, or
+- so overlapping in scope that discussion or fix planning would likely be better kept in one canonical issue.
+
+Be conservative about auto-close decisions, but do investigate seriously before deciding.
 
 Repository: {repository}
 New issue number: #{issue_number}
@@ -128,22 +132,34 @@ New issue title: {issue_title}
 New issue body (JSON-escaped string): {escape_json_text(issue_body)}
 
 Task:
-1. Understand the core bug report or request in the new issue.
-2. Search this repository's open issues and the issues that were closed in the last 30 days for likely duplicates or near-duplicates.
-3. Ignore pull requests when searching.
-4. Only mark the issue as a duplicate when the overlap is strong enough that a maintainer would probably redirect the author.
-5. Do not post comments, do not modify files, and do not change repository state.
-6. Use the public GitHub issue data for the repository. Useful API shapes include:
+1. Understand the core problem, user-facing outcome, likely root cause, and requested fix or behavior.
+2. Investigate this repository's open issues and issues closed in the last 90 days for exact duplicates, near-duplicates, or strong scope overlap.
+3. Use multiple search approaches with diverse keywords and phrasings rather than a single literal search.
+4. Ignore pull requests.
+5. Distinguish carefully between:
+   - duplicate: essentially the same report, request, or root cause
+   - overlapping-scope: not identical, but likely to fragment discussion or produce competing fixes
+   - related-but-distinct: similar area, but should stay separate
+   - no-match: no strong candidate worth redirecting to
+6. Inspect the strongest 1-3 candidates carefully. If needed, inspect comments on the strongest candidates to disambiguate false positives.
+7. Do not post comments, do not modify files, and do not change repository state.
+8. Useful API shapes include:
    - GET https://api.github.com/repos/{repository}/issues?state=open&per_page=100
    - GET https://api.github.com/repos/{repository}/issues?state=closed&since=<ISO-8601 timestamp>&per_page=100
-7. Return exactly one JSON object and nothing else. Do not wrap it in markdown fences.
+   - GET https://api.github.com/search/issues?q=<query>
+   - GET https://api.github.com/repos/{repository}/issues/<number>/comments
+9. Return exactly one JSON object and nothing else. Do not wrap it in markdown fences.
 
 Return schema:
 {{
   "issue_number": {issue_number},
+  "should_comment": true or false,
   "is_duplicate": true or false,
+  "auto_close_candidate": true or false,
+  "classification": "duplicate" | "overlapping-scope" | "related-but-distinct" | "no-match",
   "confidence": "high" | "medium" | "low",
   "summary": "short explanation",
+  "canonical_issue_number": 123 or null,
   "candidate_issues": [
     {{
       "number": 123,
@@ -153,14 +169,21 @@ Return schema:
       "closed_at": "ISO timestamp or null",
       "similarity_reason": "why it looks similar"
     }}
-  ],
-  "comment_body": "concise issue comment to post if this is a duplicate, otherwise empty string"
+  ]
 }}
 
-Rules for comment_body:
-- If is_duplicate is false, comment_body must be an empty string.
-- If is_duplicate is true, comment_body must be polite and concise, mention these are potential duplicates, and include markdown links to the candidate issues.
-- Keep comment_body to at most 4 sentences.
+Rules:
+- `should_comment` should be true only when redirecting the author would likely help.
+- `is_duplicate` should be true only for exact or near-exact duplicates.
+- `auto_close_candidate` should be true only when:
+  - classification is `duplicate`
+  - confidence is `high`
+  - one canonical issue clearly stands out
+  - a maintainer would likely be comfortable closing this issue after a waiting period
+- For `overlapping-scope`, `auto_close_candidate` must be false.
+- `candidate_issues` must contain at most 3 issues, sorted best-first.
+- If no strong match exists, return `should_comment: false`, `classification: "no-match"`, `canonical_issue_number: null`, and an empty candidate list.
+- Be especially careful not to collapse broad meta, tracking, feedback, or umbrella issues with specific bug reports unless the new issue clearly belongs in that exact thread.
 """
 
 
@@ -298,6 +321,81 @@ def parse_agent_json(text: str) -> dict[str, Any]:
         raise
 
 
+def as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {'true', '1', 'yes'}
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return False
+
+
+def normalize_result(result: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(result)
+    normalized['should_comment'] = as_bool(normalized.get('should_comment'))
+    normalized['is_duplicate'] = as_bool(normalized.get('is_duplicate'))
+    normalized['auto_close_candidate'] = as_bool(normalized.get('auto_close_candidate'))
+
+    classification = str(normalized.get('classification') or 'no-match').strip()
+    if classification not in {
+        'duplicate',
+        'overlapping-scope',
+        'related-but-distinct',
+        'no-match',
+    }:
+        classification = 'no-match'
+    normalized['classification'] = classification
+
+    confidence = str(normalized.get('confidence') or 'low').strip().lower()
+    if confidence not in {'high', 'medium', 'low'}:
+        confidence = 'low'
+    normalized['confidence'] = confidence
+
+    try:
+        canonical_issue_number = normalized.get('canonical_issue_number')
+        normalized['canonical_issue_number'] = (
+            int(canonical_issue_number)
+            if canonical_issue_number not in {None, ''}
+            else None
+        )
+    except (TypeError, ValueError):
+        normalized['canonical_issue_number'] = None
+
+    candidate_issues = normalized.get('candidate_issues')
+    if not isinstance(candidate_issues, list):
+        candidate_issues = []
+    normalized['candidate_issues'] = candidate_issues[:3]
+
+    if classification not in {'duplicate', 'overlapping-scope'}:
+        normalized['should_comment'] = False
+    if classification != 'duplicate':
+        normalized['is_duplicate'] = False
+        normalized['auto_close_candidate'] = False
+    if (
+        classification in {'duplicate', 'overlapping-scope'}
+        and normalized['candidate_issues']
+        and confidence in {'high', 'medium'}
+    ):
+        normalized['should_comment'] = True
+    if normalized['auto_close_candidate'] and confidence != 'high':
+        normalized['auto_close_candidate'] = False
+    if (
+        normalized['auto_close_candidate']
+        and normalized['canonical_issue_number'] is None
+    ):
+        first_candidate = (
+            normalized['candidate_issues'][0] if normalized['candidate_issues'] else {}
+        )
+        try:
+            normalized['canonical_issue_number'] = int(first_candidate.get('number'))
+        except (TypeError, ValueError, AttributeError):
+            normalized['auto_close_candidate'] = False
+
+    normalized['summary'] = str(normalized.get('summary') or '').strip()
+    return normalized
+
+
 def main() -> int:
     args = parse_args()
     issue = fetch_issue(args.repository, args.issue_number)
@@ -342,7 +440,7 @@ def main() -> int:
             session_api_key,
         )
         agent_text = extract_last_agent_text(events)
-    result = parse_agent_json(agent_text)
+    result = normalize_result(parse_agent_json(agent_text))
 
     result['issue_number'] = args.issue_number
     result['repository'] = args.repository
@@ -357,7 +455,10 @@ def main() -> int:
         json.dumps(
             {
                 'issue_number': result.get('issue_number'),
+                'should_comment': result.get('should_comment'),
                 'is_duplicate': result.get('is_duplicate'),
+                'auto_close_candidate': result.get('auto_close_candidate'),
+                'classification': result.get('classification'),
                 'confidence': result.get('confidence'),
                 'conversation_url': result.get('conversation_url'),
                 'output': str(output_path),
