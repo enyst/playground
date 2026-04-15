@@ -1,0 +1,180 @@
+name: Issue Duplicate Check via OpenHands Cloud
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Which workflow path to run
+        required: true
+        type: choice
+        options:
+          - smoke-clone
+          - issue-check
+        default: smoke-clone
+      issue_number:
+        description: Existing issue number to analyze when mode is issue-check
+        required: false
+        type: number
+      repository:
+        description: Repository to inspect when mode is issue-check
+        required: false
+        type: string
+        default: enyst/playground
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke-clone:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'smoke-clone'
+    runs-on: ubuntu-latest
+    environment: remote-openhands-runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Clone OpenHands and agent-sdk
+        run: |
+          git clone --depth 1 https://github.com/OpenHands/OpenHands.git /tmp/OpenHands
+          git clone --depth 1 https://github.com/OpenHands/agent-sdk.git /tmp/agent-sdk
+          echo "OpenHands HEAD: $(git -C /tmp/OpenHands rev-parse --short HEAD)"
+          echo "agent-sdk HEAD: $(git -C /tmp/agent-sdk rev-parse --short HEAD)"
+
+      - name: Summarize smoke test
+        run: |
+          {
+            echo "## Smoke clone completed"
+            echo
+            echo "- OpenHands cloned to /tmp/OpenHands"
+            echo "- agent-sdk cloned to /tmp/agent-sdk"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  issue-duplicate-check:
+    if: |
+      github.event_name == 'issues' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'issue-check' && inputs.issue_number != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: remote-openhands-runner
+    concurrency:
+      group: issue-duplicate-check-${{ github.repository }}-${{ github.event.issue.number || inputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Run OpenHands duplicate check conversation
+        id: run_check
+        env:
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          TARGET_REPOSITORY: ${{ github.event.repository.full_name || inputs.repository }}
+          OUTPUT_PATH: ${{ runner.temp }}/issue-duplicate-check-result.json
+        run: |
+          python scripts/issue_duplicate_check_openhands.py \
+            --repository "$TARGET_REPOSITORY" \
+            --issue-number "$ISSUE_NUMBER" \
+            --output "$OUTPUT_PATH"
+          echo "result_path=$OUTPUT_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Parse duplicate check result
+        id: parsed_result
+        env:
+          RESULT_PATH: ${{ steps.run_check.outputs.result_path }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result = json.loads(Path(os.environ['RESULT_PATH']).read_text())
+          output_path = Path(os.environ['GITHUB_OUTPUT'])
+          summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
+
+          def write_multiline(name: str, value: str) -> None:
+              with output_path.open('a', encoding='utf-8') as fh:
+                  fh.write(f"{name}<<EOF\n{value}\nEOF\n")
+
+          with output_path.open('a', encoding='utf-8') as fh:
+              fh.write(f"is_duplicate={'true' if result.get('is_duplicate') else 'false'}\n")
+              fh.write(f"confidence={result.get('confidence', '')}\n")
+              fh.write(f"conversation_url={result.get('conversation_url', '')}\n")
+              fh.write(f"app_conversation_id={result.get('app_conversation_id', '')}\n")
+
+          write_multiline('summary', str(result.get('summary', '')).strip())
+          write_multiline('comment_body', str(result.get('comment_body', '')).strip())
+          write_multiline(
+              'candidate_issues_json',
+              json.dumps(result.get('candidate_issues', []), ensure_ascii=False),
+          )
+
+          candidate_lines = []
+          for candidate in result.get('candidate_issues', []):
+              candidate_lines.append(
+                  f"- #{candidate.get('number')}: {candidate.get('title')} ({candidate.get('url')})"
+              )
+
+          summary_path.write_text(
+              "\n".join(
+                  [
+                      "## Duplicate check result",
+                      "",
+                      f"- Repository: {result.get('repository')}",
+                      f"- Issue: #{result.get('issue_number')}",
+                      f"- Duplicate: {result.get('is_duplicate')}",
+                      f"- Confidence: {result.get('confidence')}",
+                      f"- Conversation: {result.get('conversation_url')}",
+                      "",
+                      "### Summary",
+                      result.get('summary', ''),
+                      "",
+                      "### Candidate issues",
+                      *(candidate_lines or ["- None"]),
+                  ]
+              )
+              + "\n",
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Post duplicate notice comment
+        if: steps.parsed_result.outputs.is_duplicate == 'true' && steps.parsed_result.outputs.comment_body != ''
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          COMMENT_BODY: ${{ steps.parsed_result.outputs.comment_body }}
+          COMMENT_MARKER: '<!-- openhands-duplicate-check -->'
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const marker = process.env.COMMENT_MARKER;
+            const body = `${process.env.COMMENT_BODY}\n\n${marker}\n_This comment was created by an AI assistant (OpenHands) on behalf of the repository maintainer._`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (existing) {
+              core.info(`Duplicate check comment already exists on issue #${issueNumber}; skipping.`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });

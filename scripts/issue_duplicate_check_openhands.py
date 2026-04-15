@@ -1,0 +1,376 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+OPENHANDS_BASE_URL = os.environ.get('OPENHANDS_BASE_URL', 'https://app.all-hands.dev')
+GITHUB_API_BASE_URL = os.environ.get('GITHUB_API_BASE_URL', 'https://api.github.com')
+TERMINAL_EXECUTION_STATUSES = {
+    'completed',
+    'error',
+    'errored',
+    'failed',
+    'finished',
+    'stopped',
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description='Start an OpenHands Cloud conversation that checks a GitHub issue for duplicates.'
+    )
+    parser.add_argument(
+        '--repository', required=True, help='Repository in owner/repo form'
+    )
+    parser.add_argument(
+        '--issue-number', required=True, type=int, help='Issue number to inspect'
+    )
+    parser.add_argument(
+        '--output',
+        default='duplicate-check-result.json',
+        help='Path where the JSON result should be written',
+    )
+    parser.add_argument(
+        '--poll-interval-seconds',
+        default=5,
+        type=int,
+        help='Polling interval while waiting for the conversation to finish',
+    )
+    parser.add_argument(
+        '--max-wait-seconds',
+        default=900,
+        type=int,
+        help='Maximum time to wait for the conversation to finish',
+    )
+    return parser.parse_args()
+
+
+def github_headers() -> dict[str, str]:
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'remote-openhands-runner-issue-duplicate-check',
+        'X-GitHub-Api-Version': '2022-11-28',
+    }
+    github_token = os.environ.get('GITHUB_TOKEN')
+    if github_token:
+        headers['Authorization'] = f'Bearer {github_token}'
+    return headers
+
+
+def openhands_headers() -> dict[str, str]:
+    api_key = os.environ.get('OPENHANDS_API_KEY')
+    if not api_key:
+        raise RuntimeError('OPENHANDS_API_KEY is required')
+    return {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+    }
+
+
+def request_json(
+    base_url: str,
+    path: str,
+    *,
+    method: str = 'GET',
+    headers: dict[str, str] | None = None,
+    body: dict[str, Any] | None = None,
+) -> Any:
+    data = json.dumps(body).encode('utf-8') if body is not None else None
+    request = urllib.request.Request(
+        f'{base_url}{path}',
+        data=data,
+        headers=headers or {},
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode('utf-8', errors='replace')
+        raise RuntimeError(
+            f'{method} {base_url}{path} failed with HTTP {exc.code}: {error_body}'
+        ) from exc
+
+
+def fetch_issue(repository: str, issue_number: int) -> dict[str, Any]:
+    return request_json(
+        GITHUB_API_BASE_URL,
+        f'/repos/{repository}/issues/{issue_number}',
+        headers=github_headers(),
+    )
+
+
+def escape_json_text(value: str | None) -> str:
+    return json.dumps(value or '', ensure_ascii=False)
+
+
+def build_prompt(repository: str, issue: dict[str, Any]) -> str:
+    issue_number = issue['number']
+    issue_title = issue.get('title', '')
+    issue_body = issue.get('body') or ''
+    issue_url = issue.get('html_url', '')
+
+    return f"""You are checking whether a GitHub issue is basically a duplicate of an existing issue.
+
+Repository: {repository}
+New issue number: #{issue_number}
+New issue URL: {issue_url}
+New issue title: {issue_title}
+New issue body (JSON-escaped string): {escape_json_text(issue_body)}
+
+Task:
+1. Understand the core bug report or request in the new issue.
+2. Search this repository's open issues and the issues that were closed in the last 30 days for likely duplicates or near-duplicates.
+3. Ignore pull requests when searching.
+4. Only mark the issue as a duplicate when the overlap is strong enough that a maintainer would probably redirect the author.
+5. Do not post comments, do not modify files, and do not change repository state.
+6. Use the public GitHub issue data for the repository. Useful API shapes include:
+   - GET https://api.github.com/repos/{repository}/issues?state=open&per_page=100
+   - GET https://api.github.com/repos/{repository}/issues?state=closed&since=<ISO-8601 timestamp>&per_page=100
+7. Return exactly one JSON object and nothing else. Do not wrap it in markdown fences.
+
+Return schema:
+{{
+  "issue_number": {issue_number},
+  "is_duplicate": true or false,
+  "confidence": "high" | "medium" | "low",
+  "summary": "short explanation",
+  "candidate_issues": [
+    {{
+      "number": 123,
+      "url": "https://github.com/{repository}/issues/123",
+      "title": "issue title",
+      "state": "open or closed",
+      "closed_at": "ISO timestamp or null",
+      "similarity_reason": "why it looks similar"
+    }}
+  ],
+  "comment_body": "concise issue comment to post if this is a duplicate, otherwise empty string"
+}}
+
+Rules for comment_body:
+- If is_duplicate is false, comment_body must be an empty string.
+- If is_duplicate is true, comment_body must be polite and concise, mention these are potential duplicates, and include markdown links to the candidate issues.
+- Keep comment_body to at most 4 sentences.
+"""
+
+
+def start_conversation(
+    prompt: str, repository: str, issue_number: int
+) -> dict[str, Any]:
+    body = {
+        'title': f'Issue duplicate check #{issue_number}',
+        'selected_repository': repository,
+        'initial_message': {
+            'content': [
+                {
+                    'type': 'text',
+                    'text': prompt,
+                }
+            ]
+        },
+    }
+    return request_json(
+        OPENHANDS_BASE_URL,
+        '/api/v1/app-conversations',
+        method='POST',
+        headers=openhands_headers(),
+        body=body,
+    )
+
+
+def poll_start_task(
+    start_task_id: str, poll_interval_seconds: int, max_wait_seconds: int
+) -> dict[str, Any]:
+    deadline = time.time() + max_wait_seconds
+    while time.time() < deadline:
+        payload = request_json(
+            OPENHANDS_BASE_URL,
+            f'/api/v1/app-conversations/start-tasks?ids={urllib.parse.quote(start_task_id)}',
+            headers={'Authorization': openhands_headers()['Authorization']},
+        )
+        item = (
+            payload[0]
+            if isinstance(payload, list) and payload
+            else payload.get('items', [{}])[0]
+        )
+        status = item.get('status')
+        if status == 'READY' and item.get('app_conversation_id'):
+            return item
+        if status in {'ERROR', 'FAILED'}:
+            raise RuntimeError(f'OpenHands start task failed: {json.dumps(item)}')
+        time.sleep(poll_interval_seconds)
+    raise TimeoutError(
+        f'Timed out waiting for start task {start_task_id} to become ready'
+    )
+
+
+def poll_conversation(
+    app_conversation_id: str, poll_interval_seconds: int, max_wait_seconds: int
+) -> dict[str, Any]:
+    deadline = time.time() + max_wait_seconds
+    while time.time() < deadline:
+        payload = request_json(
+            OPENHANDS_BASE_URL,
+            f'/api/v1/app-conversations?ids={urllib.parse.quote(app_conversation_id)}',
+            headers={'Authorization': openhands_headers()['Authorization']},
+        )
+        item = (
+            payload[0]
+            if isinstance(payload, list) and payload
+            else payload.get('items', [{}])[0]
+        )
+        execution_status = str(item.get('execution_status', '')).lower()
+        if execution_status in TERMINAL_EXECUTION_STATUSES:
+            return item
+        time.sleep(poll_interval_seconds)
+    raise TimeoutError(
+        f'Timed out waiting for conversation {app_conversation_id} to finish running'
+    )
+
+
+def fetch_app_server_events(app_conversation_id: str) -> list[dict[str, Any]]:
+    payload = request_json(
+        OPENHANDS_BASE_URL,
+        f'/api/v1/conversation/{urllib.parse.quote(app_conversation_id)}/events/search?limit=100',
+        headers={'Authorization': openhands_headers()['Authorization']},
+    )
+    if isinstance(payload, dict):
+        return payload.get('items', [])
+    if isinstance(payload, list):
+        return payload
+    return []
+
+
+def fetch_agent_server_events(
+    app_conversation_id: str, agent_server_url: str, session_api_key: str
+) -> list[dict[str, Any]]:
+    payload = request_json(
+        agent_server_url,
+        f'/api/conversations/{urllib.parse.quote(app_conversation_id)}/events/search?limit=100',
+        headers={'X-Session-API-Key': session_api_key},
+    )
+    if isinstance(payload, dict):
+        return payload.get('items', [])
+    if isinstance(payload, list):
+        return payload
+    return []
+
+
+def extract_last_agent_text(events: list[dict[str, Any]]) -> str:
+    messages: list[str] = []
+    for event in events:
+        if event.get('kind') != 'MessageEvent' or event.get('source') != 'agent':
+            continue
+        llm_message = event.get('llm_message') or {}
+        content = llm_message.get('content') or []
+        for part in content:
+            if part.get('type') == 'text' and part.get('text'):
+                messages.append(part['text'])
+    if not messages:
+        raise RuntimeError(
+            'No assistant text message was found in the conversation events'
+        )
+    return messages[-1].strip()
+
+
+def parse_agent_json(text: str) -> dict[str, Any]:
+    cleaned = text.strip()
+    if cleaned.startswith('```'):
+        cleaned = cleaned.split('\n', 1)[1]
+        cleaned = cleaned.rsplit('```', 1)[0].strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find('{')
+        end = cleaned.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            return json.loads(cleaned[start : end + 1])
+        raise
+
+
+def main() -> int:
+    args = parse_args()
+    issue = fetch_issue(args.repository, args.issue_number)
+    if issue.get('pull_request'):
+        raise RuntimeError(f'#{args.issue_number} is a pull request, not an issue')
+
+    prompt = build_prompt(args.repository, issue)
+    start_task = start_conversation(prompt, args.repository, args.issue_number)
+    app_conversation_id = start_task.get('app_conversation_id')
+    conversation_url = ''
+
+    if not app_conversation_id:
+        ready_task = poll_start_task(
+            start_task['id'],
+            args.poll_interval_seconds,
+            args.max_wait_seconds,
+        )
+        app_conversation_id = ready_task['app_conversation_id']
+
+    conversation = poll_conversation(
+        app_conversation_id,
+        args.poll_interval_seconds,
+        args.max_wait_seconds,
+    )
+    conversation_url = (
+        conversation.get('conversation_url')
+        or f'{OPENHANDS_BASE_URL}/conversations/{app_conversation_id}'
+    )
+    events = fetch_app_server_events(app_conversation_id)
+    try:
+        agent_text = extract_last_agent_text(events)
+    except RuntimeError:
+        session_api_key = conversation.get('session_api_key')
+        agent_server_url = ''
+        if conversation_url and '/api/conversations/' in conversation_url:
+            agent_server_url = conversation_url.rsplit('/api/conversations/', 1)[0]
+        if not agent_server_url or not session_api_key:
+            raise
+        events = fetch_agent_server_events(
+            app_conversation_id,
+            agent_server_url,
+            session_api_key,
+        )
+        agent_text = extract_last_agent_text(events)
+    result = parse_agent_json(agent_text)
+
+    result['issue_number'] = args.issue_number
+    result['repository'] = args.repository
+    result['app_conversation_id'] = app_conversation_id
+    result['conversation_url'] = conversation_url
+    result['agent_response'] = agent_text
+
+    output_path = Path(args.output)
+    output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + '\n')
+
+    print(
+        json.dumps(
+            {
+                'issue_number': result.get('issue_number'),
+                'is_duplicate': result.get('is_duplicate'),
+                'confidence': result.get('confidence'),
+                'conversation_url': result.get('conversation_url'),
+                'output': str(output_path),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        raise SystemExit(main())
+    except Exception as exc:  # noqa: BLE001
+        print(f'error: {exc}', file=sys.stderr)
+        raise
