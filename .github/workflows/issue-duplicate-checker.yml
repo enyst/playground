@@ -75,7 +75,7 @@ jobs:
         id: run_check
         env:
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.PLAYGROUND_GH_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
           TARGET_REPOSITORY: ${{ github.event.repository.full_name || inputs.repository }}
           OUTPUT_PATH: ${{ runner.temp }}/issue-duplicate-check-result.json
@@ -154,6 +154,7 @@ jobs:
           COMMENT_BODY: ${{ steps.parsed_result.outputs.comment_body }}
           COMMENT_MARKER: '<!-- openhands-duplicate-check -->'
         with:
+          github-token: ${{ secrets.PLAYGROUND_GH_TOKEN }}
           script: |
             const issueNumber = Number(process.env.ISSUE_NUMBER);
             const marker = process.env.COMMENT_MARKER;
