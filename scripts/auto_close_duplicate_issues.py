@@ -243,6 +243,28 @@ def close_issue_as_duplicate(
     remove_candidate_label(repository, issue_number, dry_run=False)
 
 
+def keep_open_due_to_newer_comments(
+    repository: str,
+    issue: dict[str, Any],
+    issue_number: int,
+    *,
+    dry_run: bool,
+) -> dict[str, Any]:
+    label_removed = False
+    if issue_has_label(issue, DUPLICATE_CANDIDATE_LABEL):
+        label_removed = remove_candidate_label(
+            repository,
+            issue_number,
+            dry_run=dry_run,
+        )
+    return {
+        'issue_number': issue_number,
+        'action': 'kept-open',
+        'reason': 'newer-comment-after-duplicate-notice',
+        'label_removed': label_removed,
+    }
+
+
 def main() -> int:
     args = parse_args()
     now = datetime.now(timezone.utc)
@@ -304,11 +326,12 @@ def main() -> int:
         ]
         if newer_comments:
             summary.append(
-                {
-                    'issue_number': issue_number,
-                    'action': 'kept-open',
-                    'reason': 'newer-comment-after-duplicate-notice',
-                }
+                keep_open_due_to_newer_comments(
+                    args.repository,
+                    issue,
+                    issue_number,
+                    dry_run=args.dry_run,
+                )
             )
             continue
 

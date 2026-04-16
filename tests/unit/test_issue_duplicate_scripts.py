@@ -111,6 +111,34 @@ def test_close_issue_as_duplicate_leaves_label_until_requests_succeed(monkeypatc
     ]
 
 
+def test_keep_open_due_to_newer_comments_removes_candidate_label(monkeypatch):
+    module = load_module('auto_close_duplicate_issues.py')
+    calls: list[tuple[str, int, bool]] = []
+
+    def fake_remove_candidate_label(
+        repository: str, issue_number: int, *, dry_run: bool
+    ):
+        calls.append((repository, issue_number, dry_run))
+        return True
+
+    monkeypatch.setattr(module, 'remove_candidate_label', fake_remove_candidate_label)
+
+    result = module.keep_open_due_to_newer_comments(
+        'enyst/playground',
+        {'labels': [{'name': 'duplicate-candidate'}]},
+        123,
+        dry_run=False,
+    )
+
+    assert result == {
+        'issue_number': 123,
+        'action': 'kept-open',
+        'reason': 'newer-comment-after-duplicate-notice',
+        'label_removed': True,
+    }
+    assert calls == [('enyst/playground', 123, False)]
+
+
 def test_parse_agent_json_handles_single_line_fenced_json():
     module = load_module('issue_duplicate_check_openhands.py')
 

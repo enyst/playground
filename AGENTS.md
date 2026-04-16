@@ -115,7 +115,10 @@ When working on a PR that requires design documents, scripts meant for developme
 - Required environment secrets: `PLAYGROUND_GH_TOKEN`, `OPENHANDS_API_KEY`
 - Auto-close candidates get the `duplicate-candidate` label when the duplicate notice is posted.
 - Daily/manual auto-close runs only scan open issues that currently have the `duplicate-candidate` label.
-- Daily/manual auto-close runs remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
+- Workflow: `.github/workflows/remove-duplicate-candidate-label.yml`
+- Non-bot issue comments immediately remove the `duplicate-candidate` label, matching the Claude Code `remove-autoclose-label.yml` pattern.
+- Daily/manual auto-close runs also remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
+- Daily/manual auto-close runs remove that label instead of retrying auto-close when they detect newer comments after the duplicate notice.
 - The duplicate check poller tolerates empty OpenHands API payloads and retries instead of crashing.
 - The duplicate notice marker format is `<!-- openhands-duplicate-check canonical=<issue> auto-close=<true|false> -->`.
 - The thumbs-down veto follow-up marker is `<!-- openhands-duplicate-veto -->`.
