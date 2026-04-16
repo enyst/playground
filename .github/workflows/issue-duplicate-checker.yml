@@ -243,11 +243,11 @@ jobs:
             }
 
             if (!Array.isArray(candidates) || candidates.length === 0) {
-              core.warning(`No candidate issues were returned for issue #${issueNumber}; skipping comment.`);
+              core.setFailed(`No candidate issues were returned for issue #${issueNumber}.`);
               return;
             }
             if (!Number.isInteger(canonicalIssueNumber) || canonicalIssueNumber <= 0) {
-              core.warning(`No canonical issue number was returned for issue #${issueNumber}; skipping comment.`);
+              core.setFailed(`No canonical issue number was returned for issue #${issueNumber}.`);
               return;
             }
 

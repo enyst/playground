@@ -49,7 +49,10 @@ def parse_args() -> argparse.Namespace:
         '--max-wait-seconds',
         default=900,
         type=int,
-        help='Maximum time to wait for the conversation to finish',
+        help=(
+            'Maximum time to wait per polling phase; if a start task must be awaited '
+            'first, the total runtime can approach twice this value'
+        ),
     )
     return parser.parse_args()
 
@@ -447,11 +450,17 @@ def main() -> int:
         agent_text = extract_last_agent_text(events)
     except RuntimeError:
         session_api_key = conversation.get('session_api_key')
-        agent_server_url = ''
-        if conversation_url and '/api/conversations/' in conversation_url:
-            agent_server_url = conversation_url.rsplit('/api/conversations/', 1)[0]
-        if not agent_server_url or not session_api_key:
-            raise
+        if not session_api_key:
+            raise RuntimeError(
+                'session_api_key was missing from the OpenHands conversation'
+            )
+
+        marker = '/api/conversations/'
+        if marker not in conversation_url:
+            raise RuntimeError(
+                f'Cannot extract agent server URL from conversation URL: {conversation_url}'
+            )
+        agent_server_url = conversation_url.rsplit(marker, 1)[0]
         events = fetch_agent_server_events(
             app_conversation_id,
             agent_server_url,
