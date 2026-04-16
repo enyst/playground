@@ -80,6 +80,20 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Validate duplicate check inputs
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          TARGET_REPOSITORY: ${{ github.event.repository.full_name || inputs.repository }}
+        run: |
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "Error: ISSUE_NUMBER is required"
+            exit 1
+          fi
+          if [ -z "$TARGET_REPOSITORY" ]; then
+            echo "Error: TARGET_REPOSITORY is required"
+            exit 1
+          fi
+
       - name: Run OpenHands duplicate check conversation
         id: run_check
         env:
@@ -177,6 +191,7 @@ jobs:
           CLASSIFICATION: ${{ steps.parsed_result.outputs.classification }}
           AUTO_CLOSE_CANDIDATE: ${{ steps.parsed_result.outputs.auto_close_candidate }}
           CANONICAL_ISSUE_NUMBER: ${{ steps.parsed_result.outputs.canonical_issue_number }}
+          CLOSE_AFTER_DAYS: ${{ inputs.close_after_days || '3' }}
         with:
           github-token: ${{ secrets.PLAYGROUND_GH_TOKEN }}
           script: |
@@ -184,6 +199,7 @@ jobs:
             const summary = (process.env.SUMMARY || '').trim();
             const classification = process.env.CLASSIFICATION || 'no-match';
             const autoClose = process.env.AUTO_CLOSE_CANDIDATE === 'true';
+            const closeAfterDays = process.env.CLOSE_AFTER_DAYS || '3';
             const candidates = JSON.parse(process.env.CANDIDATE_ISSUES_JSON || '[]');
             const canonicalIssueNumber = Number(process.env.CANONICAL_ISSUE_NUMBER || candidates?.[0]?.number || 0);
             const candidateLabel = 'duplicate-candidate';
@@ -230,6 +246,10 @@ jobs:
               core.warning(`No candidate issues were returned for issue #${issueNumber}; skipping comment.`);
               return;
             }
+            if (!Number.isInteger(canonicalIssueNumber) || canonicalIssueNumber <= 0) {
+              core.warning(`No canonical issue number was returned for issue #${issueNumber}; skipping comment.`);
+              return;
+            }
 
             const marker = `<!-- openhands-duplicate-check canonical=${canonicalIssueNumber} auto-close=${autoClose ? 'true' : 'false'} -->`;
             const header = candidates.length === 1
@@ -255,7 +275,7 @@ jobs:
             if (autoClose) {
               sections.push(
                 '',
-                'This issue will be automatically closed as a duplicate in 3 days.',
+                `This issue will be automatically closed as a duplicate in ${closeAfterDays} days.`,
                 '',
                 '- If your issue is a duplicate, please close it and 👍 the existing issue instead',
                 '- To prevent auto-closure, add a comment or 👎 this comment'

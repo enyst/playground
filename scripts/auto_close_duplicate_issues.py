@@ -93,6 +93,7 @@ def list_open_issues(repository: str) -> list[dict[str, Any]]:
                 continue
             issues.append(issue)
         page += 1
+    return issues
 
 
 def list_issue_comments(repository: str, issue_number: int) -> list[dict[str, Any]]:

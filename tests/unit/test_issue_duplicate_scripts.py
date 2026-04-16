@@ -48,10 +48,61 @@ def test_has_reaction_from_user_ignores_missing_user_ids():
     assert module.has_reaction_from_user(reactions, 42, '+1') is False
 
 
+def test_find_latest_auto_close_comment_returns_latest_candidate():
+    module = load_module('auto_close_duplicate_issues.py')
+    comments = [
+        {'body': 'plain comment'},
+        {
+            'body': '<!-- openhands-duplicate-check canonical=10 auto-close=false -->',
+            'id': 1,
+        },
+        {
+            'body': '<!-- openhands-duplicate-check canonical=11 auto-close=true -->',
+            'id': 2,
+        },
+        {
+            'body': '<!-- openhands-duplicate-check canonical=12 auto-close=true -->',
+            'id': 3,
+        },
+    ]
+
+    latest_comment, canonical_issue = module.find_latest_auto_close_comment(comments)
+
+    assert latest_comment == comments[-1]
+    assert canonical_issue == 12
+
+
 def test_parse_agent_json_handles_single_line_fenced_json():
     module = load_module('issue_duplicate_check_openhands.py')
 
     assert module.parse_agent_json('```json{"key":"value"}```') == {'key': 'value'}
+
+
+def test_normalize_result_promotes_actionable_duplicates():
+    module = load_module('issue_duplicate_check_openhands.py')
+    normalized = module.normalize_result(
+        {
+            'classification': 'duplicate',
+            'confidence': 'HIGH',
+            'should_comment': False,
+            'is_duplicate': True,
+            'auto_close_candidate': '1',
+            'canonical_issue_number': '',
+            'candidate_issues': [
+                {'number': '21', 'title': 'First'},
+                {'number': 22, 'title': 'Second'},
+                {'number': 23, 'title': 'Third'},
+                {'number': 24, 'title': 'Fourth'},
+            ],
+            'summary': '  duplicate summary  ',
+        }
+    )
+
+    assert normalized['should_comment'] is True
+    assert normalized['auto_close_candidate'] is True
+    assert normalized['canonical_issue_number'] == 21
+    assert len(normalized['candidate_issues']) == 3
+    assert normalized['summary'] == 'duplicate summary'
 
 
 def test_poll_start_task_retries_after_empty_payload(monkeypatch):

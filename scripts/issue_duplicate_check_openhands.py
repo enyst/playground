@@ -323,11 +323,20 @@ def parse_agent_json(text: str) -> dict[str, Any]:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        start = cleaned.find('{')
-        end = cleaned.rfind('}')
-        if start != -1 and end != -1 and end > start:
-            return json.loads(cleaned[start : end + 1])
-        raise
+        decoder = json.JSONDecoder()
+        for start, character in enumerate(cleaned):
+            if character != '{':
+                continue
+            try:
+                candidate, end = decoder.raw_decode(cleaned[start:])
+            except json.JSONDecodeError:
+                continue
+            trailing = cleaned[start + end :].strip()
+            if trailing not in {'', '```'}:
+                continue
+            if isinstance(candidate, dict):
+                return candidate
+        raise ValueError('No valid JSON object found in the agent response')
 
 
 def as_bool(value: Any) -> bool:
