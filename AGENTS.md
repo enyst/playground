@@ -106,6 +106,19 @@ When working on a PR that requires design documents, scripts meant for developme
 - Feature implementations that need temporary planning docs
 - Any analysis that helps reviewers understand the PR but isn't needed long-term
 
+## Issue Duplicate Automation (enyst/playground)
+
+- Workflow: `.github/workflows/issue-duplicate-checker.yml`
+- OpenHands duplicate-check runner script: `scripts/issue_duplicate_check_openhands.py`
+- Auto-close / veto polling script: `scripts/auto_close_duplicate_issues.py`
+- GitHub Actions environment: `remote-openhands-runner`
+- Required environment secrets: `PLAYGROUND_GH_TOKEN`, `OPENHANDS_API_KEY`
+- Auto-close candidates get the `duplicate-candidate` label when the duplicate notice is posted.
+- Daily/manual auto-close runs remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
+- The duplicate notice marker format is `<!-- openhands-duplicate-check canonical=<issue> auto-close=<true|false> -->`.
+- The thumbs-down veto follow-up marker is `<!-- openhands-duplicate-veto -->`.
+
+
 ## Repository Structure
 Backend:
 - Located in the `openhands` directory
