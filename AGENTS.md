@@ -106,6 +106,28 @@ When working on a PR that requires design documents, scripts meant for developme
 - Feature implementations that need temporary planning docs
 - Any analysis that helps reviewers understand the PR but isn't needed long-term
 
+## Issue Duplicate Automation (enyst/playground)
+
+- Workflow: `.github/workflows/issue-duplicate-checker.yml`
+- OpenHands duplicate-check runner script: `scripts/issue_duplicate_check_openhands.py`
+- Auto-close / veto polling script: `scripts/auto_close_duplicate_issues.py`
+- GitHub Actions environment: `remote-openhands-runner`
+- Required environment secrets: `PLAYGROUND_GH_TOKEN`, `OPENHANDS_API_KEY`
+- Auto-close candidates get the `duplicate-candidate` label when the duplicate notice is posted.
+- Daily/manual auto-close runs only scan open issues that currently have the `duplicate-candidate` label.
+- Workflow: `.github/workflows/remove-duplicate-candidate-label.yml`
+- Non-bot issue comments immediately remove the `duplicate-candidate` label, matching the Claude Code `remove-autoclose-label.yml` pattern.
+- The label-removal workflow ignores OpenHands duplicate/veto marker comments so it does not clear its own label immediately after automation posts.
+- Daily/manual auto-close runs also remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
+- Daily/manual auto-close runs remove that label instead of retrying auto-close when they detect newer comments after the duplicate notice.
+- The duplicate check poller tolerates empty OpenHands API payloads and retries instead of crashing.
+- The issue duplicate-check job uses a 35-minute workflow timeout because the script may spend up to two polling phases waiting on OpenHands.
+- Failed OpenHands conversation statuses (`error`, `errored`, `failed`, `stopped`) now fail fast instead of falling through to later parsing errors.
+- Duplicate result `classification` values are normalized case-insensitively before validation.
+- The duplicate notice marker format is `<!-- openhands-duplicate-check canonical=<issue> auto-close=<true|false> -->`.
+- The thumbs-down veto follow-up marker is `<!-- openhands-duplicate-veto -->`.
+
+
 ## Repository Structure
 Backend:
 - Located in the `openhands` directory
