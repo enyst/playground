@@ -117,6 +117,7 @@ When working on a PR that requires design documents, scripts meant for developme
 - Daily/manual auto-close runs only scan open issues that currently have the `duplicate-candidate` label.
 - Workflow: `.github/workflows/remove-duplicate-candidate-label.yml`
 - Non-bot issue comments immediately remove the `duplicate-candidate` label, matching the Claude Code `remove-autoclose-label.yml` pattern.
+- The label-removal workflow ignores OpenHands duplicate/veto marker comments so it does not clear its own label immediately after automation posts.
 - Daily/manual auto-close runs also remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
 - Daily/manual auto-close runs remove that label instead of retrying auto-close when they detect newer comments after the duplicate notice.
 - The duplicate check poller tolerates empty OpenHands API payloads and retries instead of crashing.
