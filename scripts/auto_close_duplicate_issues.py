@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 GITHUB_API_BASE_URL = 'https://api.github.com'
+DUPLICATE_CANDIDATE_LABEL = 'duplicate-candidate'
+DUPLICATE_VETO_MARKER = '<!-- openhands-duplicate-veto -->'
 DUPLICATE_MARKER_RE = re.compile(
     r'<!-- openhands-duplicate-check canonical=(?P<canonical>\d+) auto-close=(?P<auto_close>true|false) -->'
 )
@@ -140,6 +142,56 @@ def find_latest_auto_close_comment(
     return latest_comment, latest_canonical_issue
 
 
+def issue_has_label(issue: dict[str, Any], label_name: str) -> bool:
+    labels = issue.get('labels') or []
+    for label in labels:
+        if label == label_name:
+            return True
+        if isinstance(label, dict) and label.get('name') == label_name:
+            return True
+    return False
+
+
+def has_veto_note(comments: list[dict[str, Any]]) -> bool:
+    return any(
+        DUPLICATE_VETO_MARKER in (comment.get('body') or '') for comment in comments
+    )
+
+
+def remove_candidate_label(
+    repository: str, issue_number: int, *, dry_run: bool
+) -> bool:
+    if dry_run:
+        return True
+    try:
+        request_json(
+            f'/repos/{repository}/issues/{issue_number}/labels/{DUPLICATE_CANDIDATE_LABEL}',
+            method='DELETE',
+        )
+    except RuntimeError as exc:
+        if 'HTTP 404' in str(exc):
+            return False
+        raise
+    return True
+
+
+def post_veto_note(repository: str, issue_number: int, *, dry_run: bool) -> bool:
+    if dry_run:
+        return True
+    request_json(
+        f'/repos/{repository}/issues/{issue_number}/comments',
+        method='POST',
+        body={
+            'body': (
+                f'Thanks — leaving this open and removing the {DUPLICATE_CANDIDATE_LABEL} label.\n\n'
+                f'{DUPLICATE_VETO_MARKER}\n'
+                '_This comment was created by an AI assistant (OpenHands) on behalf of the repository maintainer._'
+            )
+        },
+    )
+    return True
+
+
 def close_issue_as_duplicate(
     repository: str,
     issue_number: int,
@@ -150,6 +202,7 @@ def close_issue_as_duplicate(
     if dry_run:
         return
 
+    remove_candidate_label(repository, issue_number, dry_run=False)
     request_json(
         f'/repos/{repository}/issues/{issue_number}',
         method='PATCH',
@@ -191,21 +244,6 @@ def main() -> int:
         if comment_created_at > cutoff:
             continue
 
-        newer_comments = [
-            comment
-            for comment in comments
-            if parse_timestamp(comment['created_at']) > comment_created_at
-        ]
-        if newer_comments:
-            summary.append(
-                {
-                    'issue_number': issue_number,
-                    'action': 'kept-open',
-                    'reason': 'newer-comment-after-duplicate-notice',
-                }
-            )
-            continue
-
         author_id = issue.get('user', {}).get('id')
         reactions = list_comment_reactions(args.repository, int(latest_comment['id']))
         author_thumbs_down = any(
@@ -219,12 +257,43 @@ def main() -> int:
             for reaction in reactions
         )
         if author_thumbs_down:
+            label_removed = False
+            if issue_has_label(issue, DUPLICATE_CANDIDATE_LABEL):
+                label_removed = remove_candidate_label(
+                    args.repository,
+                    issue_number,
+                    dry_run=args.dry_run,
+                )
+            veto_note_posted = False
+            if not has_veto_note(comments):
+                veto_note_posted = post_veto_note(
+                    args.repository,
+                    issue_number,
+                    dry_run=args.dry_run,
+                )
             summary.append(
                 {
                     'issue_number': issue_number,
                     'action': 'kept-open',
                     'reason': 'author-thumbed-down-duplicate-comment',
+                    'label_removed': label_removed,
+                    'veto_note_posted': veto_note_posted,
                     'author_thumbs_up': author_thumbs_up,
+                }
+            )
+            continue
+
+        newer_comments = [
+            comment
+            for comment in comments
+            if parse_timestamp(comment['created_at']) > comment_created_at
+        ]
+        if newer_comments:
+            summary.append(
+                {
+                    'issue_number': issue_number,
+                    'action': 'kept-open',
+                    'reason': 'newer-comment-after-duplicate-notice',
                 }
             )
             continue

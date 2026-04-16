@@ -186,6 +186,45 @@ jobs:
             const autoClose = process.env.AUTO_CLOSE_CANDIDATE === 'true';
             const candidates = JSON.parse(process.env.CANDIDATE_ISSUES_JSON || '[]');
             const canonicalIssueNumber = Number(process.env.CANONICAL_ISSUE_NUMBER || candidates?.[0]?.number || 0);
+            const candidateLabel = 'duplicate-candidate';
+
+            async function ensureCandidateLabelOnIssue() {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: candidateLabel,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: candidateLabel,
+                  color: 'C5DEF5',
+                  description: 'Potential duplicate awaiting auto-close or maintainer review',
+                });
+              }
+
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+              const labelNames = (issue.labels || []).map((label) => (
+                typeof label === 'string' ? label : label.name
+              ));
+              if (!labelNames.includes(candidateLabel)) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels: [candidateLabel],
+                });
+              }
+            }
 
             if (!Array.isArray(candidates) || candidates.length === 0) {
               core.warning(`No candidate issues were returned for issue #${issueNumber}; skipping comment.`);
@@ -239,6 +278,9 @@ jobs:
 
             const existing = comments.find((comment) => comment.body && comment.body.includes('<!-- openhands-duplicate-check '));
             if (existing) {
+              if (autoClose) {
+                await ensureCandidateLabelOnIssue();
+              }
               core.info(`Duplicate check comment already exists on issue #${issueNumber}; skipping.`);
               return;
             }
@@ -249,6 +291,10 @@ jobs:
               issue_number: issueNumber,
               body,
             });
+
+            if (autoClose) {
+              await ensureCandidateLabelOnIssue();
+            }
 
   auto-close-duplicates:
     if: |
