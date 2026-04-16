@@ -172,6 +172,26 @@ def test_normalize_result_promotes_actionable_duplicates():
     assert normalized['summary'] == 'duplicate summary'
 
 
+def test_normalize_result_lowercases_classification():
+    module = load_module('issue_duplicate_check_openhands.py')
+    normalized = module.normalize_result(
+        {
+            'classification': 'Duplicate',
+            'confidence': 'HIGH',
+            'should_comment': True,
+            'is_duplicate': True,
+            'auto_close_candidate': True,
+            'canonical_issue_number': 21,
+            'candidate_issues': [{'number': 21, 'title': 'Existing issue'}],
+        }
+    )
+
+    assert normalized['classification'] == 'duplicate'
+    assert normalized['should_comment'] is True
+    assert normalized['is_duplicate'] is True
+    assert normalized['auto_close_candidate'] is True
+
+
 def test_poll_start_task_retries_after_empty_payload(monkeypatch):
     module = load_module('issue_duplicate_check_openhands.py')
     responses = [
@@ -223,3 +243,36 @@ def test_poll_conversation_retries_after_empty_items(monkeypatch):
     )
 
     assert item['execution_status'] == 'completed'
+
+
+def test_poll_conversation_raises_on_failed_status(monkeypatch):
+    module = load_module('issue_duplicate_check_openhands.py')
+
+    monkeypatch.setattr(
+        module,
+        'request_json',
+        lambda *args, **kwargs: {
+            'items': [
+                {
+                    'execution_status': 'failed',
+                    'conversation_url': 'https://example.test',
+                    'error_detail': 'boom',
+                }
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        module, 'openhands_headers', lambda: {'Authorization': 'Bearer test-token'}
+    )
+    monkeypatch.setattr(module.time, 'time', lambda: 0)
+    monkeypatch.setattr(module.time, 'sleep', lambda _seconds: None)
+
+    try:
+        module.poll_conversation(
+            'conv-123', poll_interval_seconds=1, max_wait_seconds=10
+        )
+    except RuntimeError as exc:
+        assert 'OpenHands conversation ended with failed' in str(exc)
+        assert 'boom' in str(exc)
+    else:
+        raise AssertionError('Expected poll_conversation to raise on failed status')

@@ -14,14 +14,19 @@ from typing import Any
 
 OPENHANDS_BASE_URL = os.environ.get('OPENHANDS_BASE_URL', 'https://app.all-hands.dev')
 GITHUB_API_BASE_URL = os.environ.get('GITHUB_API_BASE_URL', 'https://api.github.com')
-TERMINAL_EXECUTION_STATUSES = {
-    'completed',
+FAILED_EXECUTION_STATUSES = {
     'error',
     'errored',
     'failed',
-    'finished',
     'stopped',
 }
+SUCCESSFUL_TERMINAL_EXECUTION_STATUSES = {
+    'completed',
+    'finished',
+}
+TERMINAL_EXECUTION_STATUSES = (
+    FAILED_EXECUTION_STATUSES | SUCCESSFUL_TERMINAL_EXECUTION_STATUSES
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -268,7 +273,11 @@ def poll_conversation(
             time.sleep(poll_interval_seconds)
             continue
         execution_status = str(item.get('execution_status', '')).lower()
-        if execution_status in TERMINAL_EXECUTION_STATUSES:
+        if execution_status in FAILED_EXECUTION_STATUSES:
+            raise RuntimeError(
+                f'OpenHands conversation ended with {execution_status}: {json.dumps(item)}'
+            )
+        if execution_status in SUCCESSFUL_TERMINAL_EXECUTION_STATUSES:
             return item
         time.sleep(poll_interval_seconds)
     raise TimeoutError(
@@ -358,7 +367,7 @@ def normalize_result(result: dict[str, Any]) -> dict[str, Any]:
     normalized['is_duplicate'] = as_bool(normalized.get('is_duplicate'))
     normalized['auto_close_candidate'] = as_bool(normalized.get('auto_close_candidate'))
 
-    classification = str(normalized.get('classification') or 'no-match').strip()
+    classification = str(normalized.get('classification') or 'no-match').strip().lower()
     if classification not in {
         'duplicate',
         'overlapping-scope',

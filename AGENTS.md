@@ -120,6 +120,9 @@ When working on a PR that requires design documents, scripts meant for developme
 - Daily/manual auto-close runs also remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
 - Daily/manual auto-close runs remove that label instead of retrying auto-close when they detect newer comments after the duplicate notice.
 - The duplicate check poller tolerates empty OpenHands API payloads and retries instead of crashing.
+- The issue duplicate-check job uses a 35-minute workflow timeout because the script may spend up to two polling phases waiting on OpenHands.
+- Failed OpenHands conversation statuses (`error`, `errored`, `failed`, `stopped`) now fail fast instead of falling through to later parsing errors.
+- Duplicate result `classification` values are normalized case-insensitively before validation.
 - The duplicate notice marker format is `<!-- openhands-duplicate-check canonical=<issue> auto-close=<true|false> -->`.
 - The thumbs-down veto follow-up marker is `<!-- openhands-duplicate-veto -->`.
 
