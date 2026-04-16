@@ -114,7 +114,9 @@ When working on a PR that requires design documents, scripts meant for developme
 - GitHub Actions environment: `remote-openhands-runner`
 - Required environment secrets: `PLAYGROUND_GH_TOKEN`, `OPENHANDS_API_KEY`
 - Auto-close candidates get the `duplicate-candidate` label when the duplicate notice is posted.
+- Daily/manual auto-close runs only scan open issues that currently have the `duplicate-candidate` label.
 - Daily/manual auto-close runs remove that label and leave a short follow-up note if the issue author reacts with 👎 to the duplicate notice comment.
+- The duplicate check poller tolerates empty OpenHands API payloads and retries instead of crashing.
 - The duplicate notice marker format is `<!-- openhands-duplicate-check canonical=<issue> auto-close=<true|false> -->`.
 - The thumbs-down veto follow-up marker is `<!-- openhands-duplicate-veto -->`.
 

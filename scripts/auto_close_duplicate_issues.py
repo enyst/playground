@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -80,9 +81,10 @@ def parse_timestamp(value: str) -> datetime:
 def list_open_issues(repository: str) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     page = 1
+    label_query = urllib.parse.quote(DUPLICATE_CANDIDATE_LABEL)
     while True:
         payload = request_json(
-            f'/repos/{repository}/issues?state=open&per_page=100&page={page}'
+            f'/repos/{repository}/issues?state=open&labels={label_query}&per_page=100&page={page}'
         )
         if not isinstance(payload, list) or not payload:
             return issues
@@ -150,6 +152,25 @@ def issue_has_label(issue: dict[str, Any], label_name: str) -> bool:
         if isinstance(label, dict) and label.get('name') == label_name:
             return True
     return False
+
+
+def user_id_from_item(item: dict[str, Any]) -> int | None:
+    user = item.get('user')
+    if not isinstance(user, dict):
+        return None
+    user_id = user.get('id')
+    return user_id if isinstance(user_id, int) else None
+
+
+def has_reaction_from_user(
+    reactions: list[dict[str, Any]], user_id: int | None, content: str
+) -> bool:
+    if user_id is None:
+        return False
+    return any(
+        user_id_from_item(reaction) == user_id and reaction.get('content') == content
+        for reaction in reactions
+    )
 
 
 def has_veto_note(comments: list[dict[str, Any]]) -> bool:
@@ -244,18 +265,10 @@ def main() -> int:
         if comment_created_at > cutoff:
             continue
 
-        author_id = issue.get('user', {}).get('id')
+        author_id = user_id_from_item(issue)
         reactions = list_comment_reactions(args.repository, int(latest_comment['id']))
-        author_thumbs_down = any(
-            reaction.get('user', {}).get('id') == author_id
-            and reaction.get('content') == '-1'
-            for reaction in reactions
-        )
-        author_thumbs_up = any(
-            reaction.get('user', {}).get('id') == author_id
-            and reaction.get('content') == '+1'
-            for reaction in reactions
-        )
+        author_thumbs_down = has_reaction_from_user(reactions, author_id, '-1')
+        author_thumbs_up = has_reaction_from_user(reactions, author_id, '+1')
         if author_thumbs_down:
             label_removed = False
             if issue_has_label(issue, DUPLICATE_CANDIDATE_LABEL):

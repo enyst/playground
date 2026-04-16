@@ -211,6 +211,20 @@ def start_conversation(
     )
 
 
+def extract_first_item(payload: Any) -> dict[str, Any] | None:
+    if isinstance(payload, list):
+        first_item = payload[0] if payload else None
+        return first_item if isinstance(first_item, dict) else None
+    if not isinstance(payload, dict):
+        return None
+
+    items = payload.get('items')
+    if isinstance(items, list):
+        first_item = items[0] if items else None
+        return first_item if isinstance(first_item, dict) else None
+    return payload
+
+
 def poll_start_task(
     start_task_id: str, poll_interval_seconds: int, max_wait_seconds: int
 ) -> dict[str, Any]:
@@ -221,11 +235,10 @@ def poll_start_task(
             f'/api/v1/app-conversations/start-tasks?ids={urllib.parse.quote(start_task_id)}',
             headers={'Authorization': openhands_headers()['Authorization']},
         )
-        item = (
-            payload[0]
-            if isinstance(payload, list) and payload
-            else payload.get('items', [{}])[0]
-        )
+        item = extract_first_item(payload)
+        if item is None:
+            time.sleep(poll_interval_seconds)
+            continue
         status = item.get('status')
         if status == 'READY' and item.get('app_conversation_id'):
             return item
@@ -247,11 +260,10 @@ def poll_conversation(
             f'/api/v1/app-conversations?ids={urllib.parse.quote(app_conversation_id)}',
             headers={'Authorization': openhands_headers()['Authorization']},
         )
-        item = (
-            payload[0]
-            if isinstance(payload, list) and payload
-            else payload.get('items', [{}])[0]
-        )
+        item = extract_first_item(payload)
+        if item is None:
+            time.sleep(poll_interval_seconds)
+            continue
         execution_status = str(item.get('execution_status', '')).lower()
         if execution_status in TERMINAL_EXECUTION_STATUSES:
             return item
@@ -308,9 +320,6 @@ def extract_last_agent_text(events: list[dict[str, Any]]) -> str:
 
 def parse_agent_json(text: str) -> dict[str, Any]:
     cleaned = text.strip()
-    if cleaned.startswith('```'):
-        cleaned = cleaned.split('\n', 1)[1]
-        cleaned = cleaned.rsplit('```', 1)[0].strip()
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
