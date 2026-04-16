@@ -7,7 +7,7 @@ on:
     # We temporarily avoid `pull_request_target` here. We'll restore it after the PR review
     # workflow is fully hardened for untrusted execution.
     pull_request:
-        types: [opened, ready_for_review, labeled, review_requested]
+        types: [opened, ready_for_review, synchronize, labeled, review_requested]
 
 permissions:
     contents: read
