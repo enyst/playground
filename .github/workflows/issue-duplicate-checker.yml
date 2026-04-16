@@ -83,7 +83,7 @@ jobs:
       - name: Validate duplicate check inputs
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
-          TARGET_REPOSITORY: ${{ github.event.repository.full_name || inputs.repository }}
+          TARGET_REPOSITORY: ${{ inputs.repository || github.event.repository.full_name }}
         run: |
           if [ -z "$ISSUE_NUMBER" ]; then
             echo "Error: ISSUE_NUMBER is required"
@@ -100,7 +100,7 @@ jobs:
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.PLAYGROUND_GH_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
-          TARGET_REPOSITORY: ${{ github.event.repository.full_name || inputs.repository }}
+          TARGET_REPOSITORY: ${{ inputs.repository || github.event.repository.full_name }}
           OUTPUT_PATH: ${{ runner.temp }}/issue-duplicate-check-result.json
         run: |
           python scripts/issue_duplicate_check_openhands.py \
