@@ -224,7 +224,6 @@ def close_issue_as_duplicate(
     if dry_run:
         return
 
-    remove_candidate_label(repository, issue_number, dry_run=False)
     request_json(
         f'/repos/{repository}/issues/{issue_number}',
         method='PATCH',
@@ -241,6 +240,7 @@ def close_issue_as_duplicate(
             )
         },
     )
+    remove_candidate_label(repository, issue_number, dry_run=False)
 
 
 def main() -> int:

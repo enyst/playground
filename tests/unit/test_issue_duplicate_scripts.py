@@ -72,6 +72,45 @@ def test_find_latest_auto_close_comment_returns_latest_candidate():
     assert canonical_issue == 12
 
 
+def test_close_issue_as_duplicate_leaves_label_until_requests_succeed(monkeypatch):
+    module = load_module('auto_close_duplicate_issues.py')
+    calls: list[tuple[str, str]] = []
+
+    def fake_request_json(path: str, *, method: str = 'GET', body=None):
+        calls.append((method, path))
+        if method == 'POST' and path.endswith('/comments'):
+            raise RuntimeError('comment failed')
+        return {}
+
+    def fake_remove_candidate_label(
+        repository: str, issue_number: int, *, dry_run: bool
+    ):
+        calls.append(('REMOVE_LABEL', f'{repository}#{issue_number}:{dry_run}'))
+        return True
+
+    monkeypatch.setattr(module, 'request_json', fake_request_json)
+    monkeypatch.setattr(module, 'remove_candidate_label', fake_remove_candidate_label)
+
+    try:
+        module.close_issue_as_duplicate(
+            'enyst/playground',
+            123,
+            45,
+            dry_run=False,
+        )
+    except RuntimeError as exc:
+        assert str(exc) == 'comment failed'
+    else:
+        raise AssertionError(
+            'Expected close_issue_as_duplicate to propagate the failure'
+        )
+
+    assert calls == [
+        ('PATCH', '/repos/enyst/playground/issues/123'),
+        ('POST', '/repos/enyst/playground/issues/123/comments'),
+    ]
+
+
 def test_parse_agent_json_handles_single_line_fenced_json():
     module = load_module('issue_duplicate_check_openhands.py')
 
