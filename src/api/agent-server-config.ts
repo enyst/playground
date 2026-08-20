@@ -206,6 +206,21 @@ export function buildConversationWorkingDir(conversationId: string): string {
   return `${base}/${hex}`;
 }
 
+/**
+ * Conversation working dir under the backend-relative default
+ * (`workspace/project/<hex>`), deliberately ignoring any baked absolute
+ * `VITE_WORKING_DIR`. `resolveAbsoluteAgentServerPath()` anchors this to the
+ * active backend's own home via `GET /api/file/home`, so it resolves to a
+ * writable path on whichever backend actually runs the conversation.
+ */
+export function buildRelativeConversationWorkingDir(
+  conversationId: string,
+): string {
+  const base = DEFAULT_WORKING_DIR.replace(/\/+$/, "");
+  const hex = conversationId.replace(/-/g, "");
+  return `${base}/${hex}`;
+}
+
 export function getAgentServerHeaders(): Record<string, string> {
   const sessionApiKey = getAgentServerSessionApiKey();
   return sessionApiKey ? { "X-Session-API-Key": sessionApiKey } : {};
