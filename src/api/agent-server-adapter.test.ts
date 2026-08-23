@@ -225,6 +225,28 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
     });
   });
 
+  it("merges caller extraTags with the client-source tag", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({}),
+      extraTags: { smolpaws: "insider" },
+    });
+    expect(payload.tags).toEqual({
+      smolpaws: "insider",
+      [CLIENT_SOURCE_TAG_KEY]: AGENT_CANVAS_SOURCE,
+    });
+  });
+
+  it("does not let extraTags override the reserved client-source tag", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({}),
+      extraTags: { [CLIENT_SOURCE_TAG_KEY]: "spoofed", smolpaws: "insider" },
+    });
+    expect(payload.tags).toEqual({
+      smolpaws: "insider",
+      [CLIENT_SOURCE_TAG_KEY]: AGENT_CANVAS_SOURCE,
+    });
+  });
+
   it("suppresses secrets_encrypted when launching from a profile", () => {
     const agentSettings = {
       agent_kind: "openhands",

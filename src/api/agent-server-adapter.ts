@@ -1045,6 +1045,10 @@ export interface StartConversationOptions {
   agentProfileKind?: AgentKind;
   titleLlmProfile?: string;
   runtimeServicesInfo?: RuntimeServicesInfo | null;
+  // Extra key-value tags to stamp on the new conversation, merged with the
+  // client-source (and ACP) tags. Callers use this for attribution such as
+  // ``smolpaws=insider``. Reserved keys (clientsource, acpserver) always win.
+  extraTags?: Record<string, string>;
 }
 
 export function buildStartConversationRequest(
@@ -1135,13 +1139,19 @@ export function buildStartConversationRequest(
   // conversation to Canvas in telemetry (conversation_source = "canvas").
   // A profile launch resolves the ACP server server-side, so don't stamp the
   // tag from current settings (it may not match the launched profile).
+  // Caller-supplied tags first, then reserved keys (clientsource/acpserver)
+  // overwrite so attribution can't be spoofed away by a caller.
   if (!options.agentProfileId && acpServerTag) {
     payload.tags = {
+      ...(options.extraTags ?? {}),
       [ACP_SERVER_TAG_KEY]: acpServerTag,
       [CLIENT_SOURCE_TAG_KEY]: AGENT_CANVAS_SOURCE,
     };
   } else {
-    payload.tags = { [CLIENT_SOURCE_TAG_KEY]: AGENT_CANVAS_SOURCE };
+    payload.tags = {
+      ...(options.extraTags ?? {}),
+      [CLIENT_SOURCE_TAG_KEY]: AGENT_CANVAS_SOURCE,
+    };
   }
 
   // ``secrets_encrypted`` makes the agent-server decrypt request secrets at
@@ -1263,6 +1273,7 @@ export async function buildStartConversationRequestWithEncryptedSettings(options
   agentProfileId?: string;
   agentProfileKind?: AgentKind;
   titleLlmProfile?: string;
+  extraTags?: Record<string, string>;
 }): Promise<Record<string, unknown>> {
   const { SecretsService } = await import("./secrets-service");
 

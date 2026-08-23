@@ -20,7 +20,7 @@ export const useCallTheCat = () => {
       const startTask = await AgentServerConversationService.createConversation(
         {
           agentProfileId,
-          metadata: { tags } as never,
+          extraTags: tags,
         },
       );
 

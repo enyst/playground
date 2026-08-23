@@ -350,6 +350,8 @@ export interface CreateConversationOptions {
   // encrypted-settings builder; cloud sends it as a flat request field.
   agentProfileId?: string;
   agentProfileKind?: AgentKind;
+  /** Extra conversation tags to stamp at creation (e.g. `smolpaws=insider`). */
+  extraTags?: Record<string, string>;
 }
 
 class AgentServerConversationService {
@@ -414,6 +416,7 @@ class AgentServerConversationService {
       sandboxId,
       agentProfileId,
       agentProfileKind,
+      extraTags,
     } = options;
 
     if (getActiveBackend().backend.kind === "cloud") {
@@ -502,6 +505,7 @@ class AgentServerConversationService {
       agentProfileId,
       agentProfileKind,
       titleLlmProfile,
+      extraTags,
     });
 
     const data = await new ConversationClient(
