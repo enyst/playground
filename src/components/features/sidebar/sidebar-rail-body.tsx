@@ -25,6 +25,7 @@ import { CommandMenuTrigger } from "#/components/features/command-menu/command-m
 import { AgentCanvasVersionTile } from "#/components/features/settings/agent-canvas-version-tile";
 import { SidebarConversationList } from "./sidebar-conversation-list";
 import { SidebarOnboardingChecklist } from "./sidebar-onboarding-checklist";
+import { SecretarySidebarItem } from "#/components/features/secretary/secretary-sidebar-item";
 import AutomationsIcon from "#/icons/automations.svg?react";
 import {
   SIDEBAR_COLLAPSE_TOGGLE_OVERLAY_CLASS,
@@ -163,6 +164,7 @@ export function SidebarRailBody({
 
       <nav className={sidebarNavListClassName(collapsed)}>
         <CommandMenuTrigger collapsed={collapsed} />
+        <SecretarySidebarItem collapsed={collapsed} />
         <SidebarNavLink
           to="/conversations"
           end
