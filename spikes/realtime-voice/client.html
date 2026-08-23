@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SmolPaws realtime voice — spike</title>
+<style>
+  :root{
+    --bg:#0e1013; --panel:#161a20; --fg:#e7ecf2; --muted:#8b96a5;
+    --accent:#6ea0ff; --ok:#5fca7d; --err:#ff6b6b; --rule:#242a33;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.5}
+  header{padding:18px 22px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:600}
+  .paw{font-size:22px}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto}
+  .status{font-family:var(--mono);font-size:12px;padding:3px 10px;border-radius:20px;border:1px solid var(--rule);color:var(--muted)}
+  .status.ok{color:var(--ok);border-color:var(--ok)}
+  .status.err{color:var(--err);border-color:var(--err)}
+  main{display:grid;grid-template-columns:1fr 360px;gap:0;height:calc(100vh - 64px)}
+  @media(max-width:800px){main{grid-template-columns:1fr;height:auto}}
+  .col{padding:16px 20px;overflow-y:auto}
+  .col.left{border-right:1px solid var(--rule)}
+  .controls{display:flex;gap:10px;margin-bottom:16px}
+  button{font-family:var(--sans);font-size:14px;font-weight:600;padding:9px 18px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  #start{background:var(--accent);color:#0b1020;border-color:var(--accent)}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+  .turn{display:grid;grid-template-columns:64px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px}
+  .turn .who{color:var(--muted);font-size:12px}
+  .turn.assistant .body{color:#cfe0ff}
+  .turn.tool .body{font-family:var(--mono);font-size:12px;color:#e0c98a}
+  .turn .sub{grid-column:2;color:var(--muted);font-size:11px;font-family:var(--mono)}
+  #events{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .evrow{padding:2px 0;border-bottom:1px solid #1b2028;white-space:pre-wrap}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <span class="paw">🐾</span>
+  <h1>SmolPaws realtime voice — spike</h1>
+  <span id="status" class="status">idle</span>
+  <span id="meta" class="meta"></span>
+</header>
+<main>
+  <div class="col left">
+    <div class="controls">
+      <button id="start">Start talking</button>
+      <button id="stop" disabled>Stop</button>
+    </div>
+    <p class="hint">Click Start, allow the mic, and just talk. Try: “how many conversations do I have?”, then interrupt the cat mid-sentence to test barge-in.</p>
+    <h2>Transcript (both sides)</h2>
+    <div id="transcript"></div>
+    <audio id="cat-audio" autoplay></audio>
+  </div>
+  <div class="col">
+    <h2>Events · latency · usage</h2>
+    <div id="events"></div>
+  </div>
+</main>
+<script src="/client.js"></script>
+</body>
+</html>
