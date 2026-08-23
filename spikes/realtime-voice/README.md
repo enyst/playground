@@ -37,14 +37,26 @@ The standing OpenAI key never reaches the browser: the server mints a
 short-lived ephemeral `ek_…` client secret; the browser only does the WebRTC
 SDP exchange with it.
 
-## Tools wired (read-only, safe)
+## Tools wired
 
-- `count_conversations` → `GET /api/conversations/count`
-- `list_recent_conversations` → `GET /api/conversations/search?limit=N`
+- **`ask_the_agent(request)`** — the important one. Hands the request to the
+  **real OpenHands agent** via the agent-server's OpenAI-compatible
+  `POST /v1/chat/completions`. That endpoint runs the *whole agent* (system
+  prompt + its tools) as an LLM: it executes commands, calls APIs, inspects and
+  manages conversations — anything the agent can do — and returns a final spoken
+  answer. So the realtime model is the **voice brain** and the OpenHands agent
+  is the **action brain**. This replaces a fixed toolbox with the agent's entire
+  capability (Engel's "replace its brain").
+- `count_conversations` / `list_recent_conversations` — kept as fast, read-only
+  shortcuts (direct REST, ~3–40 ms) for the common "how many / which" questions,
+  so the voice doesn't pay the full agent round-trip for a trivial lookup.
 
-Both are read-only on purpose, so a voice slip can't do anything destructive.
-Adding a write action later (archive, send-a-message-to-another-conversation) is
-a one-function change in `server.mjs`.
+**Latency note:** `ask_the_agent` runs a full agent turn — measured ~12 s for
+"how many conversations" (the agent really did the work → "1,174"). That's too
+slow to sit silently through in a voice UX. The design covers the fix: stream
+`/v1/chat/completions` (`stream: true`, which the endpoint supports) and/or have
+the cat say a quick "let me check…" filler while the agent works. The fast
+read-only shortcuts exist for exactly the common cases where 12 s is overkill.
 
 ## Run it (live test — needs a mic + a human)
 
@@ -85,13 +97,19 @@ Verified headlessly (no mic needed):
 - ✅ `list_recent_conversations` → real recent list via `/search?limit` in
   ~40 ms. (Plain `/api/conversations` needs explicit `ids`; the full-payload
   `/search` hangs on big pages, so we always pass a small `limit`.)
+- ✅ **`ask_the_agent` → the real agent brain.** `/v1/chat/completions` on the
+  agent-server runs the full OpenHands agent as an OpenAI-compatible LLM: it
+  executed a shell command and answered "how many conversations" with the real
+  number (1,174). Streaming (`stream: true`) works too. ~12 s per full turn →
+  needs streaming + a spoken filler for voice (see latency note).
 
-Still needs the **live test with Engel** (bead 3e1.3) — only a real mic can
-answer whether full-duplex + barge-in *feel* good and what the end-to-end voice
-latency actually is. The harness logs everything needed to judge it.
+**Live test result (Engel, 2026-08-23):** grabbed the mic — the realtime voice
+itself is **good**. The valid critique that drove this update: the cat could
+only call the two hardcoded tools, not the agent. Now fixed via `ask_the_agent`.
 
 ## Recommendation input (A vs B)
 
-Fill in after the live test. Path B (a pipeline: STT → our agent → TTS) is the
-fallback if A's latency or interruption feel is poor. The transcript + usage
-panel here is meant to make that call on evidence, not vibes.
+Path A (realtime model as brain) **feels good** on the first live test. Open
+item is latency of the full agent turn (~12 s), addressed by streaming + filler.
+Path B (a pipeline: STT → our agent → TTS) stays the fallback only if A's feel
+degrades. Leaning A.

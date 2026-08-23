@@ -105,7 +105,41 @@ if (!SECRETS.openaiKey && !readChatgptAuth()) {
 // model can speak back. `schema` is the OpenAI tool definition sent to the
 // browser so the model knows the tools exist.
 
+const AGENT_MODEL = process.env.SPIKE_AGENT_MODEL || "openhands_deepseek-v4-flash";
+
 const TOOLS = {
+  // The important one: hand the request to the REAL OpenHands agent via the
+  // agent-server's OpenAI-compatible /v1/chat/completions. That endpoint runs
+  // the full agent (system prompt + tools) as an LLM — it can run commands,
+  // call APIs, inspect/manage conversations, anything the agent can do. So the
+  // realtime model is the *voice* brain and the agent is the *action* brain.
+  // This replaces a fixed toolbox with the agent's whole capability.
+  ask_the_agent: {
+    schema: {
+      type: "function",
+      name: "ask_the_agent",
+      description:
+        "Hand a request to the OpenHands agent to actually DO or find out. Use this for anything beyond small talk: running commands, inspecting or managing the user's conversations, looking things up, editing files, answering questions about the system. Pass the user's intent as a clear instruction.",
+      parameters: {
+        type: "object",
+        properties: {
+          request: {
+            type: "string",
+            description:
+              "A clear, self-contained instruction for the agent, e.g. 'How many conversations do I have and which are still running?'",
+          },
+        },
+        required: ["request"],
+        additionalProperties: false,
+      },
+    },
+    async run(args) {
+      const request = String(args?.request || "").trim();
+      if (!request) return { error: "empty request" };
+      const answer = await agentComplete(request);
+      return { answer };
+    },
+  },
   count_conversations: {
     schema: {
       type: "function",
@@ -171,6 +205,34 @@ async function agentGet(path) {
   } catch {
     return text.trim();
   }
+}
+
+// Run one turn of the REAL OpenHands agent via the agent-server's OpenAI-
+// compatible endpoint. The agent executes its own tools inside this call and
+// returns a final natural-language answer — so the voice model gets the agent's
+// whole brain through a single request. Non-streaming here to keep the tool
+// return simple; the design page covers the streaming variant for lower latency.
+async function agentComplete(request) {
+  if (!SECRETS.agentKey) {
+    throw new Error("No agent-server session key.");
+  }
+  const res = await fetch(`${SECRETS.agentBase}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "X-Session-API-Key": SECRETS.agentKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: AGENT_MODEL,
+      messages: [{ role: "user", content: request }],
+      stream: false,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`agent /v1/chat/completions -> ${res.status}`);
+  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "(no answer)";
 }
 
 // --- HTTP plumbing -----------------------------------------------------------
