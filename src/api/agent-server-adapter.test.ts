@@ -247,6 +247,33 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
     });
   });
 
+  it("injects the insider SmolPaws system suffix for smolpaws=insider", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({ agent_kind: "openhands" }),
+      extraTags: { smolpaws: "insider" },
+    });
+    const suffix = (
+      payload.agent_settings?.agent_context as
+        | { system_message_suffix?: string }
+        | undefined
+    )?.system_message_suffix;
+    expect(suffix).toContain("SMOLPAWS_INSIDER");
+    expect(suffix).toContain("LOCAL OpenHands agent-server");
+    expect(suffix).toContain("OPENHANDS_API_KEY");
+  });
+
+  it("does not inject the insider suffix for non-insider conversations", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({ agent_kind: "openhands" }),
+    });
+    const suffix = (
+      payload.agent_settings?.agent_context as
+        | { system_message_suffix?: string }
+        | undefined
+    )?.system_message_suffix;
+    expect(suffix ?? "").not.toContain("SMOLPAWS_INSIDER");
+  });
+
   it("suppresses secrets_encrypted when launching from a profile", () => {
     const agentSettings = {
       agent_kind: "openhands",

@@ -44,6 +44,11 @@ import {
   LAUNCH_CHILD_CONVERSATION_CLIENT_TOOL,
   LAUNCH_CHILD_CONVERSATION_TOOL_NAME,
 } from "./launch-child-conversation-client-tool";
+import {
+  SMOLPAWS_TAG_KEY,
+  SMOLPAWS_TAG_VALUE_INSIDER,
+} from "#/components/features/insider-cat/call-the-cat";
+import { INSIDER_SMOLPAWS_SYSTEM_SUFFIX } from "#/components/features/insider-cat/insider-identity";
 
 export interface DirectConversationInfo {
   id: string;
@@ -1051,6 +1056,31 @@ export interface StartConversationOptions {
   extraTags?: Record<string, string>;
 }
 
+/**
+ * Return agent settings with the insider SmolPaws identity + local-environment
+ * briefing appended to the system prompt (`agent_context.system_message_suffix`),
+ * preserving any existing suffix (e.g. the dev runtime-services block).
+ */
+function withInsiderSystemSuffix(
+  agentSettings: AgentSettingsPayload,
+): AgentSettingsPayload {
+  const context = toRecord(agentSettings.agent_context);
+  const existing =
+    typeof context.system_message_suffix === "string"
+      ? context.system_message_suffix
+      : "";
+  const suffix = existing
+    ? `${existing}\n\n${INSIDER_SMOLPAWS_SYSTEM_SUFFIX}`
+    : INSIDER_SMOLPAWS_SYSTEM_SUFFIX;
+  return {
+    ...agentSettings,
+    agent_context: {
+      ...context,
+      system_message_suffix: suffix,
+    },
+  };
+}
+
 export function buildStartConversationRequest(
   options: StartConversationOptions,
 ): StartConversationPayload {
@@ -1064,10 +1094,17 @@ export function buildStartConversationRequest(
     : acpMode
       ? "acp"
       : "openhands";
-  const agentSettings = buildConfiguredAgentSettings(
+  const builtAgentSettings = buildConfiguredAgentSettings(
     sourceAgentSettings,
     options.runtimeServicesInfo,
   );
+  // Insider SmolPaws: append its identity + local-environment briefing to the
+  // system prompt (not the chat) for smolpaws=insider conversations. Applies on
+  // the inline agent_settings path; the profile path resolves its own context.
+  const agentSettings =
+    options.extraTags?.[SMOLPAWS_TAG_KEY] === SMOLPAWS_TAG_VALUE_INSIDER
+      ? withInsiderSystemSuffix(builtAgentSettings)
+      : builtAgentSettings;
   const acpServerTag = acpMode
     ? getAcpServerTag(sourceAgentSettings)
     : undefined;
