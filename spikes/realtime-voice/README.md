@@ -53,7 +53,9 @@ a one-function change in `server.mjs`.
 #    Canvas dev backend on :18100 writes its key to ~/.openhands/agent-canvas/api-key.txt.
 #    Override with AGENT_SERVER_URL / AGENT_SERVER_KEY if you use another.
 
-# 2. Start the spike server (reads OPENAI_API_KEY_BORIS from the keychain):
+# 2. Start the spike server. It authenticates Realtime with the ChatGPT
+#    subscription via ~/.codex/auth.json (run `codex login` once), and falls
+#    back to OPENAI_API_KEY_BORIS in the keychain if that's absent.
 node spikes/realtime-voice/server.mjs
 
 # 3. Open http://127.0.0.1:8790/ in Chrome, click "Start talking", allow the mic.
@@ -69,9 +71,16 @@ Verified headlessly (no mic needed):
 
 - ✅ Ephemeral token mint against the **current** API,
   `POST /v1/realtime/client_secrets` (the old `/v1/realtime/sessions` is gone).
-- ✅ Working key is `OPENAI_API_KEY_BORIS` in the `openhands` keychain service.
-  The standing `OPENAI_API_KEY` is **dead** (OpenAI rejects it). Realtime models
-  available on Boris: `gpt-realtime`, `gpt-realtime-2.1`, `-mini`, etc.
+- ✅ **Auth uses Engel's ChatGPT subscription, not an API key.** The Codex login
+  at `~/.codex/auth.json` (`auth_mode: chatgpt`, Pro plan) mints Realtime tokens
+  when we send its OAuth access token + a `chatgpt-account-id` header — so the
+  spike runs on the subscription with no per-token API billing. The server reads
+  that file fresh at each mint (Codex keeps it refreshed) and prefers it.
+  The UI/log shows which path minted (`_auth: chatgpt | apikey`).
+- ✅ API-key **fallback**: if the subscription token is missing/expired, it falls
+  back to `OPENAI_API_KEY_BORIS` in the `openhands` keychain service. (The
+  standing `OPENAI_API_KEY` there is **dead** — OpenAI rejects it.) Realtime
+  models available: `gpt-realtime`, `gpt-realtime-2.1`, `-mini`, etc.
 - ✅ `count_conversations` → real count (34) in ~3 ms against :18100.
 - ✅ `list_recent_conversations` → real recent list via `/search?limit` in
   ~40 ms. (Plain `/api/conversations` needs explicit `ids`; the full-payload

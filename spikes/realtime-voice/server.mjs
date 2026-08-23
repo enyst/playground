@@ -40,10 +40,33 @@ function keychain(service, account) {
   }
 }
 
+// The ChatGPT subscription (Codex) OAuth token can mint Realtime ephemeral
+// tokens — no per-token API billing, it rides Engel's Pro plan. Codex keeps
+// ~/.codex/auth.json fresh, so we read it at mint time (not boot) and prefer it
+// over any API key. Returns { token, accountId } or null.
+function readChatgptAuth() {
+  try {
+    const raw = readFileSync(
+      join(homedir(), ".codex", "auth.json"),
+      "utf8",
+    );
+    const j = JSON.parse(raw);
+    if (j?.auth_mode === "chatgpt" && j?.tokens?.access_token) {
+      return {
+        token: j.tokens.access_token,
+        accountId: j.tokens.account_id || "",
+      };
+    }
+  } catch {
+    /* no codex auth; fall back to API key */
+  }
+  return null;
+}
+
 function resolveSecrets() {
-  // The standing OPENAI_API_KEY in the keychain is dead; OPENAI_API_KEY_BORIS
-  // is the working key with Realtime access. Prefer an explicit env override,
-  // then Boris, then the standing key as a last resort.
+  // Fallback API key path. The standing OPENAI_API_KEY in the keychain is dead;
+  // OPENAI_API_KEY_BORIS is the working key with Realtime access. Only used if
+  // the ChatGPT subscription auth is unavailable.
   const openaiKey =
     process.env.OPENAI_API_KEY ||
     keychain("openhands", "OPENAI_API_KEY_BORIS") ||
@@ -69,9 +92,9 @@ function resolveSecrets() {
 }
 
 const SECRETS = resolveSecrets();
-if (!SECRETS.openaiKey) {
+if (!SECRETS.openaiKey && !readChatgptAuth()) {
   console.error(
-    "[spike] No OpenAI key found. Set OPENAI_API_KEY or add OPENAI_API_KEY_BORIS to the 'openhands' keychain service.",
+    "[spike] No OpenAI auth found. Either sign in with Codex (`codex login`, uses the ChatGPT subscription) or add OPENAI_API_KEY_BORIS to the 'openhands' keychain service.",
   );
   process.exit(1);
 }
@@ -180,32 +203,51 @@ function readBody(req) {
 
 async function mintToken() {
   // Current API: POST /v1/realtime/client_secrets returns { value: "ek_...", ... }
-  // The session config (model, voice, transcription, tools) is set here so the
+  // The session config (model, voice, transcription) is set here so the
   // ephemeral secret is already scoped; the browser only does the SDP dance.
-  const res = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${SECRETS.openaiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      session: {
-        type: "realtime",
-        model: REALTIME_MODEL,
-        audio: {
-          output: { voice: VOICE },
-          input: {
-            transcription: { model: "gpt-4o-mini-transcribe" },
-          },
-        },
+  //
+  // Auth preference: the ChatGPT subscription (Codex OAuth) first — it mints
+  // Realtime tokens on Engel's Pro plan with no per-token API billing — then
+  // the API key as a fallback. Read fresh each time so Codex's refresh is
+  // picked up. If the subscription token is stale it 401s; we fall back.
+  const chatgpt = readChatgptAuth();
+  const attempts = [];
+  if (chatgpt) attempts.push({ mode: "chatgpt", ...chatgpt });
+  if (SECRETS.openaiKey) attempts.push({ mode: "apikey", token: SECRETS.openaiKey });
+
+  const body = JSON.stringify({
+    session: {
+      type: "realtime",
+      model: REALTIME_MODEL,
+      audio: {
+        output: { voice: VOICE },
+        input: { transcription: { model: "gpt-4o-mini-transcribe" } },
       },
-    }),
+    },
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `mint failed ${res.status}`);
+
+  let lastErr = "no auth available";
+  for (const a of attempts) {
+    const headers = {
+      authorization: `Bearer ${a.token}`,
+      "content-type": "application/json",
+    };
+    if (a.mode === "chatgpt" && a.accountId) {
+      headers["chatgpt-account-id"] = a.accountId;
+    }
+    const res = await fetch(
+      "https://api.openai.com/v1/realtime/client_secrets",
+      { method: "POST", headers, body },
+    );
+    const data = await res.json();
+    if (res.ok) {
+      data._auth = a.mode; // surfaced to the UI so we know which billing path
+      return data;
+    }
+    lastErr = data?.error?.message || `mint failed ${res.status}`;
+    // fall through to the next attempt (e.g. subscription expired -> api key)
   }
-  return data;
+  throw new Error(lastErr);
 }
 
 const staticFiles = {
@@ -271,6 +313,12 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[spike] realtime-voice server on http://127.0.0.1:${PORT}`);
   console.log(`[spike] model=${REALTIME_MODEL} voice=${VOICE}`);
+  const auth = readChatgptAuth()
+    ? "ChatGPT subscription (Codex)"
+    : SECRETS.openaiKey
+      ? "OpenAI API key (fallback)"
+      : "NONE";
+  console.log(`[spike] realtime auth=${auth}`);
   console.log(
     `[spike] agent-server=${SECRETS.agentBase} key=${SECRETS.agentKey ? "yes" : "MISSING"}`,
   );

@@ -70,6 +70,9 @@ async function start() {
     const token = await tokenResp.json();
     if (!tokenResp.ok) throw new Error(token.error || "token mint failed");
     const ephemeral = token.value;
+    logEvent(
+      `token minted via ${token._auth === "chatgpt" ? "ChatGPT subscription" : "API key"}`,
+    );
 
     setStatus("getting microphone…");
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
