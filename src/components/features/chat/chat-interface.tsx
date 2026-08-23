@@ -41,6 +41,7 @@ import { useUnifiedUploadFiles } from "#/hooks/mutation/use-unified-upload-files
 import { validateFiles } from "#/utils/file-validation";
 import { useConversationStore } from "#/stores/conversation-store";
 import ConfirmationModeEnabled from "./confirmation-mode-enabled";
+import { InsiderCat } from "#/components/features/insider-cat/insider-cat";
 import { useTaskPolling } from "#/hooks/query/use-task-polling";
 import { matchesPendingConversationId } from "#/utils/pending-task-message-link";
 import { useConversationWebSocket } from "#/contexts/conversation-websocket-context";
@@ -631,6 +632,7 @@ export function ChatInterface() {
                         status={serverStatusText}
                       />
                     )}
+                    <InsiderCat placement="inline" size={28} />
                   </div>
 
                   {!hitBottom ? (

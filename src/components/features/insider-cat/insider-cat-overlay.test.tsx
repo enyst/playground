@@ -56,4 +56,18 @@ describe("InsiderCatOverlay", () => {
     await user.click(screen.getByTestId("insider-cat-avatar"));
     expect(onCall).toHaveBeenCalledOnce();
   });
+
+  it("pins to the corner in fixed placement (default)", () => {
+    render(<InsiderCatOverlay />);
+    expect(screen.getByTestId("insider-cat-overlay").className).toContain(
+      "fixed",
+    );
+  });
+
+  it("drops the fixed wrapper in inline placement", () => {
+    render(<InsiderCatOverlay placement="inline" />);
+    const overlay = screen.getByTestId("insider-cat-overlay");
+    expect(overlay.className).not.toContain("fixed");
+    expect(overlay.className).toContain("inline-flex");
+  });
 });

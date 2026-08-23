@@ -16,6 +16,14 @@ export interface InsiderCatOverlayProps {
    * status alone when absent.
    */
   readonly lastUserMessageAt?: number | null;
+  /**
+   * `fixed` (default) pins the cat to the bottom-right corner as a global
+   * overlay. `inline` drops the fixed wrapper so the cat can sit in normal
+   * flow — e.g. next to the agent-status pill above the chat input.
+   */
+  readonly placement?: "fixed" | "inline";
+  /** Avatar size in px. Defaults to 56 (fixed) — callers may shrink for inline. */
+  readonly size?: number;
 }
 
 /**
@@ -27,6 +35,8 @@ export interface InsiderCatOverlayProps {
 export function InsiderCatOverlay({
   onCall,
   lastUserMessageAt = null,
+  placement = "fixed",
+  size,
 }: InsiderCatOverlayProps) {
   const executionStatus = useConversationStateStore((s) => s.execution_status);
 
@@ -42,12 +52,18 @@ export function InsiderCatOverlay({
     lastUserMessageAt == null ? null : now - lastUserMessageAt;
   const pose = avatarState(executionStatus, msSinceUserMessage);
 
+  const wrapperClass =
+    placement === "inline"
+      ? "pointer-events-none inline-flex"
+      : "pointer-events-none fixed bottom-4 right-4 z-50";
+
   return (
-    <div
-      data-testid="insider-cat-overlay"
-      className="pointer-events-none fixed bottom-4 right-4 z-50"
-    >
-      <InsiderCatAvatar pose={pose} onClick={onCall} />
+    <div data-testid="insider-cat-overlay" className={wrapperClass}>
+      <InsiderCatAvatar
+        pose={pose}
+        onClick={onCall}
+        size={size ?? (placement === "inline" ? 32 : 56)}
+      />
     </div>
   );
 }
