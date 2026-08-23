@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
-import { useNavigation } from "#/context/navigation-context";
 import { buildCallTheCatOptions } from "./call-the-cat";
 
 /**
@@ -11,7 +11,7 @@ import { buildCallTheCatOptions } from "./call-the-cat";
  * {@link buildCallTheCatOptions} so the wire contract is unit-tested separately.
  */
 export const useCallTheCat = () => {
-  const { navigate } = useNavigation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   return useMutation({
