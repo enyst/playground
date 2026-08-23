@@ -622,6 +622,10 @@ export function ChatInterface() {
             </div>
           ) : (
             <div className="relative">
+              {/* SmolPaws perches centered, just above the agent-status pill. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-full z-30 mb-8 flex justify-center">
+                <InsiderCat placement="inline" size={48} />
+              </div>
               <div className="pointer-events-none absolute inset-x-0 bottom-full mb-1 z-20">
                 <div className="flex justify-between relative">
                   <div className="flex items-end gap-1 pointer-events-auto">
@@ -632,7 +636,6 @@ export function ChatInterface() {
                         status={serverStatusText}
                       />
                     )}
-                    <InsiderCat placement="inline" size={28} />
                   </div>
 
                   {!hitBottom ? (
