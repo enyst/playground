@@ -35,6 +35,11 @@ function SkinTab() {
         src={`${SKIN_APP_BASE}/`}
         className="h-full w-full border-0"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+        // Delegate the Permissions-Policy features a skin may legitimately
+        // need — the Secretary skin uses the microphone (+ audio playback) for
+        // realtime voice. Without this, getUserMedia is blocked inside the
+        // iframe even on HTTPS ("not allowed by the platform in this context").
+        allow="microphone; camera; autoplay; clipboard-write"
       />
     </main>
   );
