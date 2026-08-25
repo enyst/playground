@@ -446,6 +446,12 @@ async function buildConfig(args, env = process.env) {
   await assertPortsFree(requiredPorts);
 
   const vscodePort = preferredBackendPort + 1000;
+  // The skin app runs on its own port; a tiny skin host (scripts/skin-server.mjs)
+  // fronts it with /skin-api + the /skin proxy, and ingress routes both there.
+  // Derived off the backend port so parallel stacks don't collide, mirroring
+  // vscodePort.
+  const skinAppPort = preferredBackendPort + 2000;
+  const skinHostPort = preferredBackendPort + 2001;
 
   // API key — shared by both agent-server and automation backend.
   // Both validate it via the `X-Session-API-Key` header.
@@ -485,6 +491,12 @@ async function buildConfig(args, env = process.env) {
     autoBackendPort: preferredAutomationPort,
     vitePort: preferredVitePort,
     vscodePort,
+    // Skin app port (where the installed skin's `npm run start` listens) and
+    // the skin host port (scripts/skin-server.mjs, which serves /skin-api and
+    // proxies /skin to the app). ingress routes /skin-api and /skin to the
+    // host, matching how static-server folds them in for the static path.
+    skinAppPort,
+    skinHostPort,
     // Prefix the editor is served under on the ingress origin. Carried on the
     // config so the route table and the agent-server env are built from one
     // value (see getLocalServiceRoutes / buildAgentServerEnv).
@@ -775,6 +787,16 @@ function getLocalServiceRoutes(config) {
         `http://127.0.0.1:${config.vscodePort}`,
       ]);
     }
+  }
+
+  // The skin host (scripts/skin-server.mjs) owns /skin-api (management) and
+  // proxies /skin to the running skin app. Routing both to one host keeps the
+  // dev stack behaviourally identical to static-server, which folds the same
+  // two prefixes in itself.
+  if (config.skinHostPort) {
+    const skinHost = `http://127.0.0.1:${config.skinHostPort}`;
+    routes.push(["/skin-api", skinHost]);
+    routes.push(["/skin", skinHost]);
   }
 
   return routes;
@@ -1122,6 +1144,49 @@ function startIngress(config) {
     {
       cwd: projectRoot,
       color: c.yellow,
+    },
+  );
+}
+
+/**
+ * Start the skin host (scripts/skin-server.mjs) for the Vite dev path.
+ *
+ * It owns /skin-api and reverse-proxies /skin to the installed skin app on
+ * config.skinAppPort. ingress routes both prefixes here (getLocalServiceRoutes),
+ * so from the browser's side the dev stack behaves exactly like the static
+ * server, which folds the same two prefixes in itself.
+ */
+function startSkinHost(config) {
+  logService("skin", `Starting on port ${config.skinHostPort}...`, c.cyan);
+
+  const skinServerScript = join(projectRoot, "scripts", "skin-server.mjs");
+  spawnService(
+    "skin",
+    "node",
+    [
+      skinServerScript,
+      "--port",
+      config.skinHostPort.toString(),
+      "--skin-port",
+      config.skinAppPort.toString(),
+      ...(config.launchAgentServer
+        ? ["--skin-agent-server-url", getAgentServerBaseUrl(config)]
+        : []),
+      ...(config.launchAutomation
+        ? [
+            "--skin-automation-url",
+            `http://127.0.0.1:${config.autoBackendPort}`,
+          ]
+        : []),
+      "--skin-canvas-version",
+      SHARED_DEFAULTS.versions.agentCanvas,
+      ...(config.launchAgentServer && !config.isPublic && config.sessionApiKey
+        ? ["--session-api-key", config.sessionApiKey]
+        : []),
+    ],
+    {
+      cwd: projectRoot,
+      color: c.cyan,
     },
   );
 }
@@ -1586,6 +1651,13 @@ async function main(options = {}) {
     } else {
       startVite(config);
     }
+  }
+
+  // 4b. Start the skin host. In static mode static-server already folds the
+  // skin API + proxy in, so the standalone host is only needed for the Vite
+  // dev path.
+  if (config.launchFrontend && !useStaticMode) {
+    startSkinHost(config);
   }
 
   // 5. Wait for services to be ready
