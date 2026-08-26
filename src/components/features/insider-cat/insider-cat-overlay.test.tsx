@@ -70,4 +70,50 @@ describe("InsiderCatOverlay", () => {
     expect(overlay.className).not.toContain("fixed");
     expect(overlay.className).toContain("inline-flex");
   });
+
+  it("shows a voice label when a session is live", () => {
+    render(<InsiderCatOverlay voiceState="live" />);
+    expect(screen.getByTestId("insider-cat-voice-label")).toHaveTextContent(
+      "listening",
+    );
+  });
+
+  it("hides the voice label when idle", () => {
+    render(<InsiderCatOverlay voiceState="idle" />);
+    expect(
+      screen.queryByTestId("insider-cat-voice-label"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the call-the-cat affordance only when its handler is given", () => {
+    const { rerender } = render(<InsiderCatOverlay />);
+    expect(
+      screen.queryByTestId("insider-cat-new-conversation"),
+    ).not.toBeInTheDocument();
+
+    const onCallTheCat = vi.fn();
+    rerender(<InsiderCatOverlay onCallTheCat={onCallTheCat} />);
+    expect(
+      screen.getByTestId("insider-cat-new-conversation"),
+    ).toBeInTheDocument();
+  });
+
+  it("taps the cat (primary) and the + (secondary) independently", async () => {
+    const onCall = vi.fn();
+    const onCallTheCat = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <InsiderCatOverlay
+        voiceState="idle"
+        onCall={onCall}
+        onCallTheCat={onCallTheCat}
+      />,
+    );
+    await user.click(screen.getByTestId("insider-cat-avatar"));
+    expect(onCall).toHaveBeenCalledOnce();
+    expect(onCallTheCat).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId("insider-cat-new-conversation"));
+    expect(onCallTheCat).toHaveBeenCalledOnce();
+  });
 });

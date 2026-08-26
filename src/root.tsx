@@ -45,6 +45,7 @@ import { QUERY_KEYS } from "#/hooks/query/query-keys";
 import { AgentServerUIRoot } from "#/components/providers";
 import { TelemetryConsentBanner } from "#/components/features/analytics/telemetry-consent-banner";
 import { InsiderCat } from "#/components/features/insider-cat/insider-cat";
+import { InsiderVoiceHost } from "#/components/features/insider-cat/insider-voice-host";
 import { buildAgentCanvasPath } from "#/utils/base-path";
 import { useOnboardingCompletion } from "#/components/features/onboarding/use-onboarding-completion";
 import { NavigationProvider } from "#/context/navigation-context";
@@ -375,6 +376,7 @@ export default function App() {
   return (
     <>
       <Outlet />
+      <InsiderVoiceHost />
       <InsiderCat />
       <TelemetryConsentBanner />
     </>
