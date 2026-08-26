@@ -67,11 +67,16 @@ function transcriptForPrompt(): string {
  *
  * Mints an ephemeral token from the installed skin server (subscription auth
  * stays server-side), opens a WebRTC call to OpenAI Realtime with the mic, and
- * bridges `ask_the_agent` to the real OpenHands agent brain. The `getContext`
- * callback lets the mount site tell the cat where the user is (which
- * conversation / page), so "continue this" makes sense.
+ * bridges two tools: `ask_the_agent` to the real OpenHands agent brain (a
+ * server round-trip), and `control_canvas` to the local Canvas UI via
+ * `onControl` (navigate, list conversations, drive the board's prompt box). The
+ * `getContext` callback lets the mount site tell the cat where the user is
+ * (which conversation / page), so "continue this" makes sense.
  */
-export function useInsiderVoice(opts: { getContext: () => string }) {
+export function useInsiderVoice(opts: {
+  getContext: () => string;
+  onControl: (args: Record<string, unknown>) => Promise<unknown>;
+}) {
   const [state, setState] = useState<InsiderVoiceState>("idle");
   const [error, setError] = useState<string | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -80,6 +85,8 @@ export function useInsiderVoice(opts: { getContext: () => string }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const getContextRef = useRef(opts.getContext);
   getContextRef.current = opts.getContext;
+  const onControlRef = useRef(opts.onControl);
+  onControlRef.current = opts.onControl;
 
   const stop = useCallback(() => {
     dcRef.current?.close();
@@ -150,13 +157,18 @@ export function useInsiderVoice(opts: { getContext: () => string }) {
         } catch (e) {
           output = { error: String((e as Error).message || e) };
         }
+      } else if (ev.name === "control_canvas") {
+        // Drive the Canvas UI locally: navigate, list conversations, or reach
+        // the board's prompt box. Handled in the overlay (this app), never a
+        // server round-trip. onControl always resolves to a plain result.
+        try {
+          output = await onControlRef.current(args);
+        } catch (e) {
+          output = { error: String((e as Error).message || e) };
+        }
       } else {
-        // get/set_prompt_box only make sense inside the board; harmless no-op
-        // in the overlay so the model gets a clean answer rather than an error
-        // loop.
-        output = {
-          error: "not available from the overlay (open the Secretary board)",
-        };
+        // Unknown tool name — answer cleanly so the model doesn't error-loop.
+        output = { error: `unknown tool: ${ev.name}` };
       }
 
       dc.send(
@@ -178,7 +190,9 @@ export function useInsiderVoice(opts: { getContext: () => string }) {
     setError(null);
     setState("connecting");
     try {
-      const cfg: VoiceConfig = await (await fetch(`${SKIN_API}/voice-config`)).json();
+      const cfg: VoiceConfig = await (
+        await fetch(`${SKIN_API}/voice-config`)
+      ).json();
       const token = await (
         await fetch(`${SKIN_API}/realtime/token`, { method: "POST" })
       ).json();
