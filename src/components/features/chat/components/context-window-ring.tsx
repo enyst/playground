@@ -21,8 +21,6 @@ const CONTEXT_WINDOW_RING_STROKE = 2;
  * surfaces. `context-window-ring.test.tsx` asserts the effective values for
  * every shipped theme.
  */
-export const CONTEXT_WINDOW_RING_TRACK_ALPHA = 0.42;
-
 /** Shared by the ring's track and the popover's usage bar, which had the same defect. */
 export const CONTEXT_WINDOW_TRACK_COLOR =
   "color-mix(in srgb, var(--oh-context-window-foreground) var(--oh-context-window-track-weight), transparent)";

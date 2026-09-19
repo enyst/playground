@@ -1,10 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  ContextWindowRing,
-  CONTEXT_WINDOW_RING_TRACK_ALPHA,
-} from "#/components/features/chat/components/context-window-ring";
+import { ContextWindowRing } from "#/components/features/chat/components/context-window-ring";
 import { COLOR_THEMES } from "#/themes/color-themes";
+import { AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES } from "#/styles/agent-server-ui-style-scope";
 
 /**
  * WCAG 2.1 SC 1.4.11 asks 3:1 for non-text contrast. The ring's track carries
@@ -93,7 +91,6 @@ describe("ContextWindowRing", () => {
     expect(renderedTrackColor()).toContain(
       "var(--oh-context-window-track-weight)",
     );
-    expect(CONTEXT_WINDOW_RING_TRACK_ALPHA).toBe(0.42);
   });
 
   describe.each(Object.entries(COLOR_THEMES))(
@@ -107,9 +104,11 @@ describe("ContextWindowRing", () => {
       const alpha =
         Number.parseFloat(
           theme.tokens?.["--oh-context-window-track-weight"] ??
-            `${CONTEXT_WINDOW_RING_TRACK_ALPHA * 100}%`,
+            AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES[
+              "--oh-context-window-track-weight"
+            ],
         ) / 100;
-      const hoverOverlay = theme.appearance === "light" ? "#000000" : "#FFFFFF";
+      const hoverOverlay = theme.tokens?.["--oh-contrast"] ?? "#FFFFFF";
       const hoverFill = composite(hoverOverlay, surface, HOVER_ALPHA);
 
       it("keeps the track legible against the composer surface", () => {

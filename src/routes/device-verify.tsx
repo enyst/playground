@@ -130,7 +130,7 @@ export default function DeviceVerify() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="max-w-md w-full mx-auto p-6 bg-card rounded-lg shadow-lg">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-contrast mx-auto mb-4" />
             <p className="text-muted-foreground">
               {t(I18nKey.DEVICE$PROCESSING)}
             </p>
@@ -178,7 +178,7 @@ export default function DeviceVerify() {
               <button
                 type="button"
                 onClick={() => processDeviceVerification(userCode)}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white text-on-solid rounded-md hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 {t(I18nKey.DEVICE$AUTHORIZE)}
               </button>
@@ -232,7 +232,7 @@ export default function DeviceVerify() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-contrast mx-auto mb-4" />
           <p className="text-muted-foreground">
             {t(I18nKey.DEVICE$PROCESSING)}
           </p>

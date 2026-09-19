@@ -30,6 +30,8 @@ export const AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES = {
   "--oh-color-content-2": "var(--cool-grey-50)",
   "--oh-background": "var(--cool-grey-950)",
   "--oh-foreground": "var(--cool-grey-100)",
+  "--oh-contrast": "#ffffff",
+  "--oh-contrast-foreground": "#000000",
   "--oh-surface": "var(--cool-grey-925)",
   "--oh-surface-foreground": "var(--cool-grey-100)",
   "--oh-surface-raised": "var(--cool-grey-900)",

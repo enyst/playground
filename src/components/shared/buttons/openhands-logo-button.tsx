@@ -35,7 +35,7 @@ export function OpenHandsLogoButton({
         width={logoWidth}
         height={logoHeight}
         className={cn(
-          "shrink-0 text-white [&_path[fill=white]]:fill-current",
+          "shrink-0 text-contrast [&_path[fill=white]]:fill-current",
           logoClassName,
         )}
       />

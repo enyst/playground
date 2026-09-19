@@ -76,7 +76,7 @@ export function CodeBlock({
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
-          className="self-start text-xs text-muted transition-colors hover:text-white hover:underline"
+          className="self-start text-xs text-muted transition-colors hover:text-contrast hover:underline"
         >
           {toggleLabel}
         </button>

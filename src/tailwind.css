@@ -30,6 +30,8 @@
 
   /* Semantic text aliases */
   --color-foreground: var(--oh-foreground);
+  --color-contrast: var(--oh-contrast);
+  --color-contrast-foreground: var(--oh-contrast-foreground);
   --color-text-secondary: var(--oh-text-secondary);
   --color-text-tertiary: var(--oh-text-tertiary);
   --color-muted: var(--oh-muted);
@@ -77,6 +79,8 @@
   --oh-color-content-2: var(--cool-grey-50);
   --oh-background: var(--cool-grey-950);
   --oh-foreground: var(--cool-grey-100);
+  --oh-contrast: #ffffff;
+  --oh-contrast-foreground: #000000;
   --oh-surface: var(--cool-grey-925);
   --oh-surface-foreground: var(--cool-grey-100);
   --oh-surface-raised: var(--cool-grey-900);  /* elevated within a panel */
@@ -198,72 +202,6 @@ button.extension-module-card-interactive {
   border-color: color-mix(in srgb, var(--oh-foreground) 40%, transparent);
 }
 
-/*
- * Legacy utility compatibility for the two light themes. Much of the UI was
- * originally authored against a dark-only canvas and used white as its
- * primary text/interaction color. Keep those utilities readable while the
- * semantic-token migration continues, without changing solid action buttons.
- */
-:host[data-color-scheme="light"] .text-white:not(.text-on-solid),
-:host[data-color-scheme="light"] .hover\:text-white:not(.text-on-solid):hover,
-:host[data-color-scheme="light"]
-  .hover\:enabled\:text-white:not(.text-on-solid):hover:enabled,
-:host[data-color-scheme="light"]
-  .focus-within\:text-white:not(.text-on-solid):focus-within,
-:host[data-color-scheme="light"]
-  .group:hover
-  .group-hover\:text-white:not(.text-on-solid),
-:host[data-color-scheme="light"]
-  .group:focus-visible
-  .group-focus-visible\:text-white:not(.text-on-solid) {
-  color: var(--oh-foreground);
-}
-
-:host[data-color-scheme="light"] .text-on-solid,
-:host[data-color-scheme="light"] .text-on-solid .text-white {
-  color: #ffffff;
-}
-
-:host[data-color-scheme="light"] [class~="bg-white/5"],
-:host[data-color-scheme="light"] [class~="bg-white/10"],
-:host[data-color-scheme="light"] [class~="bg-white/15"],
-:host[data-color-scheme="light"] [class~="bg-white/[0.03]"],
-:host[data-color-scheme="light"] [class~="bg-white/[0.04]"],
-:host[data-color-scheme="light"] [class~="bg-white/[0.05]"],
-:host[data-color-scheme="light"] [class~="bg-white/[0.08]"],
-:host[data-color-scheme="light"] [class~="bg-white/[0.09]"] {
-  background-color: color-mix(in srgb, var(--oh-foreground) 9%, transparent);
-}
-
-:host[data-color-scheme="light"] [class~="hover:bg-white/5"]:hover,
-:host[data-color-scheme="light"] [class~="hover:bg-white/10"]:hover,
-:host[data-color-scheme="light"] [class~="hover:bg-white/[0.03]"]:hover,
-:host[data-color-scheme="light"] [class~="hover:bg-white/[0.05]"]:hover,
-:host[data-color-scheme="light"] [class~="hover:bg-white/[0.08]"]:hover,
-:host[data-color-scheme="light"] [class~="hover:bg-white/[0.09]"]:hover {
-  background-color: color-mix(in srgb, var(--oh-foreground) 9%, transparent);
-}
-
-:host[data-color-scheme="light"] .border-white {
-  border-color: var(--oh-foreground);
-}
-
-:host[data-color-scheme="light"] [class~="border-white/10"],
-:host[data-color-scheme="light"] [class~="border-white/20"],
-:host[data-color-scheme="light"] [class~="border-white/30"],
-:host[data-color-scheme="light"] [class~="border-white/40"],
-:host[data-color-scheme="light"] [class~="border-white/45"],
-:host[data-color-scheme="light"] [class~="border-white/60"] {
-  border-color: color-mix(in srgb, var(--oh-foreground) 32%, transparent);
-}
-
-:host[data-color-scheme="light"] [class~="focus:ring-white/20"]:focus,
-:host[data-color-scheme="light"]
-  [class~="focus-visible:ring-white/20"]:focus-visible,
-:host[data-color-scheme="light"]
-  [class~="focus-within:ring-white/20"]:focus-within {
-  --tw-ring-color: color-mix(in srgb, var(--oh-focus) 28%, transparent);
-}
 
 .button-base {
   @apply bg-tertiary border border-[var(--oh-border)] rounded-xs;

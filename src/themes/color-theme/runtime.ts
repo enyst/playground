@@ -1,9 +1,5 @@
-import type { AgentServerUICssVariableName } from "#/styles/agent-server-ui-style-scope";
-import {
-  COLOR_THEME_TOKEN_KEYS,
-  type ColorThemeAppearance,
-  type ColorThemeKey,
-} from "./types";
+import { AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES } from "#/styles/agent-server-ui-style-scope";
+import { type ColorThemeKey } from "./types";
 import { COLOR_THEMES, DEFAULT_COLOR_THEME } from "./definitions";
 
 const STORAGE_KEY = "openhands-color-theme";
@@ -15,7 +11,8 @@ export function readPersistedColorTheme(): ColorThemeKey {
   if (typeof window === "undefined") return DEFAULT_COLOR_THEME;
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored && stored in COLOR_THEMES) return stored as ColorThemeKey;
+    if (stored && Object.hasOwn(COLOR_THEMES, stored))
+      return stored as ColorThemeKey;
   } catch {
     // ignore quota / privacy-mode failures
   }
@@ -73,8 +70,7 @@ const THEME_STYLE_TAG_ID = "oh-color-theme-override";
  *   position in <head>; re-appending on each apply keeps document order
  *   favorable as well.
  */
-export function applyColorTheme(key: ColorThemeKey): void {
-  if (typeof document === "undefined") return;
+export function getColorThemeCss(key: ColorThemeKey): string {
   const { appearance, scale, heroui, tokens = {} } = COLOR_THEMES[key];
 
   const scaleDecls = Object.entries(scale)
@@ -85,21 +81,32 @@ export function applyColorTheme(key: ColorThemeKey): void {
     .map(([p, v]) => `  ${p}: ${v};`)
     .join("\n");
 
-  const tokenDecls = Object.entries(tokens)
+  const tokenDecls = Object.entries({
+    ...AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES,
+    "--oh-color-primary": "#c9b974",
+    "--oh-accent": "#c9b974",
+    "--oh-warning": "#c9b974",
+    ...tokens,
+  })
     .map(([p, v]) => `  ${p}: ${v};`)
     .join("\n");
 
   // Target both selectors for heroui vars:
   //   [data-agent-server-ui] — covers document.body (portal destination) so
   //     portalled popover/listbox content inherits the overridden values.
-  //   [data-theme=dark]      — covers the inner AgentServerUIRoot wrapper so
-  //     components scoped inside the dark theme wrapper also pick them up.
+  //   scoped [data-theme] — also covers the server-rendered wrapper before
+  //     React updates its appearance attribute during hydration.
   // Both are doubled to out-specify the base sheet regardless of stylesheet
   // order (see the doc comment above).
-  const css = [
+  return [
     `[data-agent-server-ui][data-agent-server-ui] {\n  color-scheme: ${appearance};\n${scaleDecls}\n${herouiDecls}\n${tokenDecls}\n}`,
-    `[data-theme=${appearance}][data-theme=${appearance}] {\n${herouiDecls}\n}`,
+    `[data-agent-server-ui] [data-theme][data-theme] {\n${herouiDecls}\n}`,
   ].join("\n");
+}
+
+export function applyColorTheme(key: ColorThemeKey): void {
+  if (typeof document === "undefined") return;
+  const css = getColorThemeCss(key);
 
   let styleEl = document.getElementById(
     THEME_STYLE_TAG_ID,
@@ -113,49 +120,19 @@ export function applyColorTheme(key: ColorThemeKey): void {
   // connected node) so the override also stays after any re-inserted <link>.
   document.head.appendChild(styleEl);
 
-  syncColorThemeOnScopeRoots(key, appearance, tokens);
-
   activeColorTheme = key;
+  document.documentElement.style.colorScheme = COLOR_THEMES[key].appearance;
   for (const listener of colorThemeListeners) listener();
 }
 
-function syncColorThemeOnScopeRoots(
-  key: ColorThemeKey,
-  appearance: ColorThemeAppearance,
-  tokens: Partial<Record<AgentServerUICssVariableName, string>>,
-): void {
-  const roots = document.querySelectorAll("[data-agent-server-ui]");
-  for (const root of roots) {
-    if (!(root instanceof HTMLElement)) continue;
-
-    root.dataset.colorTheme = key;
-    root.dataset.colorScheme = appearance;
-    root.style.colorScheme = appearance;
-
-    for (const key of COLOR_THEME_TOKEN_KEYS) {
-      const value = tokens[key];
-      if (value) {
-        root.style.setProperty(key, value);
-      } else {
-        root.style.removeProperty(key);
-      }
-    }
-  }
-
-  const themeRoots = document.querySelectorAll(
-    "[data-agent-server-ui] > [data-theme]",
-  );
-  for (const themeRoot of themeRoots) {
-    if (!(themeRoot instanceof HTMLElement)) continue;
-    const previousAppearance = themeRoot.dataset.theme;
-    themeRoot.dataset.theme = appearance;
-    themeRoot.dataset.colorTheme = key;
-    themeRoot.dataset.colorScheme = appearance;
-    if (previousAppearance === "dark" || previousAppearance === "light") {
-      themeRoot.classList.remove(previousAppearance);
-      themeRoot.classList.add(appearance);
-    }
-  }
-
-  document.documentElement.style.colorScheme = appearance;
-}
+/** Runs in the document head before the body paints or React hydrates. */
+export const COLOR_THEME_BOOTSTRAP_SCRIPT = `(() => {
+  const themes = ${JSON.stringify(Object.fromEntries(Object.keys(COLOR_THEMES).map((key) => [key, { css: getColorThemeCss(key as ColorThemeKey), appearance: COLOR_THEMES[key as ColorThemeKey].appearance }]))).replace(/</g, "\\u003c")};
+  let key = ${JSON.stringify(DEFAULT_COLOR_THEME)};
+  try { const stored = localStorage.getItem(${JSON.stringify(STORAGE_KEY)}); if (Object.hasOwn(themes, stored)) key = stored; } catch {}
+  const style = document.createElement('style');
+  style.id = ${JSON.stringify(THEME_STYLE_TAG_ID)};
+  style.textContent = themes[key].css;
+  document.head.appendChild(style);
+  document.documentElement.style.colorScheme = themes[key].appearance;
+})();`;

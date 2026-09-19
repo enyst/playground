@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AgentServerUIRoot } from "#/components/providers/agent-server-ui-root";
 import {
@@ -55,7 +55,9 @@ describe("color themes", () => {
     expect(styleEl?.textContent).toContain(
       "[data-agent-server-ui][data-agent-server-ui] {",
     );
-    expect(styleEl?.textContent).toContain("[data-theme=dark][data-theme=dark] {");
+    expect(styleEl?.textContent).toContain(
+      "[data-agent-server-ui] [data-theme][data-theme] {",
+    );
 
     styleEl?.remove();
   });
@@ -86,17 +88,17 @@ describe("color themes", () => {
       </AgentServerUIRoot>,
     );
 
-    applyColorTheme("openhands-neo");
+    act(() => applyColorTheme("openhands-neo"));
 
-    const scopeRoot = screen.getByTestId("primary-button").closest(
-      "[data-agent-server-ui]",
-    ) as HTMLElement;
+    const scopeRoot = screen
+      .getByTestId("primary-button")
+      .closest("[data-agent-server-ui]") as HTMLElement;
 
-    expect(scopeRoot.style.getPropertyValue("--oh-color-primary")).toBe(
-      "#ffffff",
-    );
+    expect(
+      getComputedStyle(scopeRoot).getPropertyValue("--oh-color-primary"),
+    ).toBe("#ffffff");
 
-    applyColorTheme("openhands-neutral");
+    act(() => applyColorTheme("openhands-neutral"));
 
     expect(scopeRoot.style.getPropertyValue("--oh-color-primary")).toBe("");
   });
