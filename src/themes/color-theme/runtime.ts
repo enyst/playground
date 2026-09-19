@@ -1,4 +1,3 @@
-import { AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES } from "#/styles/agent-server-ui-style-scope";
 import { type ColorThemeKey } from "./types";
 import { COLOR_THEMES, DEFAULT_COLOR_THEME } from "./definitions";
 
@@ -28,9 +27,9 @@ export function persistColorTheme(key: ColorThemeKey): void {
   }
 }
 
-/** The theme currently applied to the page, or the persisted preference. */
+/** Applied theme only: embedded roots must not adopt unapplied app preferences. */
 export function getActiveColorTheme(): ColorThemeKey {
-  return activeColorTheme ?? readPersistedColorTheme();
+  return activeColorTheme ?? DEFAULT_COLOR_THEME;
 }
 
 export function subscribeColorTheme(listener: () => void): () => void {
@@ -81,13 +80,9 @@ export function getColorThemeCss(key: ColorThemeKey): string {
     .map(([p, v]) => `  ${p}: ${v};`)
     .join("\n");
 
-  const tokenDecls = Object.entries({
-    ...AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES,
-    "--oh-color-primary": "#c9b974",
-    "--oh-accent": "#c9b974",
-    "--oh-warning": "#c9b974",
-    ...tokens,
-  })
+  // Omitted tokens fall back to the base/consumer stylesheet. Replacing this
+  // tag on selection removes the previous palette's overrides automatically.
+  const tokenDecls = Object.entries(tokens)
     .map(([p, v]) => `  ${p}: ${v};`)
     .join("\n");
 

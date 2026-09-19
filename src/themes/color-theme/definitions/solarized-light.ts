@@ -76,7 +76,7 @@ const SOLARIZED_LIGHT_TOKENS: Partial<
   "--oh-contrast-foreground": "#FDF6E3",
   "--oh-surface": "#EEE8D5",
   "--oh-surface-foreground": "#586E75",
-  "--oh-surface-raised": "#E6DFCC",
+  "--oh-surface-raised": "#F0E9D6",
   "--oh-surface-deep": "#E6DFCC",
   "--oh-overlay": "#FDF6E3",
   "--oh-overlay-foreground": "#586E75",

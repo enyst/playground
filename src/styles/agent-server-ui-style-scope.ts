@@ -14,6 +14,7 @@ export const AGENT_SERVER_UI_THEMEABLE_BRAND_VARIABLES = [
 export type AgentServerUIThemeableBrandVariable =
   (typeof AGENT_SERVER_UI_THEMEABLE_BRAND_VARIABLES)[number];
 
+/** Public token reference; defaults are applied by CSS, never inlined by the root. */
 export const AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES = {
   // Brand/button colors (--oh-color-primary, --oh-accent, --oh-warning) live in
   // tailwind.css and are overridden at runtime by applyColorTheme(); keep them

@@ -8,7 +8,6 @@
  * Consumers import from here, not from the internals.
  */
 export {
-  COLOR_THEME_TOKEN_KEYS,
   type ColorThemeAppearance,
   type ColorThemeDefinition,
   type ColorThemeKey,

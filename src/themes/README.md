@@ -26,6 +26,11 @@ them; changing the page background alone is not a complete theme.
 - The stylesheet owns theme defaults. `AgentServerUIRoot` owns its React
   attributes and preserves caller `styleOverrides` / `style` inline. The
   runtime must never erase or rewrite those caller-owned properties.
+- Runtime CSS includes only palette overrides, not a second copy of base
+  defaults. Omitted tokens continue to resolve from the base/host stylesheet.
+- Embedded roots use the default appearance until a palette has actually been
+  applied; a stored Canvas preference alone must not select an unstyled light
+  wrapper. The application owns loading and applying its saved preference.
 - The head bootstrap uses the same CSS generator before hydration, including
   when storage is unavailable or contains an obsolete key.
 - Use surface/foreground tokens for ordinary content. `contrast` is the

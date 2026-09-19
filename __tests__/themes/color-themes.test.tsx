@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { AgentServerUIRoot } from "#/components/providers/agent-server-ui-root";
 import {
   AVAILABLE_COLOR_THEMES,
@@ -8,6 +8,28 @@ import {
 } from "#/themes/color-themes";
 
 describe("color themes", () => {
+  afterEach(() => {
+    document
+      .querySelectorAll("style[data-theme-test]")
+      .forEach((el) => el.remove());
+  });
+
+  it("leaves omitted tokens owned by consumer stylesheets", () => {
+    const sheet = document.createElement("style");
+    sheet.dataset.themeTest = "";
+    sheet.textContent =
+      "[data-agent-server-ui] { --oh-color-primary: #123456; --oh-radius: 12px; }";
+    document.head.appendChild(sheet);
+    render(
+      <AgentServerUIRoot data-testid="consumer-scope">
+        Canvas
+      </AgentServerUIRoot>,
+    );
+    act(() => applyColorTheme("openhands-neutral"));
+    const style = getComputedStyle(screen.getByTestId("consumer-scope"));
+    expect(style.getPropertyValue("--oh-color-primary")).toBe("#123456");
+    expect(style.getPropertyValue("--oh-radius")).toBe("12px");
+  });
   it("includes OpenHands-Neo as a neutral-based theme with white button tokens", () => {
     const neo = COLOR_THEMES["openhands-neo"];
 
@@ -80,6 +102,11 @@ describe("color themes", () => {
   });
 
   it("applies Neo button tokens on the scoped UI root used by primary buttons", () => {
+    const baseSheet = document.createElement("style");
+    baseSheet.dataset.themeTest = "";
+    baseSheet.textContent =
+      "[data-agent-server-ui] { --oh-color-primary: #c9b974; }";
+    document.head.appendChild(baseSheet);
     render(
       <AgentServerUIRoot>
         <button type="button" data-testid="primary-button">
@@ -100,6 +127,8 @@ describe("color themes", () => {
 
     act(() => applyColorTheme("openhands-neutral"));
 
-    expect(scopeRoot.style.getPropertyValue("--oh-color-primary")).toBe("");
+    expect(
+      getComputedStyle(scopeRoot).getPropertyValue("--oh-color-primary"),
+    ).toBe("#c9b974");
   });
 });

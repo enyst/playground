@@ -202,7 +202,6 @@ button.extension-module-card-interactive {
   border-color: color-mix(in srgb, var(--oh-foreground) 40%, transparent);
 }
 
-
 .button-base {
   @apply bg-tertiary border border-[var(--oh-border)] rounded-xs;
 }

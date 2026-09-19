@@ -1,8 +1,4 @@
-import {
-  AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES,
-  AGENT_SERVER_UI_THEMEABLE_BRAND_VARIABLES,
-  type AgentServerUICssVariableName,
-} from "#/styles/agent-server-ui-style-scope";
+import type { AgentServerUICssVariableName } from "#/styles/agent-server-ui-style-scope";
 
 export type ColorThemeKey =
   | "openhands-deepsea"
@@ -30,9 +26,3 @@ export interface ColorThemeDefinition {
   /** Overrides for --oh-* semantic tokens such as brand / button colors. */
   tokens?: Partial<Record<AgentServerUICssVariableName, string>>;
 }
-
-/** CSS custom properties overridden by color themes (see applyColorTheme). */
-export const COLOR_THEME_TOKEN_KEYS = [
-  ...Object.keys(AGENT_SERVER_UI_DEFAULT_CSS_VARIABLES),
-  ...AGENT_SERVER_UI_THEMEABLE_BRAND_VARIABLES,
-] as AgentServerUICssVariableName[];

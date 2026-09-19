@@ -73,7 +73,7 @@ export const LIGHT_PLUS_TOKENS: Partial<
   "--oh-contrast-foreground": "#FFFFFF",
   "--oh-surface": "#F3F3F3",
   "--oh-surface-foreground": "#1F1F1F",
-  "--oh-surface-raised": "#E5E5E5",
+  "--oh-surface-raised": "#EEEEEE",
   "--oh-surface-deep": "#E8E8E8",
   "--oh-overlay": "#FFFFFF",
   "--oh-overlay-foreground": "#1F1F1F",
