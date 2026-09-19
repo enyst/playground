@@ -210,3 +210,22 @@ npm test -- --maxWorkers=2 \
 `npm run check-translation-completeness` and `npm run build:app` also passed.
 The build reports existing dependency sourcemap and chunking warnings. No new
 provider or microphone session was needed for these publication checks.
+
+## Upstream integration (September 19, 2026)
+
+Merged upstream `a07364828c8f202e7745c6bce3dcef3915ae7ac1` into the tested
+Insider branch without rewriting history. The two textual conflicts were
+resolved by retaining both translation additions and following upstream's
+conversation-service test split. The Insider parent/tag assertion now lives in
+`agent-server-conversation-service-regressions.test.ts`; moved upstream tests
+were not duplicated.
+
+The integrated tree passed 514 focused tests across 23 files, with one existing
+TODO. This includes the original Insider host/UI coverage plus conversation
+service regressions, compaction, history loading, websocket routing, and
+conversation status integration. Validation used the updated upstream lockfile
+with TypeScript client 1.49.2 and extensions 0.22.1. The running test instance was
+left unchanged during this isolated integration.
+
+Type checking, changed-source ESLint/Prettier, translation completeness, and
+`npm run build:app` also passed after the merge.
