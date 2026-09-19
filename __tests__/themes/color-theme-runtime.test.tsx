@@ -84,6 +84,10 @@ describe("color themes", () => {
   it.each(["light-plus", "solarized-light", "openhands-neutral"] as const)(
     "bootstraps %s before React mounts",
     (key) => {
+      // Reproduce the prerendered dark wrapper while app initialization waits.
+      render(<AgentServerUIRoot data-testid="shell">Canvas</AgentServerUIRoot>);
+      const wrapper = screen.getByTestId("shell").firstElementChild!;
+      expect(wrapper).toHaveAttribute("data-theme", "dark");
       localStorage.setItem("openhands-color-theme", key);
       document.getElementById("oh-color-theme-override")?.remove();
       window.eval(COLOR_THEME_BOOTSTRAP_SCRIPT);
@@ -93,6 +97,17 @@ describe("color themes", () => {
       expect(document.documentElement.style.colorScheme).toBe(
         key === "openhands-neutral" ? "dark" : "light",
       );
+      // A later base sheet must not restore HeroUI's dark native controls.
+      const heroSheet = document.createElement("style");
+      heroSheet.textContent = ".dark { color-scheme: dark; }";
+      document.head.appendChild(heroSheet);
+      try {
+        expect(getComputedStyle(wrapper).colorScheme).toBe(
+          key === "openhands-neutral" ? "dark" : "light",
+        );
+      } finally {
+        heroSheet.remove();
+      }
     },
   );
 

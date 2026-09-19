@@ -90,12 +90,13 @@ export function getColorThemeCss(key: ColorThemeKey): string {
   //   [data-agent-server-ui] — covers document.body (portal destination) so
   //     portalled popover/listbox content inherits the overridden values.
   //   scoped [data-theme] — also covers the server-rendered wrapper before
-  //     React updates its appearance attribute during hydration.
+  //     React updates its appearance attribute during hydration. Set its
+  //     color-scheme too: HeroUI's .dark rule otherwise wins over inheritance.
   // Both are doubled to out-specify the base sheet regardless of stylesheet
   // order (see the doc comment above).
   return [
     `[data-agent-server-ui][data-agent-server-ui] {\n  color-scheme: ${appearance};\n${scaleDecls}\n${herouiDecls}\n${tokenDecls}\n}`,
-    `[data-agent-server-ui] [data-theme][data-theme] {\n${herouiDecls}\n}`,
+    `[data-agent-server-ui] [data-theme][data-theme] {\n  color-scheme: ${appearance};\n${herouiDecls}\n}`,
   ].join("\n");
 }
 
