@@ -87,7 +87,7 @@ function renderRuntime(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
       <ActiveBackendProvider>
         <MemoryRouter>
@@ -103,6 +103,7 @@ function renderRuntime(
       </ActiveBackendProvider>
     </QueryClientProvider>,
   );
+  return { ...rendered, queryClient };
 }
 
 describe("CanvasExtensionsRuntimeProvider", () => {
@@ -146,6 +147,24 @@ describe("CanvasExtensionsRuntimeProvider", () => {
     );
 
     rendered.unmount();
+    expect(disposeActivation).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-activates an extension refreshed without a version change", async () => {
+    const disposeActivation = vi.fn();
+    const moduleLoader = vi.fn().mockResolvedValue({
+      activate: () => disposeActivation,
+    });
+
+    const { queryClient } = renderRuntime(moduleLoader);
+    await waitFor(() => expect(moduleLoader).toHaveBeenCalledTimes(1));
+
+    vi.mocked(CanvasExtensionsService.listInstalled).mockResolvedValue([
+      { ...extension, installed_at: "2026-08-02T00:00:00Z" },
+    ]);
+    await queryClient.invalidateQueries();
+
+    await waitFor(() => expect(moduleLoader).toHaveBeenCalledTimes(2));
     expect(disposeActivation).toHaveBeenCalledTimes(1);
   });
 
