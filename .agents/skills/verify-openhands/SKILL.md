@@ -138,7 +138,9 @@ control-openhands stop                         # stops only this run; evidence s
   still a leak.
 - **Cleanup** with `control-openhands stop` (add `--purge-private` to delete keys
   and state once you have checked the evidence). It only signals the process
-  group it launched and verifies the ports closed. Delete run-owned fixtures
+  group it launched and verifies the ports closed. On Linux, a group containing
+  only exited, unreaped zombies counts as stopped; unreadable process state
+  stays conservatively alive. Delete run-owned fixtures
   through the UI when deletion is the path under test.
 
 ## LLM budget
