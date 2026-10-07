@@ -1,0 +1,508 @@
+[
+  {
+    "run": "2026-10-07T2130-35170d",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 6694,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 6983,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 3
+  },
+  {
+    "run": "2026-10-07T2131-3cbdf2",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 8674,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 8872,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 15
+  },
+  {
+    "run": "2026-10-07T2140-0f3b48",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 25047,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 25235,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 13
+  },
+  {
+    "run": "bootstrap",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 2143,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 2416,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 3
+  },
+  {
+    "run": "bootstrap-proof",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 3238,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 3455,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 5
+  },
+  {
+    "run": "current",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 45632,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 45766,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 6
+  },
+  {
+    "run": "f01-primary",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 7246,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 23285,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 11
+  },
+  {
+    "run": "f01-public-a",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 25610,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 26390,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 3
+  },
+  {
+    "run": "f01-public-b",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 40780,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 47678,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 8
+  },
+  {
+    "run": "f05-independent",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 22163,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 22376,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 23
+  },
+  {
+    "run": "f05-primary",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 4505,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 20296,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 72
+  },
+  {
+    "run": "f07-independent",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 32915,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 33148,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 8
+  },
+  {
+    "run": "f08-independent",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 39252,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 39379,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 15
+  },
+  {
+    "run": "f24-independent",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 44843,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 36326,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 21
+  },
+  {
+    "run": "f24-independent-old",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 45632,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 45766,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 6
+  },
+  {
+    "run": "f24-old-backend",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 20793,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 21606,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 4
+  },
+  {
+    "run": "f24-primary",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 17448,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 3735,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 25
+  },
+  {
+    "run": "f25-independent",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 27764,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 27959,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 40
+  },
+  {
+    "run": "f25-independent-secondary",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 40356,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": null,
+        "state": "gone"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 0
+  },
+  {
+    "run": "f25-primary",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 4016,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 20008,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 50
+  },
+  {
+    "run": "f25-secondary",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 16460,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": null,
+        "state": "gone"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 0
+  },
+  {
+    "run": "shutdown-after-independent",
+    "processes": [
+      {
+        "kind": "launcherPid",
+        "pid": 14310,
+        "state": "Z"
+      },
+      {
+        "kind": "browserPid",
+        "pid": 14705,
+        "state": "Z"
+      }
+    ],
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidence_files": 3
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "scenario": "Key saved through UI; next UI sync completed BEFORE any individual automation edit",
+  "beforeHead": "80a33a5f2d4c2296f6cf7b5581010c32e33139f7",
+  "afterHead": "80a33a5f2d4c2296f6cf7b5581010c32e33139f7",
+  "yaml": "agent_profile_id: null\nenabled: false\nentrypoint: .venv/bin/python main.py\nkeep_alive: null\nmodel: null\nname: QA_F24 Sync\nobservability_associations: null\npreset_metadata:\n  preset_type: prompt\n  prompt: QA git sync fixture; never runs.\nprompt: QA git sync fixture; never runs.\nsetup_script_path: setup.sh\nstate: INACTIVE\ntarball_executables:\n- setup.sh\ntarball_source:\n  type: internal\n  url: null\ntimeout: 600\ntrigger:\n  destination: dispatch_run\n  filter: null\n  'on': qa.f24.never\n  source: qa-f24\n  subject_key_expr: null\n  turn_text_expr: null\n  type: event\n  wake_agent: true",
+  "automationPin": "1.19.0"
+}

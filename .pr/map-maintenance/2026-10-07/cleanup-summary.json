@@ -1,0 +1,7 @@
+{
+  "owned_groups": 40,
+  "live_owned_members": [],
+  "all_owned_ports_closed": true,
+  "evidence_retained": true,
+  "note": "Exited Linux zombies await container PID1 reaping; they hold no running stack or port."
+}

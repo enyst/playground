@@ -1,0 +1,56 @@
+{
+  "source": "Actual read-only git command output from retained run-owned remote fixture after live UI cycles; no model usage",
+  "checks": [
+    {
+      "command": [
+        "git",
+        "-C",
+        "/workspace/scratch/map-maintenance-2026-10-07/runs/f24-primary/workspace/qa-sync-remote",
+        "log",
+        "--format=%H %s",
+        "qa-sync"
+      ],
+      "exit_code": 0,
+      "stdout": "82db0804f8a698719c369930b9851dc0b21835b9 Sync automations from agent server\na240e1a4d493759bcb934dc7c03af1e8cd709633 Sync automations from agent server\n73a008101a762b53c7f6ff8ae5793074c7d91992 Sync automations from agent server\nc1b1b8b6d12bdeac717d4eacfe2a6f0a92659756 Sync automations from agent server\nbd34284e0febf1c0e00dff490779d1045b19d808 Sync automations from agent server\na96abef931b60905ec8f1f5b44faa39dbcae83b5 Initial fixture commit\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "/workspace/scratch/map-maintenance-2026-10-07/runs/f24-primary/workspace/qa-sync-remote",
+        "show",
+        "c1b1b8b:qa-automations/qa-f24-sync/automation.yaml"
+      ],
+      "exit_code": 0,
+      "stdout": "agent_profile_id: null\nenabled: false\nentrypoint: .venv/bin/python main.py\nkeep_alive: null\nmodel: null\nname: QA_F24 Sync\nobservability_associations: null\npreset_metadata:\n  preset_type: prompt\n  prompt: QA git sync fixture; never runs.\nprompt: QA git sync fixture; never runs.\nsetup_script_path: setup.sh\nstate: INACTIVE\ntarball_executables:\n- setup.sh\ntarball_source:\n  type: internal\n  url: null\ntimeout: 600\ntrigger:\n  destination: dispatch_run\n  filter: null\n  'on': qa.f24.never\n  source: qa-f24\n  subject_key_expr: null\n  turn_text_expr: null\n  type: event\n  wake_agent: true\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "/workspace/scratch/map-maintenance-2026-10-07/runs/f24-primary/workspace/qa-sync-remote",
+        "show",
+        "73a0081:qa-automations/qa-f24-sync/automation.yaml"
+      ],
+      "exit_code": 0,
+      "stdout": "gAAAAABqxrpCJGlwhBgy8oDNXAYu-L-k31g87fF9g5Xj8ycbbo3l9pJw9G0bJ6XHATQn46BVtVKl99egJQu2DYsh0qA0eWNkg0ouwBun4_lGZ5Sb3NiEF59gddqgJNls3PND9-mPrSokoi78eLc5lZsURvsjJko61DrXVZmZnxumCXnaszmzq7VgMfHTcC5Uy0_ervarXwy9VdVWzu4IXIaw_pZ8dalvD9lXOLAQi_7kqPdkxYC465QUdeOKuCvJDMvWrTQPYKSfmfARIZ3IzJocd_A3cTQottIwphgk-LTeIi51DiVfIbGju7OdkTJ3tfPGTCwb8YF8oFhbwNqVlZKISsZXB0wlhDwx9OZvA09738L73hd4X40AkC-ulMkx6hwgYdllRMX_H09jez4PSCP81ucDdMvGfkSh23OpVNx4g0J88b_nZ1g96zDy7ymeHP_VceDEjOUM6XD-YL6HlVqJkGapPw7cjlzXLEjABWOx58GGeVML8qVcmhjsysSby9ZxYSDO_rJvo1euY51v9_bvHxq0ezBJVJ6tXa34kFZTXnvFH4P8Fvjhzb5kOXCOHD8sEC9HTpXfvSGmKfBHvV7dfw4fWC2JnnbuzY3qaSkr5FOR4rXlneYEwevCor-s4ArtWSTETo4Pm--9dGxwXEbrIt2HjQ9_8DGX5OWDfRIOKTJXEoFt74Cso1puTgTVge5KFsaqCbw7dzmqyqBKeMyKq9qQPy2grpQtOu4Cd1EHnpRcRnwO_HdwKmxucPUxBH0cnnFBJgvzES8zord6OBsCTRcf4o_cPFtBUK5ZUiXvL5SSSKhtZhFHAcljTBnt_ZdiVepA3b0I9DzXovgjmTzjjq-pkacZkB5BpF6VG1i-lpujWPDTV4zZxpB5dWl21L5b_0ziIuY4b_7Ax-XQqBOdnkftQ0DZFaTPxFj45hLzY3FvqMHnVHYY9q5p9AYz3n7ZcNsXD_xDDypZOrHqWsoDzx6zPvq-_18cS5NCC5asnC1NTo1pkqOzzNTAIEJbvhJZz3hCFShiUYPXGbdJLZGSfrc5EHo7qAkb-WodiLhZk7FzniMXiNU-uY0VqTzyNG6APU_h1ncYnjTjb6rsCtRVEDAMO4JpmQ==",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "/workspace/scratch/map-maintenance-2026-10-07/runs/f24-primary/workspace/qa-sync-remote",
+        "ls-tree",
+        "-r",
+        "--name-only",
+        "82db080"
+      ],
+      "exit_code": 0,
+      "stdout": "README.md\nsrc/calc.py\nsrc/test_calc.py\n",
+      "stderr": ""
+    }
+  ]
+}

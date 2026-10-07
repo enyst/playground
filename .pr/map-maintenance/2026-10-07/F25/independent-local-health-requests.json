@@ -1,0 +1,117 @@
+{
+  "ok": true,
+  "total": 41,
+  "byOrigin": {
+    "http://127.0.0.1:18870": 41
+  },
+  "recent": [
+    {
+      "ts": "2026-10-07T21:47:00.153Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:00.205Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:02.969Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:03.115Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:03.183Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:14.872Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:44.888Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:56.875Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:57.409Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:57.485Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:47:57.549Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    },
+    {
+      "ts": "2026-10-07T21:48:27.601Z",
+      "origin": "http://127.0.0.1:18870",
+      "path": "/server_info",
+      "method": "GET",
+      "type": "fetch",
+      "app": false,
+      "status": 200
+    }
+  ]
+}

@@ -272,10 +272,12 @@ Several pages are shared. Each behavior has one owner; the others reference its 
 
 ## Not mapped
 
-Everything else a user can reach is mapped. These are left out on purpose:
+These surfaces remain excluded or need the prerequisites below before a live recipe can be mapped:
 
 - `src/components/features/context-menu`: a shared menu primitive, not a feature of its own. Its behavior is checked through the menus that use it (F04, F07, F21, F27).
 - OpenHands Cloud behavior (Cloud login and device flow, organizations, sharing, task URLs, sandbox pause): needs a Cloud account. The recipes are written up to that point and recorded as `blocked` (for example `F07.cloud-only` and the Cloud rows of F25).
+- Enterprise Super Admin setup guide (`src/components/features/setup-guide/`, added by [#17969](https://github.com/OpenHands/OpenHands/pull/17969)): not mapped live. Requires a reachable Enterprise Cloud deployment with Super Admin enabled, the first Super Admin account with `manage_super_admins`, and `/api/admin/setup-state` returning a non-null `guide_org_id` and `guide_steps`, `guide_dismissed: false`, and at least one incomplete required step. Progress checks also need permission to configure that organization's LLM, MCP integration, automation and invitations. Standalone and locked-to-Cloud deployments have distinct link behavior. Local absence does not verify these paths.
+- Cloud organization and membership suspension recovery (F25; [#17988](https://github.com/OpenHands/OpenHands/pull/17988)): not mapped live. Requires authenticated Cloud fixtures returning real 403 responses with `Organization is suspended` and `User membership is suspended`, a second accessible organization for recovery, and a case with no alternative organization. Also check switching organizations while the original request is pending; a late response must not suspend the new selection. A Local backend or synthetic response cannot verify this boundary.
 - Locked-to-Cloud deployments: `scripts/static-server.mjs --lock-to-cloud` exists, but `bin/agent-canvas.mjs` does not forward it, so `control-openhands launch` cannot start that mode.
 - Page-local load errors (for example the LLM profiles or apps list failing while the rest of the backend works) need fault injection; stopping a service with `service stop` replaces the whole app with the backend-unavailable screen instead. The pages' empty and error copy is mapped where reachable.
 - Real microphone dictation, native file dialogs outside the browser, and Electron window chrome beyond what F26 drives.

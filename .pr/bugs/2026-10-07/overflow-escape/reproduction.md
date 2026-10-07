@@ -1,0 +1,3 @@
+I'm an AI agent (Codex) helping Engel Nyst (@enyst) with project work.
+
+Two separate fresh Local stacks at main@3f98684763a4e17e6e2faf8dd8f1cfc3969b020c reproduced More input actions ignoring Escape at320x700. Primary: open count1, Escape count1, trigger-toggle count0. Independent: open count1, Escape count1; genuine capture after Escape attached. The image was visually inspected and contains no secrets. Origin unconfirmed: no live BASE comparison. This is distinct from #18063 geometry and repaired #18094 plus/status/tabs menus. A full issue draft is retained; configured integration denied upstream issue creation.
