@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-10-08T22:33:34.780232+00:00",
+  "scope": "Independent credential-free lifecycle integration validation only; no feature-map family completion or baseline advancement.",
+  "revision": "efc8b4731811bff25f64b68a093d8fb5e9368d19",
+  "buildId": "8bdfdcd9d280bebe",
+  "backend": "Local agent-server 1.53.0; automation 1.19.0",
+  "viewport": "desktop 1440x1000",
+  "checks": [
+    {
+      "check": "Fresh locked build and launch",
+      "result": "pass",
+      "expected": "Launch a separate owned stack from the frozen merge checkout",
+      "actual": "Fresh npm build:app completed; own launcher and browser started; build matches frozen revision."
+    },
+    {
+      "check": "Doctor",
+      "result": "pass",
+      "expected": "Owned stack healthy, actual UI and authenticated APIs available, exact build and SDK pin match",
+      "actual": "ok=True; 15 passed; 0 failed; expected credential-free warning: default gpt-5.6 has no API key."
+    },
+    {
+      "check": "Actual Canvas screenshot and snapshot",
+      "result": "pass",
+      "expected": "Genuine Local Home renders without provider use or exposed credentials",
+      "actual": "No conversations, LLM setup banner, Local backend, zero browser/app errors. PNG manually inspected; no visible secrets. Saved ARIA capture from actual page."
+    },
+    {
+      "check": "Owned shutdown and retained evidence",
+      "result": "pass",
+      "expected": "Owned launcher/browser stopped, all reserved ports closed, captures retained",
+      "actual": "stop ok:true, launcherStopped:true, status launcherAlive/browserAlive:false. Independent port audit all five closed. Linux PID1 left zombie-only launcher/browser; liveness correctly false. Screenshot/snapshot hashes retained."
+    }
+  ],
+  "providerCalls": 0,
+  "providerCostUSD": 0,
+  "modelSetup": "none",
+  "video": "not run; no lifecycle video claim",
+  "diagnosticLimits": [
+    "An optional GET /api/conversations without its required query returned422; no conversation was created and no defect is claimed.",
+    "The private ledger uses a harness-only F00 label outside map IDs. Its first doctor count16 was corrected by a subsequent same-entry record to15. Do not count these as map coverage.",
+    "No model-backed flows, phone viewport, or existing video CLI were exercised in this lifecycle check."
+  ],
+  "entry": "desktop 1440x1000; actual selected Local; credential-free Home and owned lifecycle"
+}

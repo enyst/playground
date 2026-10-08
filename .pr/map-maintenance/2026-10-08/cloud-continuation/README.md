@@ -1,0 +1,42 @@
+I'm an AI agent (Codex) helping Engel Nyst (@enyst) with project work.
+
+# Hosted-cloud continuation, 2026-10-08
+
+Partial DELTA maintenance. Accepted BASE remains `ed815e141409c7b52991ab8d13c553b595da9165`. Canonical main was fetched and frozen at TARGET `3500d9e5c7cbdfb5a2cbfe9499ce4448eb10c0a2`: 25 first-parent commits and 132 changed paths since BASE. Shared consumers still affect F01–F27; 739 IDs are inventory, not verified coverage. Current-target family and issue-closure reconciliation is incomplete, so no baseline advancement is proposed.
+
+The existing unapproved routine PR is [OpenHands/OpenHands#18183](https://github.com/OpenHands/OpenHands/pull/18183), upstream branch `claude/clever-cori-2n9yrr`, inspected head `01037c310c30d259f394f663388b83aac849d1c5`. Its 16 PR-specific commits were authored by enyst; no unrelated contributor or current-head approval was found. Merge `efc8b4731811bff25f64b68a093d8fb5e9368d19` retains its history, video harness, newer map rows and evidence while integrating canonical main. There is no product-code delta against TARGET. Existing HUMAN text is preserved exactly.
+
+## New corrections and scoped proof
+
+| Correction / selected entry | Expected and actual | Result / limits |
+|---|---|---|
+| Skill CLI Linux shutdown | An exited zombie-only owned group should count as stopped. Two independent credential-free runs of the original CLI returned `launcherStopped:false` after all owned ports closed. The corrected helper excludes proven exited processes, while live/unknown members and reused-command ownership refusals stay protected. | Earlier fresh corrected runs passed; [reproduction, before/after captures and process output](../../../bugs/2026-10-07/zombie-shutdown/reproduction.md). Origin unconfirmed: no pre-BASE live regression run. Current integration bootstrap/closeout is recorded below. |
+| `F05.slash-goal`, existing Local conversation, desktop 1440×1000 and phone 390×844 | Bare `/goal` + Enter with suggestions open only completes `/goal `. Escape, suggestion count 0, then Enter produces the required-objective toast. | Corrected recipe passed on primary and independent fresh stacks at historical product TARGET `3f98684763a4e17e6e2faf8dd8f1cfc3969b020c`. No claim of current-target full-family coverage or model execution. |
+| `F05.slash-btw`, `F05.slash-model`, same Local entry/viewports | Bare `/btw` validates the missing question; bare `/model` lists the one saved profile. | Six primary and six independent slash checks passed in total, including `/goal`. Usage stayed empty and MessageEvents stayed 0 before/after every check. No mocked model response. |
+| `F25.device-verify-page`, Local `/oauth/device/verify`, both viewports | Invented `QA-0000` submitted only to loopback: Continue/Authorize show the expected 404 Error, retry restores the appropriate form, Cancel leaves the manually opened tab unchanged. | Primary two complete viewport sequences and independent six subchecks passed at the historical target. External OAuth requests 0. This does not prove genuine Cloud authorization. |
+
+[Primary slash report](F05-primary/report.md), [primary accounting](F05-primary/zero-call-accounting.json), [independent accounting](F05-independent/accounting.json), [local device requests](F25/primary-local-posts.json), [independent device requests](F25/independent-local-posts.json) and [external OAuth count](F25/independent-external-oauth.json) retain exact scope. All copied images were visually inspected and copied without alteration. `QA-0000` is invented fixture text; screenshots expose only key-presence text, never the key.
+
+These records come from the earlier confirmed-check continuation, not new product verification after the merge. They do not erase blocked model-dependent `/goal`, `/btw`, plan/code, Cloud, Enterprise or other family recipes. The earlier 228-result report and the existing PR's own F03/F24 ledgers remain distinct historical scopes; their totals are not added together.
+
+## Cloud, credentials, budget and gates
+
+Execution is entirely on OpenAI's hosted Linux cloud, with shell, locked npm dependencies, Node24.19.0, npm11.9.0, uv0.12.19 and discovered `/usr/bin/chromium`. Inherited session proxy and configured CA trust remain enabled. No Mac, workaround service, alternate paid provider or mocked LLM was used.
+
+Engel explicitly identified `GITHUB_TOKEN_ENYST`. Selected command-scoped authentication verifies login `enyst`; the default `GH_TOKEN` is a different credential. No global auth configuration changed or token value was printed. The selected token still received `GraphQL: Resource not accessible by integration (createIssue)` when filing the prepared deduplicated zombie-shutdown issue. API reads report repository permissions, but that does not establish permission for the denied write. No alternate API/credential route was used to bypass this denial. The issue remains unfiled. The overflow Escape defect is already [#18172](https://github.com/OpenHands/OpenHands/issues/18172), so no duplicate was attempted.
+
+Incremental paid calls for the confirmed slash/device checks and current integration: 0; incremental spend USD0. Earlier in this run, six genuine bounded cheap DeepSeek Flash calls reported SDK cost USD0.000728664, with a conservative no-cache estimate about USD0.0061. The USD10 shared cap is retained; no model-backed work proceeds without a confident bound. Existing PR-run accounting is preserved separately in its earlier report.
+
+Static integration gates passed: 58/58 scoped CLI tests, map check27families/739IDs, coverage30routes/29featurecomponentdirectories, testids1000, baseline and affected. These are static/regression checks, not live UI or model proof. The unmatched `playwright.live.config.ts` is test-runner configuration, not an unmapped user entry point; current new behavior and shared consumers still require their recorded live checks.
+
+The four confirmed-check stacks were stopped with all20owned ports closed and reviewed evidence retained ([audit](confirmed-checks-cleanup.json)). Full private ledgers, credentials and state remain outside GitHub. Lifecycle temporal recording and remaining current-target independent family checks are still absent; the PR stays draft and BASE stays unchanged.
+
+## Current integration live closeout
+
+Independent fresh `launch --new` at merge `efc8b4731811bff25f64b68a093d8fb5e9368d19`, build `8bdfdcd9d280bebe`, passed doctor with real Agent Server1.53.0 and automation1.19.0. Entry: **desktop1440×1000, selected Local, credential-free Home**. [Reviewed Canvas capture](lifecycle/desktop-local-home.png) shows the real running app and no configured LLM. [Doctor](lifecycle/continuation-doctor.json) verifies serving build identity, authenticated/unauthenticated boundaries and UI load. No LLM profile or conversation was run.
+
+[Stop](lifecycle/continuation-stop.json) returned `ok:true`, `launcherStopped:true`, browser stopped and all five owned ports closed, without forcing. [Independent process/port audit](lifecycle/continuation-final-process-audit.json) found only exited zombie launcher/browser processes, helper liveness false, no live owned group, and retained screenshot/snapshot hashes. The complete private ledger remains outside GitHub. This is genuine static Canvas plus process-state proof; no temporal recording is claimed. The fresh bootstrap/shutdown check passes; the video prerequisite and full affected-family coverage remain unfinished.
+
+[Refreshed linked issue/review state](linked-issue-refresh.json): #18172/#18173/#18178/#18181 remain open and their fix PRs unmerged; automation#551 remains closed upstream but the earlier bundled1.19.0 failure is preserved. #18092 is open and ready-for-dev, suitable as a related tracker, with its broader criteria incomplete. The existing PR has no approval, both earlier bot threads are resolved, and no unanswered current thread was found. No repeated review request was sent.
+
+[Three-commit intent supplement](new-main-intent.json) resolves #18162, #17665 and #18047 through commit/PR associations and quotes intended behavior separately from live results. The newly merged Cloud resume fix closes #17664, but its genuine authenticated paused-sandbox/retry boundary is blocked here; no fixed claim or failure removal follows from the merge alone. New harness-helper boundaries and distinct released-package/install checks remain not-run.

@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "baseUrl": "http://127.0.0.1:18800",
+  "failed": [],
+  "warnings": [
+    "LLM configured: model=gpt-5.6 without an API key: `control-openhands llm preset deepseek`"
+  ],
+  "passed": [
+    "port ingress:18800 listening: open",
+    "port agentServer:18801 listening: open",
+    "port automation:18802 listening: open",
+    "port frontend:18803 listening: open",
+    "served build matches this checkout's build inputs: served=8bdfdcd9d280bebe run=8bdfdcd9d280bebe revision=efc8b4731811",
+    "checkout build inputs unchanged since launch: launch=8bdfdcd9d280bebe now=8bdfdcd9d280bebe",
+    "unauthenticated API rejected: status=401",
+    "authenticated settings readable: status=200",
+    "agent-server reachable: version=1.53.0",
+    "agent-server matches pin: server=1.53.0 pin=1.53.0",
+    "agent-server meets the UI minimum: server=1.53.0 minimum=1.51.0",
+    "automation healthy: status=200",
+    "UI loads without page errors: markers=first-run-onboarding-screen,onboarding-modal,telemetry-consent-form pageErrors=0 testidsInDom=161 (hidden included)",
+    "owned launcher identity and process-group liveness passed"
+  ]
+}

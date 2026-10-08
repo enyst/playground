@@ -1,0 +1,18 @@
+{
+  "run": "/workspace/scratch/map-maintenance-2026-10-07/runs/2026-10-07T2130-35170d",
+  "browser": {
+    "stopped": true,
+    "pid": 6983
+  },
+  "forced": true,
+  "launcherStopped": false,
+  "ports": {
+    "ingress": "closed",
+    "agentServer": "closed",
+    "automation": "closed",
+    "frontend": "closed",
+    "vscode": "closed"
+  },
+  "evidenceFiles": 1,
+  "ok": false
+}

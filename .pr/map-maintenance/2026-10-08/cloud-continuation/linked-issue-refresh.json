@@ -1,0 +1,159 @@
+{
+  "checked_at_utc": "2026-10-08T22:32:46.800153+00:00",
+  "issues": [
+    {
+      "closed_at": "2026-10-06T12:10:56Z",
+      "created_at": "2026-10-05T01:24:20Z",
+      "html_url": "https://github.com/OpenHands/automation/issues/551",
+      "labels": [
+        "bug",
+        "ready-for-dev",
+        "priority:medium"
+      ],
+      "number": 551,
+      "state": "closed",
+      "title": "[Bug]: Setting a Git Sync encryption key leaves already-synced automations as plaintext in the repository",
+      "updated_at": "2026-10-06T12:10:56Z"
+    },
+    {
+      "closed_at": null,
+      "created_at": "2026-10-06T23:23:23Z",
+      "html_url": "https://github.com/OpenHands/OpenHands/issues/18092",
+      "labels": [
+        "enhancement",
+        "priority:low",
+        "ready-for-dev"
+      ],
+      "number": 18092,
+      "state": "open",
+      "title": "[Feature]: verify-openhands feature map: drift candidates and unmapped behaviors surfaced by the e2e suites",
+      "updated_at": "2026-10-08T13:49:27Z"
+    },
+    {
+      "closed_at": null,
+      "created_at": "2026-10-08T17:21:43Z",
+      "html_url": "https://github.com/OpenHands/OpenHands/issues/18172",
+      "labels": [
+        "bug",
+        "priority:low",
+        "ready-for-dev"
+      ],
+      "number": 18172,
+      "state": "open",
+      "title": "[Bug]: Escape does not close the composer \"More input actions\" overflow menu at narrow widths",
+      "updated_at": "2026-10-08T17:36:16Z"
+    },
+    {
+      "closed_at": null,
+      "created_at": "2026-10-08T17:22:02Z",
+      "html_url": "https://github.com/OpenHands/OpenHands/issues/18173",
+      "labels": [
+        "bug",
+        "priority:low",
+        "ready-for-dev"
+      ],
+      "number": 18173,
+      "state": "open",
+      "title": "[Bug]: Automation run Logs dialog overflows its panel with a long task summary; tabs and output unreachable at phone width",
+      "updated_at": "2026-10-08T17:36:17Z"
+    },
+    {
+      "closed_at": null,
+      "created_at": "2026-10-08T17:34:40Z",
+      "html_url": "https://github.com/OpenHands/OpenHands/issues/18178",
+      "labels": [
+        "bug",
+        "priority:low",
+        "ready-for-dev"
+      ],
+      "number": 18178,
+      "state": "open",
+      "title": "[Bug]: Docker image exits on hosts without IPv6: static server binds \"::\" and fails with EAFNOSUPPORT",
+      "updated_at": "2026-10-08T17:43:36Z"
+    },
+    {
+      "closed_at": null,
+      "created_at": "2026-10-08T17:45:25Z",
+      "html_url": "https://github.com/OpenHands/OpenHands/issues/18181",
+      "labels": [
+        "bug",
+        "priority:low",
+        "ready-for-dev"
+      ],
+      "number": 18181,
+      "state": "open",
+      "title": "[Bug]: A failed MCP server save, toggle or delete shows two identical error toasts",
+      "updated_at": "2026-10-08T18:05:10Z"
+    }
+  ],
+  "fix_pull_requests": [
+    {
+      "draft": false,
+      "head_sha": "d1a84480e9adbf05caa33adb3db787b92a2ec398",
+      "html_url": "https://github.com/OpenHands/OpenHands/pull/18174",
+      "merge_commit_sha": "e4611b9f8d67930ae2227d196c79e4e0f676cd82",
+      "merged": false,
+      "merged_at": null,
+      "number": 18174,
+      "state": "open",
+      "title": "fix(a11y): close the composer's More input actions menu on Escape",
+      "updated_at": "2026-10-08T18:23:59Z",
+      "closing_references": [
+        "Fixes #18172"
+      ]
+    },
+    {
+      "draft": false,
+      "head_sha": "4923b01533fa9ef3e6b0852373202925326a4513",
+      "html_url": "https://github.com/OpenHands/OpenHands/pull/18175",
+      "merge_commit_sha": "32e6839ef40e6697606aa384009e5f16ef73f740",
+      "merged": false,
+      "merged_at": null,
+      "number": 18175,
+      "state": "open",
+      "title": "fix(automations): keep a long run's Logs dialog inside its panel",
+      "updated_at": "2026-10-08T19:30:54Z",
+      "closing_references": [
+        "Fixes #18173"
+      ]
+    },
+    {
+      "draft": false,
+      "head_sha": "4a08c71c68091850f1ca1e82be97bd77fb1b2482",
+      "html_url": "https://github.com/OpenHands/OpenHands/pull/18180",
+      "merge_commit_sha": "538e730932496388719c21b5a730f1f2bcbae39f",
+      "merged": false,
+      "merged_at": null,
+      "number": 18180,
+      "state": "open",
+      "title": "fix(docker): bind the frontend to 0.0.0.0 when the kernel has no IPv6",
+      "updated_at": "2026-10-08T18:43:16Z",
+      "closing_references": [
+        "Fixes #18178"
+      ]
+    },
+    {
+      "draft": false,
+      "head_sha": "c5bd7fb110718556bb1994e04eff38a0a6b8fc23",
+      "html_url": "https://github.com/OpenHands/OpenHands/pull/18182",
+      "merge_commit_sha": "08d2585f05df0210102e07f4c5e6667bd5dd89bc",
+      "merged": false,
+      "merged_at": null,
+      "number": 18182,
+      "state": "open",
+      "title": "fix(mcp): show one error toast when an MCP server change fails",
+      "updated_at": "2026-10-08T18:56:52Z",
+      "closing_references": [
+        "Fixes #18181"
+      ]
+    }
+  ],
+  "suitability_18092": "Open, ready-for-dev, and directly scoped to feature-map maintenance under verify-openhands; use Related to, not Closes, while full issue acceptance criteria remain incomplete. Product code, e2e specifications, and CI workflows explicitly out of scope. Its mock-fixture suggestions do not override this run's genuine-live-proof rule.",
+  "review_status": {
+    "head": "01037c310c30d259f394f663388b83aac849d1c5",
+    "approvals": 0,
+    "unresolved_current_diff_threads": 0,
+    "threads_resolved": 2,
+    "new_review_requested": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "run": "/workspace/scratch/map-maintenance-2026-10-07/runs/f25-approved-primary",
+  "browser": {
+    "stopped": true,
+    "pid": 2282
+  },
+  "launcherStopped": true,
+  "ports": {
+    "ingress": "closed",
+    "agentServer": "closed",
+    "automation": "closed",
+    "frontend": "closed",
+    "vscode": "closed"
+  },
+  "evidenceFiles": 7,
+  "ok": true
+}

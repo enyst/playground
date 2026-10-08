@@ -1,0 +1,50 @@
+{
+  "revision": "efc8b4731811bff25f64b68a093d8fb5e9368d19",
+  "buildId": "8bdfdcd9d280bebe",
+  "launcher": {
+    "pid": 9567,
+    "pgid": 9567,
+    "processAlive": false,
+    "groupAlive": false,
+    "rawState": "Z"
+  },
+  "browser": {
+    "pid": 9702,
+    "processAlive": false,
+    "rawState": "Z"
+  },
+  "ports": {
+    "ingress": {
+      "port": 18800,
+      "open": false
+    },
+    "agentServer": {
+      "port": 18801,
+      "open": false
+    },
+    "automation": {
+      "port": 18802,
+      "open": false
+    },
+    "frontend": {
+      "port": 18803,
+      "open": false
+    },
+    "vscode": {
+      "port": 19801,
+      "open": false
+    }
+  },
+  "retained": [
+    {
+      "path": "evidence/F00.harness-lifecycle/desktop-local-home.png",
+      "bytes": 95239,
+      "sha256": "2b5b18acd79c527eb772cfb2469f85fcbe8bdeffeb1e5bdbf3875ddc2ac5c475"
+    },
+    {
+      "path": "evidence/F00.harness-lifecycle/desktop-local-home.aria.txt",
+      "bytes": 8858,
+      "sha256": "cc406864a9f42a489b1d01ce4d1f61ccbcc823f9e3e682505f302b3937cf7918"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "browser": {
+    "stopped": true,
+    "pid": 9702
+  },
+  "launcherStopped": true,
+  "ports": {
+    "ingress": "closed",
+    "agentServer": "closed",
+    "automation": "closed",
+    "frontend": "closed",
+    "vscode": "closed"
+  },
+  "evidenceFiles": 7,
+  "ok": true
+}

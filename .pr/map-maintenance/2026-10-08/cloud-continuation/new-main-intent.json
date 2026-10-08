@@ -1,0 +1,279 @@
+{
+  "reviewed_at_utc": "2026-10-08T22:36:28.598861+00:00",
+  "scope": "Read-only intent supplement for existing PR18183 continuation integration. No model calls, product calls, repo edits or GitHub writes.",
+  "range": {
+    "base": "5fea36ab7feaa33420dd8e848a4044e24ba2e939",
+    "target": "3500d9e5c7cbdfb5a2cbfe9499ce4448eb10c0a2",
+    "first_parent_commits": 3,
+    "maintenance_BASE_retained": "ed815e141409c7b52991ab8d13c553b595da9165"
+  },
+  "commits": [
+    {
+      "commit": "d7468b5af9a5c91a0c32c42606efb4f68731f87a",
+      "pull_request": "https://github.com/OpenHands/OpenHands/pull/18162",
+      "title": "feat(verify-openhands): close the harness gaps, re-drive the recipes, and file the reproduced defects",
+      "merged_at": "2026-10-08T19:50:20Z",
+      "resolution_api": "/repos/OpenHands/OpenHands/commits/d7468b5af9a5c91a0c32c42606efb4f68731f87a/pulls",
+      "resolution": "exact merge_commit_sha match; API association read before review",
+      "actual_merged_paths": [
+        ".agents/skills/verify-openhands/SKILL.md",
+        ".agents/skills/verify-openhands/references/feature-map/F05-composer.md",
+        ".agents/skills/verify-openhands/references/feature-map/F06-agent-activity.md",
+        ".agents/skills/verify-openhands/references/feature-map/F17-mcp-servers.md",
+        ".agents/skills/verify-openhands/references/feature-map/F18-skills.md",
+        ".agents/skills/verify-openhands/references/feature-map/F25-backends-and-cloud.md",
+        ".agents/skills/verify-openhands/references/feature-map/F26-runtime-variants.md",
+        ".agents/skills/verify-openhands/scripts/browser-daemon.mjs",
+        ".agents/skills/verify-openhands/scripts/control-openhands.mjs",
+        ".agents/skills/verify-openhands/scripts/control-openhands.test.mjs",
+        ".agents/skills/verify-openhands/scripts/lib/events-paging.mjs",
+        ".agents/skills/verify-openhands/scripts/lib/network-bodies.mjs"
+      ],
+      "intended_behavior": [
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18162",
+          "quote": "Each gap was worked around inside a map recipe because `control-openhands` could not express it: a loading row too quick to count, a request body a recipe had to prove through a shell-gated fixture, a second tab that `wait-tab` confused with the current one, an event list capped at the newest hundred, an image-only message that read as blank, a project skill the fixture wrote but could not commit, and a workspace mode that took two raw clicks."
+        },
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18162",
+          "quote": "- `browser tab new [/path]` opens a plain second tab (no opener, no sessionStorage); `browser wait-tab --new` leaves out the tab the daemon is on."
+        },
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18162",
+          "quote": "- `conversation events` reads the server's 100-event pages until `--last` rows are in hand (`pages`, `more: true`) and counts image attachments per row (`images: N`)."
+        }
+      ],
+      "acceptance": {
+        "issue": "https://github.com/OpenHands/OpenHands/issues/18092",
+        "state": "open",
+        "labels": [
+          "enhancement",
+          "priority:low",
+          "ready-for-dev"
+        ],
+        "quoted_acceptance_criteria": [
+          "- [ ] Each drift candidate above is driven live; the map entry is corrected with evidence, or a product issue is filed in the owning repository.",
+          "- [ ] Each unmapped behavior gets a sub-feature with a proven `control-openhands` recipe, or is listed in the index's \"Not mapped\" section with a reason.",
+          "- [ ] `control-openhands map check` and `map coverage` stay green.",
+          "- [ ] Each drift candidate 1-9 (`F13.acp-conversation`, `F06.critic-result`, `F26.frontend-only`, `F03.selection-after-reload`, `F22.template-launch-conversation`, `F07.git-control-bar`, `F01.onboarding-choose-agent`, `F25.add-agent-server`, `F06.load-older-history`) is driven live and either corrected to match the observed app with its recipe in the map, or a product issue is filed in the owning repository with the evidence and the map row links to it.",
+          "- [ ] The blocked status of `F13.acp-conversation` and `F06.critic-result` is resolved: each is either re-driven without an account (the mock ACP server / an ordinary LLM key) and the block removed, or the map names the exact prerequisite that still blocks it and the attempted route.",
+          "- [ ] Each behavior the suites assert that the map lacks is added as a sub-feature with a `control-openhands` recipe that was executed, or listed in the index's \"Not mapped\" section with a reason; the F01, F05, F06, F10, F17, F18, F20, F25, F26, F27 and F09/settings-responsive items are each accounted for.",
+          "- [ ] `F07.git-control-bar` reflects the accepted removal of the composer git rail: after adding a GitHub origin and reloading, the live pass records whether the composer rail renders; the map matches the observed app, or a product bug is filed against Canvas UI and linked from the map.",
+          "- [ ] Each new or corrected entry meets the four-section contract (`Sub-features`, `How to get to it (user POV)`, `Driving it with control-openhands`, `Gotchas`) and the `map check` rules for stable IDs and runnable commands.",
+          "- [ ] `control-openhands map check` and `control-openhands map coverage` pass; the index family table (sub-feature counts and total) is refreshed with `map check --fix-counts` when counts changed.",
+          "- [ ] No product code, e2e spec, or CI workflow is changed in the map-correction PR; a product fix or the CI gap is handled in a separate issue/PR.",
+          "- [ ] Any retained evidence (screenshots, ledger rows) contains no API keys, session keys or other secrets."
+        ]
+      },
+      "relevant_review": [
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18162#pullrequestreview-5462055979",
+          "state": "APPROVED",
+          "head": "8332e962497c76328d9bc74bedab85f1a39a0252",
+          "quote": "The residual userinfo leak I flagged is fixed.",
+          "evidence_class": "upstream review; not live proof in this run"
+        }
+      ],
+      "families_direct": [
+        "F05",
+        "F06",
+        "F17",
+        "F18",
+        "F25",
+        "F26"
+      ],
+      "families_shared_consumers": [
+        {
+          "family": "F03",
+          "reason": "workspace open --mode local_repo|new_worktree wraps Home workspace selector"
+        },
+        {
+          "family": "all verification families",
+          "reason": "shared browser daemon/CLI output and request-body safety; no blanket product behavior pass claimed"
+        }
+      ],
+      "required_live_boundaries": [
+        "Scroll-triggered transient observation plus observer cleanup after rejected action; desktop/phone relevant entry points.",
+        "App write body redaction retains placeholders and host/path while redacting URL userinfo including unencoded @, nested secret query values, headers and environment values; only safe capture contents publish.",
+        "Plain new tab lacks opener/sessionStorage; wait-tab --new excludes active; refused navigation leaves no leaked new tab.",
+        "More than 100 real conversation events with filtering before --last, pages/more and image-only message count.",
+        "conversation send output prompt/chars through the actual composer; genuine bounded backend/LLM prerequisite for delivered messages.",
+        "fixture skill --commit fresh/repeated calls while unrelated staged files remain staged.",
+        "Workspace mode local_repo/new_worktree through Home and conversation start.",
+        "Re-run changed recipes literally for F05/F06/F17/F18/F25/F26; inspect linked known failures without inferring fixes."
+      ],
+      "runtime_this_continuation": {
+        "status": "not-run",
+        "actual": "New helper-specific live boundary wave not executed. Merged focused harness regression suites passed 58/58; these are regression checks, not live product proof. Separate fresh credential-free Local lifecycle bootstrap passed per root report, solely supporting launch/doctor/browser/stop integration.",
+        "limit": "Original retained primary/independent family captures predate this merge and cannot prove all new-main helper paths."
+      }
+    },
+    {
+      "commit": "53c8b4d9ca3878a85eba57e9922467d94dddebb0",
+      "pull_request": "https://github.com/OpenHands/OpenHands/pull/17665",
+      "title": "fix: cloud sandbox resume retry behavior",
+      "merged_at": "2026-10-08T19:54:11Z",
+      "resolution_api": "/repos/OpenHands/OpenHands/commits/53c8b4d9ca3878a85eba57e9922467d94dddebb0/pulls",
+      "resolution": "exact merge_commit_sha match; API association read before review",
+      "actual_merged_paths": [
+        "__tests__/hooks/mutation/pause-conversation-mutation-behavior.test.tsx",
+        "__tests__/hooks/mutation/use-unified-stop-conversation.test.tsx",
+        "__tests__/routes/conversation-backend-switch.test.tsx",
+        "src/api/cloud/cloud-sandbox-resume-suppression.ts",
+        "src/hooks/mutation/use-cloud-sandbox-auto-resume.ts",
+        "src/hooks/mutation/use-pause-conversation.ts",
+        "src/hooks/mutation/use-unified-stop-conversation.ts",
+        "src/routes/conversation.tsx"
+      ],
+      "intended_behavior": [
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/17665",
+          "quote": "Cloud conversations could fail to resume when returning to an already-paused sandbox because the route marked a resume attempt as already handled before the request succeeded. If that request hit a transient 429/499/502, the mounted route would not retry."
+        },
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/17665",
+          "quote": "Add retry-aware cloud sandbox auto-resume for paused conversations, with cleanup for pending retry timers."
+        },
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/17665",
+          "quote": "Clear cached `conversation_url` after pause without fabricating `sandbox_status: \"PAUSED\"`, keeping PAUSED status server-authored."
+        }
+      ],
+      "acceptance": {
+        "issue": "https://github.com/OpenHands/OpenHands/issues/17664",
+        "state": "closed",
+        "labels": [
+          "bug",
+          "cloud",
+          "frontend",
+          "priority:high",
+          "ready-for-dev"
+        ],
+        "quoted_acceptance_criteria": [
+          "- [ ] Opening an already-paused cloud conversation (fresh route mount, `sandbox_status: \"PAUSED\"`, non-null `sandbox_id`) calls the cloud resume endpoint once with that sandbox id; asserted by a route regression test.",
+          "- [ ] A resume attempt that rejects while `sandbox_status` remains `PAUSED` is retried by the mounted route after a bounded delay, with no remount or reload required, and the retry stops once the sandbox is no longer paused or unregisters on unmount; asserted by a route regression test plus a timer-cleanup assertion.",
+          "- [ ] An intentional pause performed in the current tab does not immediately trigger a cloud auto-resume from the still-mounted route; the suppression is consumed once and then cleared so a later genuine reopen still resumes; asserted by a route regression test.",
+          "- [ ] Pausing a cloud conversation no longer writes an optimistic `sandbox_status: \"PAUSED\"` that the route auto-resume effect acts on; the cached conversation instead stops exposing a reconnectable runtime URL, and `sandbox_status` remains server-authored. Asserted by the pause-mutation tests.",
+          "- [ ] Lifecycle and cleanup: pending retry timers are cleared on unmount and in-tab suppression entries do not persist across conversations or route lifetimes; asserted by regression tests.",
+          "- [ ] Non-cloud backends and conversations that are not `PAUSED` (or have no `sandbox_id`) issue no cloud resume request, and the WebSocket `PAUSED` connection gate and local interrupt behavior are unchanged.",
+          "- [ ] Validation: focused Vitest suites for the conversation route and pause mutations pass, and `npm run lint` and `npm run typecheck` (or the repo's equivalent) pass; live behavior is confirmed against the cloud backend via the Datadog pause/resume trace no longer showing an immediate pause\u2192resume pair."
+        ]
+      },
+      "relevant_review": [
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/17665#pullrequestreview-5461653156",
+          "state": "APPROVED",
+          "head": "a01b14b9b2df74971012c9859d6eec474b1a1be7",
+          "quote": "The new head addresses it: `clearCloudAutoResumeSuppression(conversationId)` is invoked from an unmount / conversation-id-change cleanup effect (`src/routes/conversation.tsx`), and the new regression test \"clears stale suppression when the route unmounts before PAUSED is observed\" covers exactly that path.",
+          "evidence_class": "upstream review; not live proof in this run"
+        }
+      ],
+      "families_direct": [
+        "F07",
+        "F25"
+      ],
+      "families_shared_consumers": [
+        {
+          "family": "F05.stop-resume",
+          "reason": "composer unified stop invokes Cloud pause and must not immediately auto-resume"
+        },
+        {
+          "family": "F06.stop-resume",
+          "reason": "stop/resume activity and WebSocket PAUSED gate share conversation lifecycle"
+        }
+      ],
+      "required_live_boundaries": [
+        "Authenticated Cloud, desktop and phone: open already-paused conversation with non-null sandbox id and observe single resume.",
+        "Genuine rejected resume 429/499/502 while still PAUSED retries after bounded delay; stop retries after status changes/unmount.",
+        "Intentional in-tab pause remains paused; cached reconnectable URL clears without fabricated server status.",
+        "Pause then immediately leave before PAUSED is observed, reopen later; stale suppression must not block resume, nor cross conversation ids.",
+        "Negative Cloud/non-Cloud, non-PAUSED, and missing sandbox-id paths issue no resume; local interrupt and paused WebSocket gate preserved.",
+        "Temporal trace/video and request observations distinguish initial resume, retry, intentional pause and genuine reopen."
+      ],
+      "runtime_this_continuation": {
+        "status": "blocked",
+        "actual": "No authenticated genuine Cloud sandbox pause/resume or controlled genuine transient resume error exercised in this run. Local lifecycle bootstrap does not satisfy Cloud criteria. Non-Cloud negative lifecycle boundary assertions are not-run, not inferred from bootstrap.",
+        "exact_prerequisite": "Authenticated OpenHands Cloud organization/account with disposable conversation and sandbox, permission to pause/resume it, real paused state and safe controlled transient resume failure, plus desktop/phone temporal evidence.",
+        "closed_issue_reconciliation": "Issue #17664 is closed by this merged PR. Fix intention reviewed; no new live-fix claim or stale-failure deletion authorized from source/CI alone."
+      }
+    },
+    {
+      "commit": "3500d9e5c7cbdfb5a2cbfe9499ce4448eb10c0a2",
+      "pull_request": "https://github.com/OpenHands/OpenHands/pull/18047",
+      "title": "chore(main): release 1.26.0",
+      "merged_at": "2026-10-08T20:22:25Z",
+      "resolution_api": "/repos/OpenHands/OpenHands/commits/3500d9e5c7cbdfb5a2cbfe9499ce4448eb10c0a2/pulls",
+      "resolution": "exact merge_commit_sha match; API association read before review",
+      "actual_merged_paths": [
+        ".release-please-manifest.json",
+        "README.md",
+        "README.windows.md",
+        "config/defaults.json",
+        "helm/agent-canvas/Chart.yaml",
+        "package-lock.json",
+        "package.json"
+      ],
+      "intended_behavior": [
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18047",
+          "quote": "## 1.26.0 (2026-10-08)"
+        },
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18047",
+          "quote": "This PR was generated with [Release Please](https://github.com/googleapis/release-please)."
+        }
+      ],
+      "acceptance": {
+        "issue": null,
+        "reason": "Automated release metadata PR; release notes aggregate earlier changes and are not additional commits or new live feature coverage in this supplement."
+      },
+      "relevant_review": [
+        {
+          "source": "https://github.com/OpenHands/OpenHands/pull/18047#pullrequestreview-5462402230",
+          "state": "APPROVED",
+          "quote": "",
+          "evidence_class": "release review only; not runtime proof"
+        }
+      ],
+      "families_direct": [
+        "F26.cli-version"
+      ],
+      "families_shared_consumers": [
+        {
+          "family": "F26",
+          "reason": "package/config/Helm/docs release version references; no new source feature implementation"
+        }
+      ],
+      "required_live_boundaries": [
+        "Checkout package/version CLI consistency; startup from changed release configuration.",
+        "Published npm, Helm and Docker version/installation claims require their distinct actual installations if asserted."
+      ],
+      "runtime_this_continuation": {
+        "status": "not-run",
+        "actual": "Standalone release version checks/publication/install boundaries not exercised by this researcher. Root reports credential-free Local launch/doctor/browser/stop pass on integration revision efc8b473; this supports source-checkout bootstrap only.",
+        "limit": "Do not treat listed historical release notes or upstream release artifacts as this run live proof."
+      }
+    }
+  ],
+  "unmapped_paths": [
+    {
+      "path": "playwright.live.config.ts",
+      "in_this_three_commit_supplement": false,
+      "owning_pr": "https://github.com/OpenHands/OpenHands/pull/18084",
+      "status": "explicitly accounted; map affected still mechanically reports unmapped",
+      "reason": "Playwright live-suite execution configuration (tests/e2e/live discovery, session key/environment, minimal development server, tmux socket path, worker/timeouts, video/screenshots/trace and graceful shutdown). It changes test harness execution, not a user-facing Canvas feature. Its upstream E2E/CI intent was reconciled in the original 13-commit intent ledger; this is not live application proof or a new whole-map smoke requirement."
+    }
+  ],
+  "same_pr_pending_comments": {
+    "pull_request": "https://github.com/OpenHands/OpenHands/pull/18183",
+    "observed_head": "01037c310c30d259f394f663388b83aac849d1c5",
+    "state": "OPEN",
+    "draft": true,
+    "review_decision": "REVIEW_REQUIRED",
+    "all_review_threads_loaded": true,
+    "resolved_threads": 2,
+    "unresolved_threads": 0,
+    "issue_comments": "Only GitHub Actions .pr artifact notice; no unanswered actionable comment at read time."
+  },
+  "completion_limit": "PR intent supplementation complete for these three exact commits; required new live boundaries are incomplete, so maintenance BASE stays unchanged. This file does not authorize any claim that the expanded integration delta passed."
+}
