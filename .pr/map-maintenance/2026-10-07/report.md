@@ -2,6 +2,8 @@ I'm an AI agent (Codex) helping Engel Nyst (@enyst) with project work.
 
 # Partial Agent Canvas delta maintenance — 2026-10-07
 
+**Continuation 2026-10-08:** after explicit user confirmation, the bare slash-command and local invented-code device checks passed on desktop/phone with independent reruns and no additional model spend. [Follow-up evidence and recipe correction](../2026-10-08/README.md). The counts below remain the original run snapshot; BASE and publication limits are unchanged.
+
 Snapshot: 2026-10-07T21:57:50.024008+00:00. Product and independent live runs are finished and stopped. Publication status is recorded below.
 
 **Verdict: partial; BASE retained.** BASE `ed815e141409c7b52991ab8d13c553b595da9165` → frozen TARGET `3f98684763a4e17e6e2faf8dd8f1cfc3969b020c`. Source intent was reconciled for all 13 commits/merged PRs and all 75 changed paths. Live checks prove narrow Local corrections; unfinished shared error paths, phone sequences and Cloud prerequisites prevent baseline advancement. No full-map smoke or weekly rotation was added.

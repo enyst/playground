@@ -1,0 +1,114 @@
+{
+  "run": "/workspace/scratch/map-maintenance-2026-10-07/runs/f05-approved-independent",
+  "conversationId": "bc300825-55b8-4455-8778-e6ee179fde41",
+  "target": "3f98684763a4e17e6e2faf8dd8f1cfc3969b020c",
+  "fixture": "Raw local Agent with no initial_message; no tools/default tools/client tools/hooks/critics/condenser/helpers/autotitle; never invoked a model.",
+  "before": {
+    "stats": {
+      "usage_to_metrics": {}
+    },
+    "messageEvents": 0
+  },
+  "checks": [
+    {
+      "case": "desktop-btw",
+      "stats": {
+        "usage_to_metrics": {}
+      },
+      "messageEvents": 0,
+      "totalEvents": 0,
+      "network": [],
+      "result": "pass"
+    },
+    {
+      "case": "desktop-goal",
+      "stats": {
+        "usage_to_metrics": {}
+      },
+      "messageEvents": 0,
+      "totalEvents": 0,
+      "network": [],
+      "result": "pass"
+    },
+    {
+      "case": "desktop-model",
+      "stats": {
+        "usage_to_metrics": {}
+      },
+      "messageEvents": 0,
+      "totalEvents": 0,
+      "network": [
+        {
+          "method": "GET",
+          "path": "/api/profiles",
+          "status": 200
+        }
+      ],
+      "result": "pass"
+    },
+    {
+      "case": "phone-btw",
+      "stats": {
+        "usage_to_metrics": {}
+      },
+      "messageEvents": 0,
+      "totalEvents": 0,
+      "network": [],
+      "result": "pass"
+    },
+    {
+      "case": "phone-goal",
+      "stats": {
+        "usage_to_metrics": {}
+      },
+      "messageEvents": 0,
+      "totalEvents": 0,
+      "network": [],
+      "result": "pass"
+    },
+    {
+      "case": "phone-model",
+      "stats": {
+        "usage_to_metrics": {}
+      },
+      "messageEvents": 0,
+      "totalEvents": 0,
+      "network": [
+        {
+          "method": "GET",
+          "path": "/api/profiles",
+          "status": 200
+        }
+      ],
+      "result": "pass"
+    }
+  ],
+  "finalStatus": "idle",
+  "providerCalls": 0,
+  "costUsd": 0,
+  "omittedEscape": "One desktop /goal + Enter trial completed suggestion to /goal-space with no validation toast; zero events/usage. Exact corrected sequence passes both viewports.",
+  "scope": "Six exact bare-command cases only; model-backed remainder blocked. All ten captured PNGs reviewed; prefer model *-clean captures after prior validation toast expired.",
+  "shutdown": {
+    "run": "/workspace/scratch/map-maintenance-2026-10-07/runs/f05-approved-independent",
+    "browser": {
+      "stopped": true,
+      "pid": 3578
+    },
+    "launcherStopped": true,
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidenceFiles": 12,
+    "ok": true
+  },
+  "finalProcesses": {
+    "launcherAlive": false,
+    "launcherGroupAlive": false,
+    "browserAlive": false,
+    "ledgerExists": true
+  }
+}

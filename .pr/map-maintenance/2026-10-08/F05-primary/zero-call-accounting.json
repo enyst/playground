@@ -1,0 +1,115 @@
+{
+  "run": "f05-approved-primary",
+  "application_target": "3f98684763a4e17e6e2faf8dd8f1cfc3969b020c",
+  "checkout": "370a04785c78ddd014e5ea8c76883f129e1d07de",
+  "backend": "selected Local; Agent Server 1.53.0",
+  "fixture": "real API-created empty conversation; initial_message omitted; autotitle false; no model execution requested",
+  "conversation_id": "9fb75b90-4c8f-442b-be6f-a14528dc2b51",
+  "provider_requests": 0,
+  "spend_usd": 0,
+  "stats_before": {
+    "usage_to_metrics": {}
+  },
+  "stats_after": {
+    "usage_to_metrics": {}
+  },
+  "message_events_before": 0,
+  "message_events_after": 0,
+  "final_status": "idle",
+  "browser_errors": {
+    "pageErrors": 0,
+    "appErrors": 0,
+    "warnings": 0
+  },
+  "scoped_checks": {
+    "pass": 6,
+    "fail": 0,
+    "blocked": 0,
+    "not-run": 0
+  },
+  "shutdown": {
+    "run": "/workspace/scratch/map-maintenance-2026-10-07/runs/f05-approved-primary",
+    "browser": {
+      "stopped": true,
+      "pid": 2525
+    },
+    "launcherStopped": true,
+    "ports": {
+      "ingress": "closed",
+      "agentServer": "closed",
+      "automation": "closed",
+      "frontend": "closed",
+      "vscode": "closed"
+    },
+    "evidenceFiles": 8,
+    "ok": true
+  },
+  "checks": [
+    {
+      "feature": "F05.slash-btw",
+      "viewport": "desktop",
+      "actual_dimensions": "1440x1000",
+      "entry": "existing Local conversation; exact bare command after slash-menu dismissal",
+      "command": "/btw",
+      "expected": "Please provide a question \u2014 e.g. /btw <question>",
+      "actual": "Please provide a question \u2014 e.g. /btw <question>",
+      "composer_empty": true,
+      "artifact": "F05.slash-btw-desktop.png"
+    },
+    {
+      "feature": "F05.slash-goal",
+      "viewport": "desktop",
+      "actual_dimensions": "1440x1000",
+      "entry": "existing Local conversation; exact bare command after slash-menu dismissal",
+      "command": "/goal",
+      "expected": "Please provide an objective \u2014 e.g. /goal <objective>",
+      "actual": "Please provide an objective \u2014 e.g. /goal <objective>",
+      "composer_empty": true,
+      "artifact": "F05.slash-goal-desktop.png"
+    },
+    {
+      "feature": "F05.slash-model",
+      "viewport": "desktop",
+      "actual_dimensions": "1440x1000",
+      "entry": "existing Local conversation; exact bare command after slash-menu dismissal",
+      "command": "/model",
+      "expected": "Available profiles (1)",
+      "actual": "Available profiles (1)",
+      "composer_empty": true,
+      "artifact": "F05.slash-model-desktop.png"
+    },
+    {
+      "feature": "F05.slash-btw",
+      "viewport": "phone",
+      "actual_dimensions": "390x844",
+      "entry": "existing Local conversation; exact bare command after slash-menu dismissal",
+      "command": "/btw",
+      "expected": "Please provide a question \u2014 e.g. /btw <question>",
+      "actual": "Please provide a question \u2014 e.g. /btw <question>",
+      "composer_empty": true,
+      "artifact": "F05.slash-btw-phone.png"
+    },
+    {
+      "feature": "F05.slash-goal",
+      "viewport": "phone",
+      "actual_dimensions": "390x844",
+      "entry": "existing Local conversation; exact bare command after slash-menu dismissal",
+      "command": "/goal",
+      "expected": "Please provide an objective \u2014 e.g. /goal <objective>",
+      "actual": "Please provide an objective \u2014 e.g. /goal <objective>",
+      "composer_empty": true,
+      "artifact": "F05.slash-goal-phone.png"
+    },
+    {
+      "feature": "F05.slash-model",
+      "viewport": "phone",
+      "actual_dimensions": "390x844",
+      "entry": "existing Local conversation; exact bare command after slash-menu dismissal",
+      "command": "/model",
+      "expected": "Available profiles (1)",
+      "actual": "Available profiles (1)",
+      "composer_empty": true,
+      "artifact": "F05.slash-model-phone.png"
+    }
+  ]
+}

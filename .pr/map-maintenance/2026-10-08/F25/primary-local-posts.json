@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "total": 4,
+  "byOrigin": {
+    "http://127.0.0.1:18810": 4
+  },
+  "recent": [
+    {
+      "ts": "2026-10-08T20:43:37.468Z",
+      "origin": "http://127.0.0.1:18810",
+      "path": "/oauth/device/verify-authenticated",
+      "method": "POST",
+      "type": "fetch",
+      "app": true,
+      "status": 404
+    },
+    {
+      "ts": "2026-10-08T20:44:16.204Z",
+      "origin": "http://127.0.0.1:18810",
+      "path": "/oauth/device/verify-authenticated",
+      "method": "POST",
+      "type": "fetch",
+      "app": true,
+      "status": 404
+    },
+    {
+      "ts": "2026-10-08T20:44:18.698Z",
+      "origin": "http://127.0.0.1:18810",
+      "path": "/oauth/device/verify-authenticated",
+      "method": "POST",
+      "type": "fetch",
+      "app": true,
+      "status": 404
+    },
+    {
+      "ts": "2026-10-08T20:44:21.167Z",
+      "origin": "http://127.0.0.1:18810",
+      "path": "/oauth/device/verify-authenticated",
+      "method": "POST",
+      "type": "fetch",
+      "app": true,
+      "status": 404
+    }
+  ]
+}
