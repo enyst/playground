@@ -42,6 +42,7 @@ import {
 } from "./lib/testids.mjs";
 import { tmuxPathFor } from "./lib/tmux-path.mjs";
 import { browserCallLimit } from "./lib/call-limit.mjs";
+import { videoCaptureArguments } from "./lib/browser-video.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const skillDir = resolve(here, "..");
@@ -389,7 +390,7 @@ async function browserCall(run, cmd, args = {}, { timeout = 120_000 } = {}) {
   const result = await response.json();
   if (!result.ok) {
     throw new CliError(result.error, {
-      code: 1,
+      code: Number.isInteger(result.code) ? result.code : 1,
       hint: result.hint,
       extra: { url: result.url, failureScreenshot: result.failureScreenshot },
     });
@@ -440,15 +441,22 @@ async function startBrowser(run) {
 async function stopBrowser(run) {
   const info = daemonInfo(run);
   if (!info) return { running: false };
+  let recording;
   try {
-    await browserCall(run, "shutdown", {}, { timeout: 5_000 });
+    // Native video finalization has a 10 s deadline; keep response margin.
+    recording = await browserCall(run, "shutdown", {}, { timeout: 15_000 });
   } catch {
     // fall through to signal
   }
   for (let i = 0; i < 20 && processAlive(info.pid); i += 1) await delay(250);
   if (processAlive(info.pid)) process.kill(info.pid, "SIGTERM");
   rmSync(join(run.dir, "private", "browser.json"), { force: true });
-  return { stopped: true, pid: info.pid };
+  return {
+    stopped: true,
+    pid: info.pid,
+    video: recording?.video,
+    videoError: recording?.videoError,
+  };
 }
 
 function versionAtLeast(version, minimum) {
@@ -2763,6 +2771,19 @@ async function cmdBrowser({ positional, flags }) {
         );
       result.count = result.testids.length;
       break;
+    case "video": {
+      let args;
+      try {
+        args = videoCaptureArguments(rest[0], flags);
+      } catch (error) {
+        throw new CliError(error.message, {
+          code: error.code,
+          hint: error.hint,
+        });
+      }
+      result = await browserCall(run, "video", args);
+      break;
+    }
     case "screenshot":
       if (!flags.feature || !flags.name)
         usage(
@@ -3167,6 +3188,7 @@ const BROWSER_VERBS = new Set([
   "snapshot",
   "testids",
   "screenshot",
+  "video",
   "viewport",
   "clock",
   "errors",
@@ -3990,6 +4012,9 @@ Verbs
   snapshot [<sel>] [--max-lines N] [--feature ID --name N]   ARIA tree (saved as evidence)
   testids [<sel>] [--hidden] [--filter part]                 discover on-screen data-testid handles (--hidden adds hidden/off-screen)
   screenshot [<sel>] --feature ID --name N [--full-page]     PNG under evidence/<ID>/
+  video start --feature ID --name N     opt-in current-tab WebM; keeps the page/profile alive
+  video stop | status                   finalize WebM evidence | inspect capture state
+                                         set viewport first; needs Playwright >=1.59 and its FFmpeg runtime
   viewport desktop|phone|narrow|tablet|WxH                    1440x1000, 390x844, 320x700, 820x1180
   clock --offset-ms N | --system ISO|+MS | --fixed ISO|+MS    skew the page's clock (install before the goto
                                          whose page should see it; the server's clock is untouched)
