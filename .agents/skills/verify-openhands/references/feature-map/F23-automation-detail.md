@@ -108,6 +108,7 @@ Preconditions:
 
 ## Gotchas
 
+- The Logs dialog's panel should keep its content reachable at every width (`F23.run-logs-modal`). Known failure (reproduced 2026-10-08): with a long task summary or metadata (a run whose finish call has a 12-line `outcome_summary`), the panel (`max-h-[80vh]`) does not scroll, and at `phone` the Output/Error tabs and the Output box sit below the viewport (`browser bbox 'role=dialog >> role=tab[name="Error"]'` `insideViewport` `false`); at `desktop` the Output box sticks out about 34 px below the panel. A short run fits (#18173). `browser bbox 'role=dialog'` measures the full-screen wrapper, not the panel: measure the panel with `browser eval`.
 - The detail page has no `main` landmark: `browser snapshot 'role=main'` times out. Snapshot the page, or scope by section headings (`role=heading[name="Configuration"] >> xpath=ancestor::div[2]`).
 - The kebab menu has no test ids; `role=list >> has-text=Tarball` scopes the detail kebab (the dashboard kebab has no Tarball, so F21 uses `has-text=Export`).
 - Both the X and the footer button of the Edit dialog are named **Cancel**; use `testid=edit-automation-cancel` for the footer and `role=form[name="Edit automation"] >> xpath=.. >> role=button[name="Cancel"] >> nth=0` for the X. The dialog has no `role=dialog`.
