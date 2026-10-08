@@ -99,6 +99,7 @@ Preconditions:
 
 ## Gotchas
 
+- Server errors on MCP mutations (a 404 on a server that is already removed, a 502 while the Agent Server is down) toast the server's message (`MCP server '<id>' was not found`) or `An error occurred` when the body has none, and the toast appears twice: once from the hook's `onError` and once from the global mutation handler (#18051, #17954).
 - Desktop `/customize` is a client-side redirect: `browser url` may still read `/customize` for a moment; use `wait-url '/mcp(\?|$)'`.
 - From 768 to 1023 px the sidebar rail stays and the top bar is gone, so a Customize detail page shows neither the aside nor a Back chevron; the rail's **Customize** link (`sidebar-skills-link`, unscoped at this width) returns to the hub.
 - On a phone the drawer and the hidden desktop rail both render `sidebar-skills-link`; scope it with `testid=sidebar-mobile-drawer >> ...` or the click fails with a strict-mode error, even though `browser testids` lists it once.
