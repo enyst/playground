@@ -1,10 +1,13 @@
 import React from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import CanvasExtensionsService from "#/api/canvas-extensions-service";
 import { useActiveBackend } from "#/contexts/active-backend-context";
+import { mountCanvasExtensionAppView } from "#/extensions/canvas-extension-app-view";
 import { loadCanvasExtensionModule } from "#/extensions/canvas-extension-module-loader";
 import { useCanvasExtensions } from "#/hooks/query/use-canvas-extensions";
 import { subscribeConversationContextChangeRequested } from "#/services/conversation-context-events";
+import { I18nKey } from "#/i18n/declaration";
 import {
   CANVAS_EXTENSION_HOST_API_VERSION,
   type CanvasExtensionCompanion,
@@ -110,6 +113,7 @@ export function CanvasExtensionsRuntimeProvider({
   const navigate = useNavigate();
   const navigateRef = React.useRef(navigate);
   navigateRef.current = navigate;
+  const { t, i18n } = useTranslation("openhands");
   const query = useCanvasExtensions();
   const [pages, setPages] = React.useState<RegisteredCanvasExtensionPage[]>([]);
   const [companions, setCompanions] = React.useState<
@@ -159,6 +163,17 @@ export function CanvasExtensionsRuntimeProvider({
   activeRef.current = active;
   const enabledExtensionsRef = React.useRef(enabledExtensions);
   enabledExtensionsRef.current = enabledExtensions;
+  const appViewLabels = React.useMemo(
+    () => ({
+      loading: t(I18nKey.SETTINGS$APPS_VIEW_LOADING),
+      retry: t(I18nKey.SETTINGS$APPS_VIEW_RETRY),
+      openInNewTab: t(I18nKey.SETTINGS$APPS_VIEW_OPEN_NEW_TAB),
+      unavailable: t(I18nKey.SETTINGS$APPS_VIEW_UNAVAILABLE),
+    }),
+    [i18n.resolvedLanguage, t],
+  );
+  const appViewLabelsRef = React.useRef(appViewLabels);
+  appViewLabelsRef.current = appViewLabels;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -191,6 +206,22 @@ export function CanvasExtensionsRuntimeProvider({
         if (cancelled) return;
         const extensionModule = await moduleLoader(source);
         if (cancelled) return;
+        const appBackendViewClient =
+          await CanvasExtensionsService.createAppBackendViewClient(
+            extension.name,
+            backend,
+          ).catch(() => null);
+        if (cancelled) {
+          appBackendViewClient?.dispose();
+          return;
+        }
+        const mountedAppViews = new Set<CanvasExtensionDispose>();
+        const disposeAppBackendViews = () => {
+          for (const dispose of mountedAppViews) dispose();
+          mountedAppViews.clear();
+          appBackendViewClient?.dispose();
+        };
+        disposers.push(disposeAppBackendViews);
 
         const host: CanvasExtensionHost = {
           apiVersion: CANVAS_EXTENSION_HOST_API_VERSION,
@@ -288,12 +319,43 @@ export function CanvasExtensionsRuntimeProvider({
               );
             },
           },
+          ...(appBackendViewClient
+            ? {
+                appBackendView: {
+                  mount: ({ container }) => {
+                    const mounted = mountCanvasExtensionAppView({
+                      container,
+                      labels: appViewLabelsRef.current,
+                      createSession: ({ signal }) =>
+                        appBackendViewClient.createSession(signal),
+                      revokeSession: () => appBackendViewClient.revokeSession(),
+                    });
+                    let disposed = false;
+                    const dispose = () => {
+                      if (disposed) return;
+                      disposed = true;
+                      mountedAppViews.delete(dispose);
+                      mounted.dispose();
+                    };
+                    mountedAppViews.add(dispose);
+                    return dispose;
+                  },
+                },
+              }
+            : {}),
         };
 
-        const disposeActivation = await extensionModule.activate(host);
+        let disposeActivation: void | CanvasExtensionDispose;
+        try {
+          disposeActivation = await extensionModule.activate(host);
+        } catch (error) {
+          disposeAppBackendViews();
+          throw error;
+        }
         if (cancelled) {
           if (typeof disposeActivation === "function") disposeActivation();
           registrationDisposers.forEach((dispose) => dispose());
+          disposeAppBackendViews();
           return;
         }
         if (typeof disposeActivation === "function") {
