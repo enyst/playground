@@ -1,0 +1,536 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Keep tablet sections within reach</title><style>
+:root{--fg:#172025;--muted:#566268;--bg:#fcfcf9;--soft:#f2f4f3;--rule:#d8dfdc;--accent:#255785;--accent-soft:#edf4fb;--warn:#b66520}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif}a{color:var(--accent)}.wrap{max-width:1200px;margin:auto;padding:36px 28px 80px;display:grid;grid-template-columns:205px minmax(0,1fr);gap:42px}.toc{position:sticky;top:28px;align-self:start;font-size:13px}.toc h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em}.toc ul{padding-left:18px}.toc li{margin:10px 0}.toc a{text-decoration:none}header{border-bottom:1px solid var(--rule);padding-bottom:20px}h1{font-size:38px;line-height:1.15;letter-spacing:-.025em;margin:10px 0 18px}h2{font-size:24px;margin-top:44px;line-height:1.25}h3{font-size:17px}p{max-width:75ch}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700}.callout{padding:14px 18px;border-left:4px solid var(--accent);background:var(--accent-soft);margin-top:18px}code,pre,.src{font-family:ui-monospace,monospace;font-size:12px}code{background:var(--soft);padding:2px 4px}.src{display:inline;overflow-wrap:anywhere}.refs{font-size:12px;color:var(--muted)}figure{margin:22px 0}svg{display:block;width:100%;border:1px solid var(--rule);background:white;border-radius:8px}figcaption{font-size:13px;color:var(--muted);margin-top:8px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:10px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}th{background:var(--soft)}details{margin-top:16px;border:1px solid var(--rule);padding:10px;border-radius:6px}summary{cursor:pointer;color:var(--muted);font-size:13px}pre{overflow:auto;max-height:420px;line-height:1.5;background:var(--soft);padding:15px}footer{border-top:1px solid var(--rule);margin-top:44px;font-size:13px;color:var(--muted)}@media(max-width:800px){.wrap{grid-template-columns:1fr;padding:24px 18px}.toc{position:static}.toc ul{display:flex;flex-wrap:wrap;gap:8px 24px}h1{font-size:31px}}
+</style></head><body><div class="wrap"><nav class="toc" aria-label="Document contents"><h2>Changed areas</h2><ul><li><a href="#flow">Tablet flow</a></li><li><a href="#disclosure">Added disclosure</a></li><li><a href="#reuse">Shared links</a></li><li><a href="#routes">Route integration</a></li><li><a href="#qa">Real app evidence</a></li><li><a href="#matching">Settings URL matching</a></li></ul></nav><main>
+<header><div class="eyebrow">OpenHands · issue #18193</div><h1>Keep tablet sections<br>within reach</h1><p>At 768–1023px, Settings and Customize pages gain a compact control above their content. Opening it reveals the existing sibling links without leaving the current page. Phone hubs and desktop sidebars retain their current behavior.</p></header>
+<div class="callout">★ The product change is navigation presentation only: it reuses the existing link renderers and backend filtering. It adds no API dependency or durable state.</div>
+<p class="refs">Start with <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/shared/compact-section-navigation.tsx#L74">src/components/shared/compact-section-navigation.tsx:74</a> and <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/skills/extensions-navigation.tsx#L176">src/components/features/skills/extensions-navigation.tsx:176</a>. Base 553d451911 · source head c0ed95678d.</p><section id="flow"><h2>The current page keeps its context</h2><p>The compact layout introduced for tablets preserved page width but removed the secondary sidebar. This change keeps the hub available while adding a direct, discoverable section switcher. Both flows use two selections; the improvement is retaining context and exposing the choices on the page.</p><figure><svg viewBox="0 0 860 260" role="img" aria-labelledby="nav-title nav-desc"><title id="nav-title">Tablet navigation gains an in-page disclosure</title><desc id="nav-desc">Before: MCP page has no sibling links and returns to Customize hub. After: a compact control reveals the existing links while the page remains visible.</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="var(--muted)"/></marker><marker id="delta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="var(--warn)"/></marker></defs><style>.old{fill:var(--soft);stroke:var(--muted);stroke-dasharray:5 3}.new{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}.txt{font:600 15px system-ui;fill:var(--fg)}.sub{font:12px system-ui;fill:var(--muted)}.edge{fill:none;stroke:var(--muted);stroke-dasharray:5 3;marker-end:url(#arrow)}.changed{fill:none;stroke:var(--warn);stroke-width:2;stroke-dasharray:5 3;marker-end:url(#delta)}</style>
+<!-- Existing tablet path -->
+<text x="20" y="28" class="txt">Before · return to the hub</text><rect class="old" x="20" y="46" width="240" height="66" rx="7"/><text class="txt" x="32" y="72">MCPPage</text><text class="sub" x="32" y="94">/mcp · secondary sidebar hidden</text><path class="edge" d="M260 79H306"/><rect class="old" x="310" y="46" width="235" height="66" rx="7"/><text class="txt" x="322" y="72">ExtensionsMobileHub</text><text class="sub" x="322" y="94">/customize · choose Skills</text><path class="edge" d="M545 79H591"/><rect class="old" x="595" y="46" width="245" height="66" rx="7"/><text class="txt" x="607" y="72">SkillsSettingsScreen</text><text class="sub" x="607" y="94">/skills</text>
+<!-- Added tablet path -->
+<text x="20" y="157" class="txt">After · choose while the current page remains visible</text><rect class="old" x="20" y="178" width="240" height="66" rx="7"/><text class="txt" x="32" y="204">MCPPage</text><text class="sub" x="32" y="226">/mcp · same content width</text><path class="changed" d="M260 211H306"/><rect class="new" x="310" y="178" width="235" height="66" rx="7"/><text class="txt" x="322" y="204">SectionDisclosure</text><text class="sub" x="322" y="226">existing links, floating in-page</text><path class="changed" d="M545 211H591"/><rect class="old" x="595" y="178" width="245" height="66" rx="7"/><text class="txt" x="607" y="204">SkillsSettingsScreen</text><text class="sub" x="607" y="226">/skills</text></svg><figcaption>Dashed gray is existing navigation; orange edges and the blue disclosure are the added tablet path. This is a design diagram. The PR links authentic browser captures separately.</figcaption></figure><p class="refs">Sources: <a class="src" href="https://github.com/OpenHands/OpenHands/blob/553d4519113192a80fb18376fdb6c1e39fa06387/src/routes/mcp.tsx#L116">src/routes/mcp.tsx:116</a>, <a class="src" href="https://github.com/OpenHands/OpenHands/blob/553d4519113192a80fb18376fdb6c1e39fa06387/src/components/features/skills/extensions-mobile-hub.tsx#L1">src/components/features/skills/extensions-mobile-hub.tsx:1</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/shared/compact-section-navigation.tsx#L21">src/components/shared/compact-section-navigation.tsx:21</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/routes/skills-settings.tsx#L141">src/routes/skills-settings.tsx:141</a>.</p></section><section id="disclosure"><h2>A small disclosure owns only open state</h2><p><code>CompactSectionNavigation</code> checks the existing 767px and 1023px breakpoints. The Settings and Customize wrappers derive the current label from the navigation context. <code>SectionDisclosure</code> holds only a transient open flag. Route changes remount the disclosure; link activation and outside clicks close it. Escape closes it and returns focus to its 44px trigger.</p><p class="refs">Sources: <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/shared/compact-section-navigation.tsx#L21">src/components/shared/compact-section-navigation.tsx:21</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/shared/compact-section-navigation.tsx#L74">src/components/shared/compact-section-navigation.tsx:74</a>.</p><table><tr><th>Width</th><th>Navigation behavior</th></tr><tr><td>≤767px</td><td>Existing hub and Back flow; compact control absent.</td></tr><tr><td>768–1023px</td><td>Compact disclosure with native links; content column retains its width.</td></tr><tr><td>≥1024px</td><td>Existing secondary sidebar; compact control absent.</td></tr></table><details><summary>Code diff</summary><pre>diff --git a/src/components/shared/compact-section-navigation.tsx b/src/components/shared/compact-section-navigation.tsx
+new file mode 100644
+index 0000000000..e23e8686c0
+--- /dev/null
++++ b/src/components/shared/compact-section-navigation.tsx
+@@ -0,0 +1,83 @@
++import { useId, useRef, useState } from &quot;react&quot;;
++import { ChevronDown } from &quot;lucide-react&quot;;
++import { useNavigation } from &quot;#/context/navigation-context&quot;;
++import {
++  SETTINGS_COMPACT_MAX_WIDTH,
++  SIDEBAR_RAIL_COLLAPSE_MAX_WIDTH,
++  useBreakpoint,
++} from &quot;#/hooks/use-breakpoint&quot;;
++import { useClickOutsideElement } from &quot;#/hooks/use-click-outside-element&quot;;
++import { useCloseOnEscape } from &quot;#/hooks/use-close-on-escape&quot;;
++import { cn } from &quot;#/utils/utils&quot;;
++import { dropdownTriggerShellClassName } from &quot;#/utils/dropdown-classes&quot;;
++
++interface CompactSectionNavigationProps {
++  label: string;
++  currentLabel?: string;
++  testId: string;
++  children: React.ReactNode;
++}
++
++function SectionDisclosure({
++  label,
++  currentLabel,
++  testId,
++  children,
++}: CompactSectionNavigationProps) {
++  const [isOpen, setIsOpen] = useState(false);
++  const menuId = useId();
++  const triggerRef = useRef&lt;HTMLButtonElement&gt;(null);
++  const containerRef = useClickOutsideElement&lt;HTMLDivElement&gt;(() =&gt;
++    setIsOpen(false),
++  );
++  useCloseOnEscape(isOpen, () =&gt; setIsOpen(false), triggerRef);
++
++  return (
++    &lt;div ref={containerRef} className=&quot;relative&quot; data-testid={testId}&gt;
++      &lt;button
++        ref={triggerRef}
++        type=&quot;button&quot;
++        aria-label={`${label}: ${currentLabel}`}
++        aria-expanded={isOpen}
++        aria-controls={menuId}
++        onClick={() =&gt; setIsOpen(!isOpen)}
++        className={cn(dropdownTriggerShellClassName, &quot;min-h-11 text-sm&quot;)}
++      &gt;
++        &lt;span className=&quot;shrink-0 text-muted&quot;&gt;{label}&lt;/span&gt;
++        &lt;span className=&quot;min-w-0 flex-1 truncate text-left text-contrast&quot;&gt;
++          {currentLabel}
++        &lt;/span&gt;
++        &lt;ChevronDown className=&quot;size-4 shrink-0&quot; aria-hidden /&gt;
++      &lt;/button&gt;
++      {isOpen &amp;&amp; (
++        // Link activation bubbles here for mouse and keyboard alike. Child
++        // anchors own navigation; this only dismisses their disclosure.
++        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- delegated link activation, not a standalone click target
++        &lt;nav
++          id={menuId}
++          aria-label={label}
++          className=&quot;absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-md border border-border-subtle bg-tertiary p-1 shadow-lg&quot;
++          onClick={(event) =&gt; {
++            if (event.target instanceof Element &amp;&amp; event.target.closest(&quot;a&quot;)) {
++              setIsOpen(false);
++            }
++          }}
++        &gt;
++          {children}
++        &lt;/nav&gt;
++      )}
++    &lt;/div&gt;
++  );
++}
++
++/** Keep sibling pages reachable while the secondary sidebar is hidden. */
++export function CompactSectionNavigation(props: CompactSectionNavigationProps) {
++  const { currentPath } = useNavigation();
++  const isCompact = useBreakpoint(SETTINGS_COMPACT_MAX_WIDTH);
++  const isPhone = useBreakpoint(SIDEBAR_RAIL_COLLAPSE_MAX_WIDTH);
++
++  if (!isCompact || isPhone || !props.currentLabel) return null;
++
++  // Route changes also dismiss a disclosure opened before browser Back/Forward.
++  return &lt;SectionDisclosure key={currentPath} {...props} /&gt;;
++}
+</pre></details></section><section id="reuse"><h2>One list serves the sidebar and the selector</h2><p>Settings extracts its existing mapping to <code>SettingsNavigationLinks</code>; it still consumes the filtered <code>navigationItems</code> and includes the existing Integration and Cloud link components. Customize extracts <code>ExtensionsNavigationLinks</code>; it retains Cloud’s hidden Plugins/Apps entries and external Skills destination.</p><p>The new controls render navigation links in a disclosure instead of modeling them as select options. That preserves native navigation, external targets, and the same backend-dependent filtering.</p><p class="refs">Sources: <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/settings/settings-desktop-sidebar.tsx#L50">src/components/features/settings/settings-desktop-sidebar.tsx:50</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/settings/settings-desktop-sidebar.tsx#L76">src/components/features/settings/settings-desktop-sidebar.tsx:76</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/skills/extensions-navigation.tsx#L94">src/components/features/skills/extensions-navigation.tsx:94</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/skills/extensions-navigation.tsx#L176">src/components/features/skills/extensions-navigation.tsx:176</a>.</p><details><summary>Code diff</summary><pre>diff --git a/src/components/features/settings/settings-desktop-sidebar.tsx b/src/components/features/settings/settings-desktop-sidebar.tsx
+index e795dbc4b8..a9982a216b 100644
+--- a/src/components/features/settings/settings-desktop-sidebar.tsx
++++ b/src/components/features/settings/settings-desktop-sidebar.tsx
+@@ -1,3 +1,5 @@
++import { CompactSectionNavigation } from &quot;#/components/shared/compact-section-navigation&quot;;
++import { useNavigation } from &quot;#/context/navigation-context&quot;;
+ import { useTranslation } from &quot;react-i18next&quot;;
+ import { cn } from &quot;#/utils/utils&quot;;
+ import { Typography } from &quot;#/ui/typography&quot;;
+@@ -22,10 +24,6 @@ export function SettingsDesktopSidebar({
+   navigationItems,
+ }: SettingsDesktopSidebarProps) {
+   const { t } = useTranslation(&quot;openhands&quot;);
+-  const desktopNavItems = navigationItems.filter(
+-    (item): item is Extract&lt;SettingsNavRenderedItem, { type: &quot;item&quot; }&gt; =&gt;
+-      item.type === &quot;item&quot;,
+-  );
+ 
+   return (
+     &lt;aside
+@@ -38,20 +36,7 @@ export function SettingsDesktopSidebar({
+       &lt;Typography.Text className=&quot;px-2 text-sm font-normal text-contrast&quot;&gt;
+         {t(I18nKey.SETTINGS$TITLE)}
+       &lt;/Typography.Text&gt;
+-      &lt;div className=&quot;flex flex-col gap-0.5 pt-0.5&quot;&gt;
+-        {desktopNavItems.map((renderedItem) =&gt; (
+-          &lt;SidebarNavLink
+-            key={renderedItem.item.to}
+-            to={renderedItem.item.to}
+-            label={t(renderedItem.item.text as I18nKey)}
+-            end
+-            testId={`sidebar-settings-${renderedItem.item.to}`}
+-            icon={renderedItem.item.icon}
+-          /&gt;
+-        ))}
+-        &lt;IntegrationsSettingsLink /&gt;
+-        &lt;CloudSettingsLink /&gt;
+-      &lt;/div&gt;
++      &lt;SettingsNavigationLinks navigationItems={navigationItems} /&gt;
+       &lt;div className=&quot;flex flex-col gap-2 px-2 pt-3&quot;&gt;
+         &lt;AgentCanvasUpdateCard /&gt;
+       &lt;/div&gt;
+@@ -61,3 +46,55 @@ export function SettingsDesktopSidebar({
+     &lt;/aside&gt;
+   );
+ }
++
++function SettingsNavigationLinks({
++  navigationItems,
++}: SettingsDesktopSidebarProps) {
++  const { t } = useTranslation(&quot;openhands&quot;);
++  const desktopNavItems = navigationItems.filter(
++    (item): item is Extract&lt;SettingsNavRenderedItem, { type: &quot;item&quot; }&gt; =&gt;
++      item.type === &quot;item&quot;,
++  );
++  return (
++    &lt;div className=&quot;flex flex-col gap-0.5 pt-0.5&quot;&gt;
++      {desktopNavItems.map((renderedItem) =&gt; (
++        &lt;SidebarNavLink
++          key={renderedItem.item.to}
++          to={renderedItem.item.to}
++          label={t(renderedItem.item.text as I18nKey)}
++          testId={`sidebar-settings-${renderedItem.item.to}`}
++          icon={renderedItem.item.icon}
++        /&gt;
++      ))}
++      &lt;IntegrationsSettingsLink /&gt;
++      &lt;CloudSettingsLink /&gt;
++    &lt;/div&gt;
++  );
++}
++
++export function SettingsCompactNavigation({
++  navigationItems,
++}: SettingsDesktopSidebarProps) {
++  const { t } = useTranslation(&quot;openhands&quot;);
++  const { currentPath } = useNavigation();
++  const currentItem = navigationItems.find(
++    (item) =&gt;
++      item.type === &quot;item&quot; &amp;&amp;
++      (item.item.to === currentPath ||
++        currentPath.startsWith(`${item.item.to}/`)),
++  );
++
++  return (
++    &lt;CompactSectionNavigation
++      label={t(I18nKey.SETTINGS$TITLE)}
++      currentLabel={
++        currentItem?.type === &quot;item&quot;
++          ? t(currentItem.item.text as I18nKey)
++          : undefined
++      }
++      testId=&quot;settings-compact-navigation&quot;
++    &gt;
++      &lt;SettingsNavigationLinks navigationItems={navigationItems} /&gt;
++    &lt;/CompactSectionNavigation&gt;
++  );
++}
+diff --git a/src/components/features/skills/extensions-navigation.tsx b/src/components/features/skills/extensions-navigation.tsx
+index 3bf8bdf3a7..bf4dc35cbd 100644
+--- a/src/components/features/skills/extensions-navigation.tsx
++++ b/src/components/features/skills/extensions-navigation.tsx
+@@ -1,5 +1,7 @@
+ import { useTranslation } from &quot;react-i18next&quot;;
+ import { Blocks, ExternalLink } from &quot;lucide-react&quot;;
++import { CompactSectionNavigation } from &quot;#/components/shared/compact-section-navigation&quot;;
++import { useNavigation } from &quot;#/context/navigation-context&quot;;
+ import { NavigationLink } from &quot;#/components/shared/navigation-link&quot;;
+ import { cn } from &quot;#/utils/utils&quot;;
+ import SkillsIcon from &quot;#/icons/skills.svg?react&quot;;
+@@ -72,9 +74,6 @@ export const EXTENSIONS_NAV_ITEMS: ExtensionNavItem[] = [
+ 
+ export function ExtensionsNavigation() {
+   const { t } = useTranslation(&quot;openhands&quot;);
+-  const { active } = useActiveBackendContext();
+-  const { backend } = active;
+-  const isCloudBackend = !isNoBackend(backend) &amp;&amp; backend.kind === &quot;cloud&quot;;
+ 
+   return (
+     &lt;aside
+@@ -84,82 +83,110 @@ export function ExtensionsNavigation() {
+       &lt;span className=&quot;px-2 text-sm font-normal text-contrast&quot;&gt;
+         {t(I18nKey.NAV$CUSTOMIZE)}
+       &lt;/span&gt;
+-      &lt;div className=&quot;flex flex-col gap-0.5 pt-0.5&quot;&gt;
+-        {EXTENSIONS_NAV_ITEMS.filter(
+-          (item) =&gt;
+-            !(CLOUD_HIDDEN_EXTENSION_PATHS.has(item.to) &amp;&amp; isCloudBackend),
+-        ).map((item) =&gt; {
+-          const isCloudSkillsLink =
+-            item.to === CLOUD_LINKED_EXTENSION_PATH &amp;&amp; isCloudBackend;
+-          const baseRow = (
+-            &lt;span className=&quot;shrink-0 flex items-center justify-center&quot;&gt;
+-              {item.icon}
+-            &lt;/span&gt;
+-          );
+-          const label = (
+-            &lt;span className=&quot;truncate&quot;&gt;
+-              {isCloudSkillsLink
+-                ? t(I18nKey.SIDEBAR$SKILLS_AND_PLUGINS_CLOUD_LINK)
+-                : item.label}
+-            &lt;/span&gt;
+-          );
+-          const comingSoonBadge = item.comingSoon &amp;&amp; (
+-            &lt;span className=&quot;ml-auto shrink-0 rounded-full border border-contrast/20 bg-contrast/5 px-1.5 py-0.5 text-[10px] font-medium text-text-dim&quot;&gt;
+-              {t(I18nKey.NAV$COMING_SOON)}
+-            &lt;/span&gt;
+-          );
++      &lt;ExtensionsNavigationLinks /&gt;
++      &lt;div className=&quot;px-2 pt-3&quot;&gt;
++        &lt;BackendSyncedSettingsBadge /&gt;
++      &lt;/div&gt;
++    &lt;/aside&gt;
++  );
++}
+ 
+-          if (isCloudSkillsLink) {
+-            const cloudSkillsUrl = `${backend.host.replace(/\/+$/, &quot;&quot;)}/settings/skills`;
+-            return (
+-              &lt;a
+-                key={item.to}
+-                data-testid={`sidebar-extensions-${item.to}`}
+-                href={cloudSkillsUrl}
+-                target=&quot;_blank&quot;
+-                rel=&quot;noopener noreferrer&quot;
+-                className={cn(
+-                  sidebarNavRowClassName(),
+-                  &quot;truncate&quot;,
+-                  SIDEBAR_ROW_INTERACTIVE_CLASS.idle,
+-                )}
+-              &gt;
+-                {baseRow}
+-                {label}
+-                &lt;ExternalLink
+-                  className=&quot;ml-auto size-4 shrink-0 text-muted&quot;
+-                  aria-hidden
+-                /&gt;
+-              &lt;/a&gt;
+-            );
+-          }
++function ExtensionsNavigationLinks() {
++  const { t } = useTranslation(&quot;openhands&quot;);
++  const { active } = useActiveBackendContext();
++  const { backend } = active;
++  const isCloudBackend = !isNoBackend(backend) &amp;&amp; backend.kind === &quot;cloud&quot;;
++  return (
++    &lt;div className=&quot;flex flex-col gap-0.5 pt-0.5&quot;&gt;
++      {EXTENSIONS_NAV_ITEMS.filter(
++        (item) =&gt;
++          !(CLOUD_HIDDEN_EXTENSION_PATHS.has(item.to) &amp;&amp; isCloudBackend),
++      ).map((item) =&gt; {
++        const isCloudSkillsLink =
++          item.to === CLOUD_LINKED_EXTENSION_PATH &amp;&amp; isCloudBackend;
++        const baseRow = (
++          &lt;span className=&quot;shrink-0 flex items-center justify-center&quot;&gt;
++            {item.icon}
++          &lt;/span&gt;
++        );
++        const label = (
++          &lt;span className=&quot;truncate&quot;&gt;
++            {isCloudSkillsLink
++              ? t(I18nKey.SIDEBAR$SKILLS_AND_PLUGINS_CLOUD_LINK)
++              : item.label}
++          &lt;/span&gt;
++        );
++        const comingSoonBadge = item.comingSoon &amp;&amp; (
++          &lt;span className=&quot;ml-auto shrink-0 rounded-full border border-contrast/20 bg-contrast/5 px-1.5 py-0.5 text-[10px] font-medium text-text-dim&quot;&gt;
++            {t(I18nKey.NAV$COMING_SOON)}
++          &lt;/span&gt;
++        );
+ 
++        if (isCloudSkillsLink) {
++          const cloudSkillsUrl = `${backend.host.replace(/\/+$/, &quot;&quot;)}/settings/skills`;
+           return (
+-            &lt;NavigationLink
++            &lt;a
+               key={item.to}
+-              to={item.to}
+-              end={item.end}
+               data-testid={`sidebar-extensions-${item.to}`}
+-              className={({ isActive }) =&gt;
+-                cn(
+-                  sidebarNavRowClassName(),
+-                  &quot;truncate&quot;,
+-                  isActive
+-                    ? SIDEBAR_ROW_INTERACTIVE_CLASS.active
+-                    : SIDEBAR_ROW_INTERACTIVE_CLASS.idle,
+-                )
+-              }
++              href={cloudSkillsUrl}
++              target=&quot;_blank&quot;
++              rel=&quot;noopener noreferrer&quot;
++              className={cn(
++                sidebarNavRowClassName(),
++                &quot;truncate&quot;,
++                SIDEBAR_ROW_INTERACTIVE_CLASS.idle,
++              )}
+             &gt;
+               {baseRow}
+               {label}
+-              {comingSoonBadge}
+-            &lt;/NavigationLink&gt;
++              &lt;ExternalLink
++                className=&quot;ml-auto size-4 shrink-0 text-muted&quot;
++                aria-hidden
++              /&gt;
++            &lt;/a&gt;
+           );
+-        })}
+-      &lt;/div&gt;
+-      &lt;div className=&quot;px-2 pt-3&quot;&gt;
+-        &lt;BackendSyncedSettingsBadge /&gt;
+-      &lt;/div&gt;
+-    &lt;/aside&gt;
++        }
++
++        return (
++          &lt;NavigationLink
++            key={item.to}
++            to={item.to}
++            end={item.end}
++            data-testid={`sidebar-extensions-${item.to}`}
++            className={({ isActive }) =&gt;
++              cn(
++                sidebarNavRowClassName(),
++                &quot;truncate&quot;,
++                isActive
++                  ? SIDEBAR_ROW_INTERACTIVE_CLASS.active
++                  : SIDEBAR_ROW_INTERACTIVE_CLASS.idle,
++              )
++            }
++          &gt;
++            {baseRow}
++            {label}
++            {comingSoonBadge}
++          &lt;/NavigationLink&gt;
++        );
++      })}
++    &lt;/div&gt;
++  );
++}
++
++export function ExtensionsCompactNavigation() {
++  const { t } = useTranslation(&quot;openhands&quot;);
++  const { currentPath } = useNavigation();
++  const currentItem = EXTENSIONS_NAV_ITEMS.find(
++    (item) =&gt; currentPath === item.to || currentPath.startsWith(`${item.to}/`),
++  );
++
++  return (
++    &lt;CompactSectionNavigation
++      label={t(I18nKey.NAV$CUSTOMIZE)}
++      currentLabel={currentItem?.label}
++      testId=&quot;extensions-compact-navigation&quot;
++    &gt;
++      &lt;ExtensionsNavigationLinks /&gt;
++    &lt;/CompactSectionNavigation&gt;
+   );
+ }
+</pre></details></section><section id="routes"><h2>Each page receives the same top control</h2><table><tr><th>Changed integration</th><th>Before → after</th><th>Source</th></tr><tr><td>SettingsLayout</td><td>Page content → compact control followed by page content.</td><td><a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/settings/settings-layout.tsx#L28">src/components/features/settings/settings-layout.tsx:28</a></td></tr><tr><td>MCP</td><td>Page content → compact control followed by page content.</td><td><a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/routes/mcp.tsx#L119">src/routes/mcp.tsx:119</a></td></tr><tr><td>Skills</td><td>Page content → compact control followed by page content.</td><td><a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/routes/skills-settings.tsx#L141">src/routes/skills-settings.tsx:141</a></td></tr><tr><td>Plugins</td><td>Page content → compact control followed by page content.</td><td><a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/routes/skills-plugins.tsx#L134">src/routes/skills-plugins.tsx:134</a></td></tr><tr><td>Apps</td><td>Page content → compact control followed by page content.</td><td><a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/routes/canvas-extensions.tsx#L95">src/routes/canvas-extensions.tsx:95</a></td></tr></table><p>Settings uses its existing max-width column with a vertical gap. The four Customize routes already have vertical stacks. No third column is added.</p><details><summary>Code diff</summary><pre>diff --git a/src/components/features/settings/settings-layout.tsx b/src/components/features/settings/settings-layout.tsx
+index e6175b030c..dc5b292113 100644
+--- a/src/components/features/settings/settings-layout.tsx
++++ b/src/components/features/settings/settings-layout.tsx
+@@ -1,4 +1,7 @@
+-import { SettingsDesktopSidebar } from &quot;./settings-desktop-sidebar&quot;;
++import {
++  SettingsDesktopSidebar,
++  SettingsCompactNavigation,
++} from &quot;./settings-desktop-sidebar&quot;;
+ import { SettingsNavRenderedItem } from &quot;#/hooks/use-settings-nav-items&quot;;
+ import { settingsLayoutMainScrollClassName } from &quot;#/utils/settings-like-page-layout-classes&quot;;
+ 
+@@ -21,7 +24,10 @@ export function SettingsLayout({
+       &lt;div className=&quot;flex min-h-0 flex-1 gap-10 lg:items-start&quot;&gt;
+         &lt;SettingsDesktopSidebar navigationItems={navigationItems} /&gt;
+         &lt;main className={settingsLayoutMainScrollClassName}&gt;
+-          &lt;div className=&quot;mx-auto w-full min-w-0 max-w-200&quot;&gt;{children}&lt;/div&gt;
++          &lt;div className=&quot;mx-auto flex w-full min-w-0 max-w-200 flex-col gap-6&quot;&gt;
++            &lt;SettingsCompactNavigation navigationItems={navigationItems} /&gt;
++            {children}
++          &lt;/div&gt;
+         &lt;/main&gt;
+       &lt;/div&gt;
+     &lt;/div&gt;
+diff --git a/src/routes/canvas-extensions.tsx b/src/routes/canvas-extensions.tsx
+index fcb4b3731f..f80761b877 100644
+--- a/src/routes/canvas-extensions.tsx
++++ b/src/routes/canvas-extensions.tsx
+@@ -1,7 +1,10 @@
+ import React from &quot;react&quot;;
+ import { useTranslation } from &quot;react-i18next&quot;;
+ import { ExternalLink } from &quot;lucide-react&quot;;
+-import { ExtensionsNavigation } from &quot;#/components/features/skills/extensions-navigation&quot;;
++import {
++  ExtensionsNavigation,
++  ExtensionsCompactNavigation,
++} from &quot;#/components/features/skills/extensions-navigation&quot;;
+ import { AddCanvasExtensionModal } from &quot;#/components/features/canvas-extensions/add-canvas-extension-modal&quot;;
+ import { CanvasExtensionCard } from &quot;#/components/features/canvas-extensions/canvas-extension-card&quot;;
+ import { BrandButton } from &quot;#/components/features/settings/brand-button&quot;;
+@@ -89,6 +92,7 @@ export default function CanvasExtensionsScreen() {
+       &lt;ExtensionsNavigation /&gt;
+       &lt;main className={cn(settingsLikeMainScrollClassName, &quot;h-full&quot;)}&gt;
+         &lt;div className=&quot;mx-auto flex w-full min-w-0 max-w-200 flex-col gap-6&quot;&gt;
++          &lt;ExtensionsCompactNavigation /&gt;
+           &lt;div className=&quot;flex min-w-0 items-start justify-between gap-4&quot;&gt;
+             &lt;div className=&quot;min-w-0 space-y-1&quot;&gt;
+               &lt;h2 className=&quot;text-xl font-semibold leading-6 text-foreground&quot;&gt;
+diff --git a/src/routes/mcp.tsx b/src/routes/mcp.tsx
+index 0fb635ebbb..155826f07a 100644
+--- a/src/routes/mcp.tsx
++++ b/src/routes/mcp.tsx
+@@ -1,6 +1,9 @@
+ import React from &quot;react&quot;;
+ import { AxiosError } from &quot;axios&quot;;
+-import { ExtensionsNavigation } from &quot;#/components/features/skills/extensions-navigation&quot;;
++import {
++  ExtensionsNavigation,
++  ExtensionsCompactNavigation,
++} from &quot;#/components/features/skills/extensions-navigation&quot;;
+ import { useTranslation } from &quot;react-i18next&quot;;
+ import { I18nKey } from &quot;#/i18n/declaration&quot;;
+ import { BrandButton } from &quot;#/components/features/settings/brand-button&quot;;
+@@ -113,6 +116,7 @@ export default function MCPPage() {
+       &lt;ExtensionsNavigation /&gt;
+       &lt;main className={settingsLikeMainScrollClassName}&gt;
+         &lt;div className=&quot;mx-auto flex w-full min-w-0 max-w-200 flex-col gap-6&quot;&gt;
++          &lt;ExtensionsCompactNavigation /&gt;
+           &lt;div className=&quot;min-w-0&quot;&gt;
+             &lt;div className=&quot;flex flex-wrap items-start justify-between gap-4&quot;&gt;
+               &lt;div className=&quot;min-w-0 flex-1 basis-64 space-y-1&quot;&gt;
+diff --git a/src/routes/skills-plugins.tsx b/src/routes/skills-plugins.tsx
+index d5738f1210..7a15cc9835 100644
+--- a/src/routes/skills-plugins.tsx
++++ b/src/routes/skills-plugins.tsx
+@@ -1,6 +1,9 @@
+ import React from &quot;react&quot;;
+ import { useTranslation } from &quot;react-i18next&quot;;
+-import { ExtensionsNavigation } from &quot;#/components/features/skills/extensions-navigation&quot;;
++import {
++  ExtensionsNavigation,
++  ExtensionsCompactNavigation,
++} from &quot;#/components/features/skills/extensions-navigation&quot;;
+ import { PluginCard } from &quot;#/components/features/plugins/plugin-card&quot;;
+ import { PluginsToolbar } from &quot;#/components/features/plugins/plugins-toolbar&quot;;
+ import { PluginDetailModal } from &quot;#/components/features/plugins/plugin-detail-modal&quot;;
+@@ -128,6 +131,7 @@ export default function SkillsPluginsScreen() {
+       &lt;ExtensionsNavigation /&gt;
+       &lt;main className={cn(settingsLikeMainScrollClassName, &quot;h-full&quot;)}&gt;
+         &lt;div className=&quot;mx-auto flex w-full min-w-0 max-w-200 flex-col gap-6&quot;&gt;
++          &lt;ExtensionsCompactNavigation /&gt;
+           &lt;div className=&quot;flex min-w-0 items-start justify-between gap-4&quot;&gt;
+             &lt;div className=&quot;min-w-0 space-y-1&quot;&gt;
+               &lt;h2 className=&quot;text-xl font-semibold leading-6 text-foreground&quot;&gt;
+diff --git a/src/routes/skills-settings.tsx b/src/routes/skills-settings.tsx
+index 7ef831ddcf..f4c578ff78 100644
+--- a/src/routes/skills-settings.tsx
++++ b/src/routes/skills-settings.tsx
+@@ -2,7 +2,10 @@ import React from &quot;react&quot;;
+ import { useTranslation } from &quot;react-i18next&quot;;
+ import { useSearchParams } from &quot;react-router&quot;;
+ import { BrandButton } from &quot;#/components/features/settings/brand-button&quot;;
+-import { ExtensionsNavigation } from &quot;#/components/features/skills/extensions-navigation&quot;;
++import {
++  ExtensionsNavigation,
++  ExtensionsCompactNavigation,
++} from &quot;#/components/features/skills/extensions-navigation&quot;;
+ import { AddSkillModal } from &quot;#/components/features/skills/add-skill-modal&quot;;
+ import { SkillCard } from &quot;#/components/features/skills/skill-card&quot;;
+ import { SkillDetailModal } from &quot;#/components/features/skills/skill-detail-modal&quot;;
+@@ -135,6 +138,7 @@ function SkillsSettingsScreen() {
+           data-testid=&quot;skills-page&quot;
+           className=&quot;mx-auto flex w-full min-w-0 max-w-275 flex-col gap-6&quot;
+         &gt;
++          &lt;ExtensionsCompactNavigation /&gt;
+           &lt;div className=&quot;flex min-w-0 items-start justify-between gap-4&quot;&gt;
+             &lt;div className=&quot;min-w-0 space-y-1&quot;&gt;
+               &lt;h2 className=&quot;text-xl font-semibold leading-6 text-foreground&quot;&gt;
+</pre></details></section><section id="matching"><h2>Section matching survives a trailing slash</h2>
+<p>The Settings router currently has flat pages: <code>/settings/llm/example</code> shows the global Not Found screen. But <code>/settings/llm/</code> is a real URL for the LLM page. An exact match hid the proposed selector, and the existing title lookup showed Agent. The label, selected navigation link and page heading now use slash-boundary matching, consistent with Customize.</p>
+<figure><svg viewBox="0 0 860 180" role="img" aria-labelledby="match-title"><title id="match-title">Matching a Settings URL with a trailing slash</title><rect x="18" y="18" width="350" height="144" rx="7" fill="var(--soft)" stroke="var(--muted)" stroke-dasharray="5 3"/><text x="34" y="49" font-family="system-ui" font-size="17" fill="var(--fg)">Before · exact match</text><text x="34" y="82" font-family="monospace" font-size="14" fill="var(--fg)">/settings/llm/ ≠ /settings/llm</text><text x="34" y="112" font-family="system-ui" font-size="14" fill="var(--muted)">Selector absent; page title falls back.</text><text x="34" y="142" font-family="system-ui" font-size="12" fill="var(--muted)">SettingsCompactNavigation · SettingsScreen</text><path d="M378 90H476" stroke="var(--warn)" stroke-width="3" marker-end="url(#delta)"/><rect x="488" y="18" width="354" height="144" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><text x="504" y="49" font-family="system-ui" font-size="17" fill="var(--fg)">After · section boundary</text><text x="504" y="82" font-family="monospace" font-size="14" fill="var(--fg)">exact OR startsWith(section + "/")</text><text x="504" y="112" font-family="system-ui" font-size="14" fill="var(--muted)">LLM selector, highlight and heading.</text><text x="504" y="142" font-family="system-ui" font-size="12" fill="var(--muted)">No match for /settings/llm-other.</text></svg><figcaption>The boundary avoids accidentally selecting similarly named paths. No nested routes are added.</figcaption></figure>
+<p class="refs">Sources: <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/components/features/settings/settings-desktop-sidebar.tsx#L78">SettingsCompactNavigation:78</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/src/routes/settings.tsx#L66">SettingsScreen:66</a>, <a class="src" href="https://github.com/OpenHands/OpenHands/blob/553d4519113192a80fb18376fdb6c1e39fa06387/src/routes/settings.tsx#L66">previous heading lookup:66</a>. SidebarNavLink’s existing section matching replaces its exact-end option.</p><details><summary>Heading diff</summary><pre>diff --git a/src/routes/settings.tsx b/src/routes/settings.tsx
+index 5f61946a62..0c8c075f2d 100644
+--- a/src/routes/settings.tsx
++++ b/src/routes/settings.tsx
+@@ -64,7 +64,9 @@ function SettingsScreen() {
+     // Resolve from the full list, not the listed subset, so a page that is
+     // reachable but unlisted still gets its own title.
+     const currentItem = OSS_NAV_ITEMS.find(
+-      (item) =&gt; item.to === location.pathname,
++      (item) =&gt;
++        item.to === location.pathname ||
++        location.pathname.startsWith(`${item.to}/`),
+     );
+     if (currentItem) {
+       return {
+</pre></details></section><section id="qa"><h2>Real Local backend verification covers the boundary</h2><p>Before and after captures use production builds with real Agent Server 1.53.0, fresh isolated state, neutral theme, and 820×1180 viewport. No model is needed for navigation. The new recording uses main’s unchanged <code>browser record</code> command and shows MCP → Skills → Plugins → Apps → MCP, keyboard navigation and Escape, Settings → Secrets, browser Back, and the trailing-slash fix. This PR changes no recording implementation.</p><table><tr><th>Evidence</th><th>Result</th></tr><tr><td>7 widths × Settings and MCP</td><td>390, 767, 768, 820, 1023, 1024, 1440px: no horizontal overflow; selector appears only within the tablet interval.</td></tr><tr><td>Real app interaction</td><td>All four Customize pages, all eight Settings destinations, phone hub/Back, desktop sidebar links, keyboard Escape, browser Back passed.</td></tr><tr><td>Focused UI tests</td><td>44 passed, including trailing-slash selection/heading, section boundaries, Cloud filtering and external Skills target.</td></tr><tr><td>Lint and builds</td><td>Lint passes (523 existing warnings, zero errors); app build and library build pass.</td></tr></table><p>Cloud live navigation was not exercised; the shared Cloud renderer and its component tests cover its distinct branch. Agent type, conversation mode, and embedded transport are unaffected because this change only renders existing navigation links. Existing narrow Skills cards at this tablet width remain visible in both captures and are outside this navigation change.</p><p class="refs">Tests: <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/__tests__/components/features/skills/extensions-navigation.test.tsx#L1">__tests__/components/features/skills/extensions-navigation.test.tsx:1</a>, <a class="src" href="https://github.com/enyst/playground/blob/c0ed95678dda7baddcdb1eee16dee0611d8b9beb/__tests__/components/features/settings/settings-layout.test.tsx#L1">__tests__/components/features/settings/settings-layout.test.tsx:1</a>. Feature maps F09/F17 document the new interaction; F18/F19/F20 retain the same page flows.</p></section><footer><p>Temporary PR review aid. Evidence contains three refreshed before/after screenshot pairs, a trailing-slash comparison and a recording from isolated test profiles; it was inspected for credentials and private content before publication. Commit-pinned links remain available after .pr cleanup.</p></footer></main></div></body></html>
