@@ -246,8 +246,10 @@ describe("SettingsService", () => {
     now.mockReturnValue(2);
     await SettingsService.getSettings();
 
-    now.mockReturnValue(5 * 60 * 1000 + 2);
+    // The encrypted entry expires one millisecond before the redacted one.
+    now.mockReturnValue(5 * 60 * 1000 + 1);
     await SettingsService.getSettingsForConversation();
+    await SettingsService.getSettings();
 
     expect(requests).toEqual(["encrypted", null, "encrypted"]);
     now.mockRestore();
