@@ -308,6 +308,9 @@ test.describe("same-model profile identity", () => {
       model: SHARED_MODEL,
     });
     await activateProfileViaUI(page, PROFILE_BETA);
+    // A launch from the named agent profile runs its llm_profile_ref, not the
+    // standalone active LLM profile, so point it at BETA too.
+    await ensureMockLLMAgentProfile(page.request, PROFILE_BETA);
 
     // Register a trajectory for the conversation.
     // Turn 0 is padding: the agent-server makes an internal LLM call
@@ -482,6 +485,11 @@ test.describe("OpenHands provider hidden base_url preservation", () => {
       if (await basicToggle.isVisible().catch(() => false)) {
         await basicToggle.click();
       }
+
+      const apiKeyInput = page.getByTestId("llm-api-key-input");
+      await expect(apiKeyInput).toBeVisible({ timeout: 10_000 });
+      await apiKeyInput.click();
+      await apiKeyInput.fill("mock-api-key-for-basic-resave");
 
       const saveButton = page.getByTestId("save-profile-btn");
       await expect(saveButton).toBeEnabled({ timeout: 10_000 });
