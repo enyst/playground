@@ -99,4 +99,33 @@ describe("Settings compact section navigation", () => {
     renderCompact("/settings");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+
+  it.each(["/settings/llm/", "/settings/llm/profile"])(
+    "keeps the LLM section reachable and selected on %s",
+    async (currentPath) => {
+      window.innerWidth = 820;
+      renderCompact(currentPath);
+      const user = userEvent.setup();
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "SETTINGS$TITLE: SETTINGS$NAV_LLM",
+        }),
+      );
+
+      const nav = screen.getByRole("navigation");
+      expect(
+        within(nav).getByRole("link", { name: "SETTINGS$NAV_LLM" }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(
+        within(nav).getByRole("link", { name: "SETTINGS$NAV_APPLICATION" }),
+      ).not.toHaveAttribute("aria-current");
+    },
+  );
+
+  it("does not treat a similarly named path as an LLM child", () => {
+    window.innerWidth = 820;
+    renderCompact("/settings/llm-other");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 });

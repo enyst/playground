@@ -62,7 +62,6 @@ function SettingsNavigationLinks({
           key={renderedItem.item.to}
           to={renderedItem.item.to}
           label={t(renderedItem.item.text as I18nKey)}
-          end
           testId={`sidebar-settings-${renderedItem.item.to}`}
           icon={renderedItem.item.icon}
         />
@@ -79,7 +78,10 @@ export function SettingsCompactNavigation({
   const { t } = useTranslation("openhands");
   const { currentPath } = useNavigation();
   const currentItem = navigationItems.find(
-    (item) => item.type === "item" && item.item.to === currentPath,
+    (item) =>
+      item.type === "item" &&
+      (item.item.to === currentPath ||
+        currentPath.startsWith(`${item.item.to}/`)),
   );
 
   return (
