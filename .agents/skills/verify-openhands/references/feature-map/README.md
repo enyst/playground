@@ -257,7 +257,7 @@ How to write and prove new entries: [../mapping.md](../mapping.md).
 | F26 | [Launcher modes, Docker, desktop and library](F26-runtime-variants.md) | launcher flags, partial stacks, LAN bind, Docker, Electron, embeddable library | a terminal | Docker/Electron where available | 32 |
 | F27 | [Workspace tools](F27-workspace-tools.md) | terminal, browser, planner, task list, usage, `canvas_ui_control` | drawer tabs | LLM | 30 |
 
-27 families, 745 sub-features. `control-openhands map ids` lists every ID with its file.
+27 families, 747 sub-features. `control-openhands map ids` lists every ID with its file.
 
 ### Neighbouring families
 
