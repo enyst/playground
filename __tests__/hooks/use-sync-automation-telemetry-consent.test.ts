@@ -135,6 +135,18 @@ describe("useSyncAutomationTelemetryConsent", () => {
     expect(syncTelemetryConsentMock).toHaveBeenNthCalledWith(2, "granted");
   });
 
+  it("syncs after a launcher key rotation reloads the app", () => {
+    state.consent = "granted";
+    const { unmount } = renderHook(() => useSyncAutomationTelemetryConsent());
+
+    unmount();
+    state.backendApiKey = "key-2";
+    renderHook(() => useSyncAutomationTelemetryConsent());
+
+    expect(syncTelemetryConsentMock).toHaveBeenCalledTimes(2);
+    expect(syncTelemetryConsentMock).toHaveBeenLastCalledWith("granted");
+  });
+
   it("retries a failed sync with backoff until it succeeds", async () => {
     vi.useFakeTimers();
     state.consent = "granted";
@@ -152,6 +164,30 @@ describe("useSyncAutomationTelemetryConsent", () => {
 
     rerender();
     expect(syncTelemetryConsentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries the pending revocation after a privacy clear", async () => {
+    vi.useFakeTimers();
+    state.consent = "denied";
+    state.pendingRevocationId = "user-before-reset";
+    syncTelemetryConsentMock
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("still offline"))
+      .mockResolvedValueOnce(undefined);
+
+    renderHook(() => useSyncAutomationTelemetryConsent());
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      state.consent = "pending";
+      listeners.forEach((listener) => listener());
+    });
+    await act(async () => Promise.resolve());
+
+    expect(syncTelemetryConsentMock).toHaveBeenCalledTimes(2);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(syncTelemetryConsentMock).toHaveBeenCalledTimes(3);
+    expect(syncTelemetryConsentMock).toHaveBeenNthCalledWith(3, "denied");
   });
 
   it("caps retry backoff while consent remains unacknowledged", async () => {
