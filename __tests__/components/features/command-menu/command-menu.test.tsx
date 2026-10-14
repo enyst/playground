@@ -284,6 +284,7 @@ describe("CommandMenu", () => {
   it.each([
     ["meta_llm", COMMAND_MENU_ROUTE.metaLlmSettings],
     ["agent_context", COMMAND_MENU_ROUTE.agentContextSettings],
+    ["skin", COMMAND_MENU_ROUTE.skinSettings],
   ])(
     "finds the %s settings page and opens it",
     async (searchTerm, expectedRoute) => {
@@ -463,6 +464,7 @@ describe("CommandMenu", () => {
     const searchInput = screen.getByRole("combobox", {
       name: SEARCH_LABEL_KEY,
     });
+    const initialOptionCount = screen.getAllByRole("option").length;
 
     await user.type(searchInput, "secrets");
     await user.keyboard("{Escape}");
@@ -476,7 +478,7 @@ describe("CommandMenu", () => {
       name: SEARCH_LABEL_KEY,
     });
     expect(reopenedInput).toHaveValue("");
-    expect(screen.getAllByRole("option")).toHaveLength(14);
+    expect(screen.getAllByRole("option")).toHaveLength(initialOptionCount);
     expect(screen.getAllByRole("option")[0]).toHaveAttribute(
       "aria-selected",
       "true",

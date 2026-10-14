@@ -6,6 +6,7 @@ import {
   Keyboard,
   KeyRound,
   ListTodo,
+  Palette,
   PanelsTopLeft,
   Route,
   Search,
@@ -41,6 +42,7 @@ export const COMMAND_MENU_ROUTE = {
   verificationSettings: "/settings/verification",
   appSettings: "/settings/app",
   secretsSettings: "/settings/secrets",
+  skinSettings: "/settings/skin",
 } as const;
 
 export type CommandMenuGroupId = "navigation" | "settings" | "actions";
@@ -58,6 +60,7 @@ export type CommandMenuItemId =
   | "verification-settings"
   | "app-settings"
   | "secrets-settings"
+  | "skin-settings"
   | "toggle-sidebar";
 
 export interface CommandMenuItemDefinition {
@@ -239,6 +242,14 @@ export const createCommandMenuItems = ({
       keywordsKey: I18nKey.COMMAND_MENU$SECRETS_SETTINGS_KEYWORDS,
       icon: <KeyRound size={ICON_SIZE} />,
       to: COMMAND_MENU_ROUTE.secretsSettings,
+    },
+    {
+      id: "skin-settings",
+      group: "settings",
+      titleKey: I18nKey.SETTINGS$NAV_SKIN,
+      descriptionKey: I18nKey.SETTINGS$PAGE_SKIN_SUBLINE,
+      icon: <Palette size={ICON_SIZE} />,
+      to: COMMAND_MENU_ROUTE.skinSettings,
     },
     {
       id: "toggle-sidebar",
