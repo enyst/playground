@@ -237,6 +237,44 @@ describe("skin configuration export safety", () => {
     });
   });
 
+  it("permits boolean and numeric settings while requiring review of nonempty instruction content", () => {
+    const settings = inspectSkinFilesForPush([
+      {
+        path: "skin.yaml",
+        content: JSON.stringify({
+          llm: { caching_prompt: true, max_tokens: 4096 },
+          health: { status_code: 200 },
+          options: { run_script: false },
+          prompt: "",
+          metadata: {},
+        }),
+      },
+    ]);
+    const instructions = inspectSkinFilesForPush([
+      {
+        path: "skin.yaml",
+        content: JSON.stringify({
+          prompt: "Review the repository",
+          conversation_instructions: "Use the review workflow",
+          code: { entrypoint: "server.mjs" },
+        }),
+      },
+    ]);
+
+    expect(settings).toMatchObject({
+      safeForAutomaticPush: true,
+      opaquePaths: [],
+    });
+    expect(instructions).toMatchObject({
+      safeForAutomaticPush: false,
+      opaquePaths: [
+        "skin.yaml.prompt",
+        "skin.yaml.conversation_instructions",
+        "skin.yaml.code",
+      ],
+    });
+  });
+
   it("rejects known credentials in configuration, source and credential files before push", () => {
     const report = inspectSkinFilesForPush([
       { path: "skin.yaml", content: "llm:\n  api_key: fixture-key\n" },

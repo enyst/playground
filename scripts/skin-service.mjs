@@ -964,6 +964,7 @@ export class SkinService {
    * Push local skin changes upstream. Prefers pushing straight to the
    * currently checked-out branch (main by default). If push access is
    * missing, falls back to pushing a new branch and opening a pull request.
+   * @param {{message?: string, reviewedSource?: boolean, automatic?: boolean}} [options]
    */
   async push({ message, reviewedSource = false, automatic = false } = {}) {
     this.requireInstalled();
@@ -1244,7 +1245,9 @@ export class SkinService {
       },
     });
     if (!res.ok) {
-      throw new Error(`${path} -> HTTP ${res.status}`);
+      throw Object.assign(new Error(`${path} -> HTTP ${res.status}`), {
+        status: res.status,
+      });
     }
     if (res.status === 204 || res.status === 205) return null;
     const contentType = res.headers.get("content-type") || "";

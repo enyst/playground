@@ -83,6 +83,48 @@ function jsonResponse(value: unknown, status = 200) {
   });
 }
 
+// Exact safe metadata returned for a never-configured SDK 1.54 seed. The
+// reference deliberately remains dangling after a different model is saved.
+function stockAgentProfile() {
+  return {
+    id: "stock-agent-id",
+    revision: 0,
+    schema_version: 3,
+    name: "default",
+    llm_profile_ref: "default",
+    agent_kind: "openhands",
+    mcp_server_refs: null,
+    secret_refs: null,
+    agent: "CodeActAgent",
+    tools: null,
+    persona: null,
+    system_message_suffix: null,
+    disabled_skills: [],
+    condenser: {
+      condenser_kind: "llm_summarizing",
+      enabled: true,
+      max_size: 240,
+      max_tokens: null,
+      keep_first: 2,
+      minimum_progress: 0.1,
+      hard_context_reset_max_retries: 5,
+      hard_context_reset_context_scaling: 0.8,
+    },
+    verification: {
+      critic_enabled: false,
+      critic_mode: "finish_and_message",
+      enable_iterative_refinement: false,
+      critic_threshold: 0.6,
+      max_refinement_iterations: 3,
+      critic_server_url: null,
+      critic_model_name: null,
+    },
+    enable_classify_and_switch_llm_tool: false,
+    meta_profile_ref: null,
+    tool_concurrency_limit: 1,
+  };
+}
+
 describe("portable skin configuration kits", () => {
   it("roundtrips dependencies, target credentials, active IDs, local skills and inactive automation bundles", async () => {
     const service = installedSkin({
@@ -156,8 +198,12 @@ describe("portable skin configuration kits", () => {
         api_key_set: true,
       },
       "/api/agent-profiles": {
-        profiles: [{ name: "reviewer", id: "source-agent-id" }],
+        profiles: [
+          { name: "default", id: "stock-agent-id" },
+          { name: "reviewer", id: "source-agent-id" },
+        ],
       },
+      "/api/agent-profiles/default": { profile: stockAgentProfile() },
       "/api/agent-profiles/reviewer": { profile },
       "/api/meta-profiles": { meta_profiles: [] },
       "/api/settings/secrets": {
@@ -252,6 +298,9 @@ describe("portable skin configuration kits", () => {
     );
 
     const exported = await service.exportConfiguration();
+    expect(exported.report.skipped.join(" ")).toContain(
+      "Unused stock agent profile default",
+    );
     expect(exported.report.errors).toEqual([]);
     const text = readFileSync(join(service.repoDir, "skin.yaml"), "utf8");
     expect(text).not.toContain("source-provider-id");
@@ -342,6 +391,120 @@ describe("portable skin configuration kits", () => {
     expect(
       readFileSync(join(service.repoDir, "skin.yaml"), "utf8"),
     ).not.toContain("retained-target-key");
+  });
+
+  it.each([
+    "active",
+    "customized",
+    "automation",
+    "active-model",
+    "title-model",
+  ])(
+    "preserves the previous kit when an unresolved default profile is %s",
+    async (use) => {
+      const service = installedSkin({ description: "Keep the working kit" });
+      service.automationUrl = "http://automation.test";
+      const before = readFileSync(join(service.repoDir, "skin.yaml"), "utf8");
+      const profile = {
+        ...stockAgentProfile(),
+        ...(use === "customized" ? { persona: "User-created behavior" } : {}),
+      };
+      const responses: Record<string, unknown> = {
+        "/api/agent-profiles": { profiles: [{ name: "default" }] },
+        "/api/agent-profiles/default": { profile },
+        "/api/settings": {
+          agent_settings: { llm: { model: "openai/configured-elsewhere" } },
+          active_profile: use === "active-model" ? "default" : null,
+          active_agent_profile_id: use === "active" ? profile.id : null,
+          misc_settings: {
+            app_preferences: {
+              title_llm_profile: use === "title-model" ? "default" : null,
+            },
+          },
+        },
+        "/api/llm/provider-connections": [],
+        "/api/profiles": { profiles: [] },
+        "/api/meta-profiles": { meta_profiles: [] },
+        "/api/settings/secrets": { secrets: [] },
+        "/api/skills/installed": { skills: [] },
+        "/api/automation/v1": {
+          automations:
+            use === "automation"
+              ? [{ name: "Existing schedule", agent_profile_id: profile.id }]
+              : [],
+          total: use === "automation" ? 1 : 0,
+        },
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const value = responses[new URL(url).pathname];
+          return jsonResponse(value ?? {}, value === undefined ? 404 : 200);
+        }),
+      );
+
+      const { report } = await service.exportConfiguration();
+
+      expect(report.complete).toBe(false);
+      expect(report.errors.join(" ")).toContain(
+        "Agent profile default references unavailable LLM profile default",
+      );
+      expect(readFileSync(join(service.repoDir, "skin.yaml"), "utf8")).toBe(
+        before,
+      );
+      expect((await service.status()).exportReport).toEqual(report);
+    },
+  );
+
+  it("includes referenced LLM configuration resolved by detail when inventory omits its name", async () => {
+    const service = installedSkin();
+    const profile = stockAgentProfile();
+    const responses: Record<string, unknown> = {
+      "/api/agent-profiles": { profiles: [{ name: "default" }] },
+      "/api/agent-profiles/default": { profile },
+      "/api/settings": {
+        agent_settings: { llm: { model: "openai/different-global-model" } },
+        active_profile: "default",
+        active_agent_profile_id: profile.id,
+      },
+      "/api/llm/provider-connections": [],
+      "/api/profiles": { profiles: [] },
+      "/api/profiles/default": {
+        config: {
+          model: "openai/referenced-model",
+          base_url: "http://localhost:9/v1",
+        },
+        api_key_set: false,
+      },
+      "/api/meta-profiles": { meta_profiles: [] },
+      "/api/settings/secrets": { secrets: [] },
+      "/api/skills/installed": { skills: [] },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const value = responses[new URL(url).pathname];
+        return jsonResponse(value ?? {}, value === undefined ? 404 : 200);
+      }),
+    );
+
+    const { report } = await service.exportConfiguration();
+    const saved = yaml.load(
+      readFileSync(join(service.repoDir, "skin.yaml"), "utf8"),
+    ) as {
+      llm_profiles: Array<{ name: string; config: { model: string } }>;
+      agent_profiles: Array<{ name: string; llm_profile_ref: string }>;
+    };
+
+    expect(report.complete).toBe(true);
+    expect(saved.llm_profiles).toContainEqual({
+      name: "default",
+      config: {
+        model: "openai/referenced-model",
+        base_url: "http://localhost:9/v1",
+      },
+    });
+    expect(saved.agent_profiles[0].llm_profile_ref).toBe("default");
   });
 
   it("reports missing provider requirements without replacing a working profile or activating a dangling choice", async () => {

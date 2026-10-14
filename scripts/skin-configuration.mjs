@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import yaml from "js-yaml";
 import {
   assessExportSafety,
@@ -63,6 +64,69 @@ const PRESET_FIELDS = [
   "experiment_id",
 ];
 const UPLOAD_LIMIT = 1024 * 1024;
+
+// SDK 1.54 intentionally seeds this profile before any LLM is configured.
+// Later onboarding does not repair its soft "default" reference. Only this
+// unchanged, unused stock shape may be omitted; customized profiles must keep
+// their actual dependencies or make export fail visibly.
+function isUnusedUnconfiguredSeed(profile, settings, automations) {
+  if (
+    profile.name !== "default" ||
+    profile.revision !== 0 ||
+    profile.llm_profile_ref !== "default" ||
+    settings.active_agent_profile_id === profile.id ||
+    settings.active_profile === profile.llm_profile_ref ||
+    settings.misc_settings?.app_preferences?.title_llm_profile ===
+      profile.llm_profile_ref ||
+    automations.some(
+      (automation) =>
+        automation.agent_profile_id === profile.id ||
+        automation.model === profile.llm_profile_ref,
+    )
+  )
+    return false;
+  const behavior = { ...profile };
+  for (const key of [
+    "id",
+    "name",
+    "revision",
+    "schema_version",
+    "llm_profile_ref",
+  ])
+    delete behavior[key];
+  return isDeepStrictEqual(behavior, {
+    agent_kind: "openhands",
+    mcp_server_refs: null,
+    secret_refs: null,
+    agent: "CodeActAgent",
+    tools: null,
+    persona: null,
+    system_message_suffix: null,
+    disabled_skills: [],
+    condenser: {
+      condenser_kind: "llm_summarizing",
+      enabled: true,
+      max_size: 240,
+      max_tokens: null,
+      keep_first: 2,
+      minimum_progress: 0.1,
+      hard_context_reset_max_retries: 5,
+      hard_context_reset_context_scaling: 0.8,
+    },
+    verification: {
+      critic_enabled: false,
+      critic_mode: "finish_and_message",
+      enable_iterative_refinement: false,
+      critic_threshold: 0.6,
+      max_refinement_iterations: 3,
+      critic_server_url: null,
+      critic_model_name: null,
+    },
+    enable_classify_and_switch_llm_tool: false,
+    meta_profile_ref: null,
+    tool_concurrency_limit: 1,
+  });
+}
 const enc = encodeURIComponent;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const pick = (value, keys) =>
@@ -393,61 +457,65 @@ export async function exportSkinConfiguration(service) {
         `API key for provider connection ${provider.display_name}.`,
       ),
     }));
-    skin.llm_profiles = await Promise.all(
-      profileList.profiles.map(async (profile) => {
-        const detail = await service.backendFetch(
+    const exportLlmProfile = async (profile, suppliedDetail = null) => {
+      const detail =
+        suppliedDetail ||
+        (await service.backendFetch(
           service.agentServerUrl,
           `/api/profiles/${enc(profile.name)}`,
+        ));
+      if (!detail.config || typeof detail.config !== "object")
+        throw new Error(`LLM profile ${profile.name} has no configuration.`);
+      const config = clone(detail.config);
+      const connection = config.provider_connection_id
+        ? providerById.get(config.provider_connection_id)
+        : null;
+      if (config.provider_connection_id && !connection)
+        throw new Error(
+          `LLM profile ${profile.name} references a missing provider connection.`,
         );
-        if (!detail.config || typeof detail.config !== "object")
-          throw new Error(`LLM profile ${profile.name} has no configuration.`);
-        const config = clone(detail.config);
-        const connection = config.provider_connection_id
-          ? providerById.get(config.provider_connection_id)
-          : null;
-        if (config.provider_connection_id && !connection)
-          throw new Error(
-            `LLM profile ${profile.name} references a missing provider connection.`,
+      delete config.provider_connection_id;
+      const secret_bindings = {};
+      for (const key of LLM_SECRETS) {
+        if (
+          config.auth_type !== "subscription" &&
+          ((key === "api_key" && detail.api_key_set && !connection) ||
+            config[key])
+        )
+          secret_bindings[key] = declaration(
+            skin,
+            secretName("SKIN_LLM", profile.name, key),
+            `${key} for LLM profile ${profile.name}.`,
           );
-        delete config.provider_connection_id;
-        const secret_bindings = {};
-        for (const key of LLM_SECRETS) {
-          if (
-            config.auth_type !== "subscription" &&
-            ((key === "api_key" && detail.api_key_set && !connection) ||
-              config[key])
-          )
-            secret_bindings[key] = declaration(
-              skin,
-              secretName("SKIN_LLM", profile.name, key),
-              `${key} for LLM profile ${profile.name}.`,
-            );
-          delete config[key];
-        }
-        if (config.extra_headers) {
-          for (const key of Object.keys(config.extra_headers)) {
-            const ref = declaration(
-              skin,
-              secretName("SKIN_LLM", profile.name, key),
-              `Full extra header ${key} for LLM profile ${profile.name}.`,
-            );
-            secret_bindings[`extra_headers.${key}`] = ref;
-          }
-          delete config.extra_headers;
-        }
-        if (config.auth_type === "subscription")
-          report.warnings.push(
-            `LLM profile ${profile.name} requires subscription sign-in on a new instance; OAuth sessions are not exported.`,
+        delete config[key];
+      }
+      if (config.extra_headers) {
+        for (const key of Object.keys(config.extra_headers)) {
+          const ref = declaration(
+            skin,
+            secretName("SKIN_LLM", profile.name, key),
+            `Full extra header ${key} for LLM profile ${profile.name}.`,
           );
-        return {
-          name: profile.name,
-          config,
-          ...(connection ? { provider_connection: connection } : {}),
-          ...(Object.keys(secret_bindings).length ? { secret_bindings } : {}),
-        };
-      }),
+          secret_bindings[`extra_headers.${key}`] = ref;
+        }
+        delete config.extra_headers;
+      }
+      if (config.auth_type === "subscription")
+        report.warnings.push(
+          `LLM profile ${profile.name} requires subscription sign-in on a new instance; OAuth sessions are not exported.`,
+        );
+      return {
+        name: profile.name,
+        config,
+        ...(connection ? { provider_connection: connection } : {}),
+        ...(Object.keys(secret_bindings).length ? { secret_bindings } : {}),
+      };
+    };
+    skin.llm_profiles = await Promise.all(
+      profileList.profiles.map((profile) => exportLlmProfile(profile)),
     );
     const agentIdToName = new Map();
+    const sourceAgentProfiles = new Map();
     skin.agent_profiles = await Promise.all(
       agentList.profiles.map(async (summary) => {
         const detail = await service.backendFetch(
@@ -460,12 +528,55 @@ export async function exportSkinConfiguration(service) {
           );
         if (detail.profile.id)
           agentIdToName.set(detail.profile.id, summary.name);
+        sourceAgentProfiles.set(summary.name, {
+          ...detail.profile,
+          name: summary.name,
+        });
         const profile = { ...detail.profile, name: summary.name };
         delete profile.id;
         delete profile.revision;
         return profile;
       }),
     );
+    const automations = service.automationUrl
+      ? await listAutomations(service)
+      : [];
+    const llmNames = new Set(skin.llm_profiles.map((profile) => profile.name));
+    for (const profile of [...skin.agent_profiles]) {
+      const reference = profile.llm_profile_ref;
+      if (!reference || llmNames.has(reference)) continue;
+      try {
+        // A detail endpoint can resolve a valid named dependency omitted from
+        // a listing. Never replace it with the currently active model.
+        const detail = await service.backendFetch(
+          service.agentServerUrl,
+          `/api/profiles/${enc(reference)}`,
+        );
+        skin.llm_profiles.push(
+          await exportLlmProfile({ name: reference }, detail),
+        );
+        llmNames.add(reference);
+      } catch (error) {
+        const source = sourceAgentProfiles.get(profile.name);
+        if (
+          error.status === 404 &&
+          isUnusedUnconfiguredSeed(source, settings, automations)
+        ) {
+          skin.agent_profiles = skin.agent_profiles.filter(
+            (entry) => entry.name !== profile.name,
+          );
+          agentIdToName.delete(source.id);
+          const reason =
+            "Unused stock agent profile default was omitted because its default LLM was never configured.";
+          report.skipped.push(reason);
+          report.warnings.push(reason);
+        } else {
+          throw new Error(
+            `Agent profile ${profile.name} references unavailable LLM profile ${reference}.`,
+          );
+        }
+      }
+    }
     skin.meta_profiles = await Promise.all(
       metaList.meta_profiles.map(async (summary) => {
         const detail = await service.backendFetch(
@@ -477,6 +588,39 @@ export async function exportSkinConfiguration(service) {
         return { name: summary.name, config: detail.config };
       }),
     );
+    const referencedModels = [
+      ["Active LLM profile", settings.active_profile],
+      [
+        "Title LLM profile",
+        settings.misc_settings?.app_preferences?.title_llm_profile,
+      ],
+      ...automations
+        .filter(
+          (automation) =>
+            !automation.agent_profile_id && automation.state !== "DRAFT",
+        )
+        .map((automation) => [
+          `Automation ${automation.name}`,
+          automation.model,
+        ]),
+    ];
+    for (const [owner, reference] of referencedModels) {
+      if (!reference || llmNames.has(reference)) continue;
+      try {
+        const detail = await service.backendFetch(
+          service.agentServerUrl,
+          `/api/profiles/${enc(reference)}`,
+        );
+        skin.llm_profiles.push(
+          await exportLlmProfile({ name: reference }, detail),
+        );
+        llmNames.add(reference);
+      } catch {
+        throw new Error(
+          `${owner} references unavailable LLM profile ${reference}.`,
+        );
+      }
+    }
     skin.mcp_servers = exportMcp(
       settings.agent_settings?.mcp_config,
       skin,
@@ -561,7 +705,7 @@ export async function exportSkinConfiguration(service) {
       ...(skill.resolved_ref ? { ref: skill.resolved_ref } : {}),
     }));
     if (service.automationUrl) {
-      for (const automation of await listAutomations(service)) {
+      for (const automation of automations) {
         if (automation.state === "DRAFT") {
           report.skipped.push(
             `Draft automation ${automation.name} is not a deployable automation.`,

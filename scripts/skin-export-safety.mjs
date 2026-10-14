@@ -382,8 +382,14 @@ function opaqueMetadataPaths(value, path) {
     );
   return Object.entries(value).flatMap(([key, entry]) => {
     const entryPath = childPath(path, key);
+    const hasOpaqueContent =
+      typeof entry === "string"
+        ? entry.trim().length > 0
+        : entry !== null &&
+          typeof entry === "object" &&
+          Object.keys(entry).length > 0;
     if (
-      entry &&
+      hasOpaqueContent &&
       (/(?:^|_)(?:prompt|code|script)$/.test(normalizedKey(key)) ||
         [
           "preset_metadata",

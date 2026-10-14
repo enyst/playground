@@ -1249,7 +1249,7 @@ process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
           status: 200,
           body: "skin:/skin-app/api/items?q=one",
         });
-        expect(await getJson(`${origin}/skin-api/status`)).toEqual({
+        expect(await getJson(`${origin}/skin-api/status`)).toMatchObject({
           status: 200,
           body: { installed: false, running: false },
         });
@@ -1331,7 +1331,7 @@ process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
         status: 200,
         body: "skin:/skin-app/api/status",
       });
-      expect((await getJson(`${origin}/skin-api/status`)).body).toEqual({
+      expect((await getJson(`${origin}/skin-api/status`)).body).toMatchObject({
         installed: false,
         running: false,
       });
