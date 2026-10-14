@@ -141,6 +141,8 @@ Prefer **Export configuration** to hand-authoring backend profile payloads. `met
 
 Configure the source instance, install a skin, and choose **Export configuration**. A complete export replaces the saved configuration and removes stale automation bundles. A failed dependency read keeps the previous exported kit. Export reports remain available in Settings after refresh.
 
+An untouched, unused SDK bootstrap agent whose default model was never configured is skipped and listed in the report. Missing models referenced by active, customized, or otherwise used profiles prevent export.
+
 Install that repository on the destination instance, supply its missing secret requirements, then retry **Apply configuration**. Inspect restored automations and enable them in **Automations** when ready. The released automation upload API limits each compressed bundle to 1 MiB.
 
 Export stays local unless automatic push is enabled. Automatic push is opt-in and accepts eligible structured configuration changes. Changed code, archives, and opaque instruction or metadata fields require manual review and cannot be automatically pushed. **Push** displays the affected paths; review their contents in the checkout before acknowledging the review. Recognizable credentials block export, restore, or push and cannot be bypassed by that acknowledgment. Archive inspection is bounded and checks recognizable literals; it does not certify arbitrary source as credential-free.
