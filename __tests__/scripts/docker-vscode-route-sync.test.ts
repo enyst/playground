@@ -306,6 +306,8 @@ describe.skipIf(process.platform === "win32")(
       "/server_info",
       "/health",
       "/openapi.json",
+      "/skin",
+      "/skin-api",
       "/canvas",
     ])("refuses %j, which would take over an existing route", (given) => {
       const resolved = resolveEditorConfig({

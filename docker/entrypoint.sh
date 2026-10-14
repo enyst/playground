@@ -157,7 +157,7 @@ case "$VSCODE_PATH_SEGMENT" in
     exit 1
     ;;
 esac
-for reserved in /api /sockets /server_info /alive /health /ready /docs /redoc /openapi.json "${AGENT_CANVAS_BASE_PATH:-}"; do
+for reserved in /api /sockets /server_info /alive /health /ready /docs /redoc /openapi.json /skin /skin-api "${AGENT_CANVAS_BASE_PATH:-}"; do
   if [ -n "$reserved" ] && [ "$VSCODE_BASE_PATH" = "$reserved" ]; then
     log_error "VSCODE_BASE_PATH '$VSCODE_BASE_PATH' collides with an existing route and would take it over. Set a different prefix, such as /vscode."
     exit 1
