@@ -1,5 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { isSkinBackend } from "#/api/skin-service";
+import { useActiveBackend } from "#/contexts/active-backend-context";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { SettingsInput } from "#/components/features/settings/settings-input";
 import { SettingsSwitch } from "#/components/features/settings/settings-switch";
@@ -27,6 +29,7 @@ import {
  */
 export function SkinSettingsScreen() {
   const { t } = useTranslation("openhands");
+  const { backend } = useActiveBackend();
   const { data: status, isLoading } = useSkinStatus();
 
   const installSkin = useInstallSkin();
@@ -44,6 +47,12 @@ export function SkinSettingsScreen() {
   const [secretValues, setSecretValues] = React.useState<
     Record<string, string>
   >({});
+
+  if (!isSkinBackend(backend)) {
+    return (
+      <p className="text-sm text-muted">{t(I18nKey.SKIN$NOT_INSTALLED)}</p>
+    );
+  }
 
   if (isLoading) return null;
 
@@ -87,7 +96,7 @@ export function SkinSettingsScreen() {
         data-testid="skin-secret-setup"
         className="flex flex-col gap-6 max-w-xl"
       >
-        <p className="text-sm text-[var(--oh-muted)]">
+        <p className="text-sm text-muted">
           {t(I18nKey.SKIN$SECRET_SETUP_DESCRIPTION)}
         </p>
         {(status.secrets ?? []).map((secret) => (
@@ -131,14 +140,14 @@ export function SkinSettingsScreen() {
       <div data-testid="skin-settings" className="flex flex-col gap-6 max-w-xl">
         <div className="flex flex-col gap-1 text-sm">
           <span className="font-semibold">{status.name}</span>
-          <span className="text-[var(--oh-muted)]">{status.repoUrl}</span>
+          <span className="text-muted">{status.repoUrl}</span>
           {status.branch ? (
-            <span className="text-[var(--oh-muted)]">
+            <span className="text-muted">
               {t(I18nKey.SKIN$BRANCH_LABEL)}: {status.branch}
             </span>
           ) : null}
           {status.error ? (
-            <span className="text-red-400">{status.error}</span>
+            <span className="text-feedback-error">{status.error}</span>
           ) : null}
         </div>
 
@@ -241,7 +250,7 @@ export function SkinSettingsScreen() {
       data-testid="skin-install-form"
       className="flex flex-col gap-6 max-w-xl"
     >
-      <p className="text-sm text-[var(--oh-muted)]">
+      <p className="text-sm text-muted">
         {t(I18nKey.SKIN$INSTALL_DESCRIPTION)}
       </p>
       <SettingsInput

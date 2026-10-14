@@ -915,9 +915,28 @@ export class SkinService {
         this.agentServerUrl,
         "/api/agent-profiles",
       );
-      skin.agent_profiles = (profiles.profiles || profiles || []).map((p) =>
-        stripSecretValues(p),
+      // The list endpoint returns summaries, not the launch configuration.
+      // Read every detail before replacing the saved set so a failed read
+      // cannot turn an existing profile into a summary on the next import.
+      const exportedProfiles = await Promise.all(
+        (profiles.profiles || []).map(async (summary) => {
+          const detail = await this.backendFetch(
+            this.agentServerUrl,
+            `/api/agent-profiles/${encodeURIComponent(summary.name)}`,
+          );
+          if (
+            !detail.profile ||
+            typeof detail.profile !== "object" ||
+            Array.isArray(detail.profile)
+          ) {
+            throw new Error(
+              `agent profile ${summary.name}: missing profile detail`,
+            );
+          }
+          return stripSecretValues({ ...detail.profile, name: summary.name });
+        }),
       );
+      skin.agent_profiles = exportedProfiles;
       report.exported.push("agent_profiles");
     } catch (err) {
       report.skipped.push(`agent_profiles: ${err.message}`);
@@ -942,11 +961,18 @@ export class SkinService {
     try {
       const skills = await this.backendFetch(
         this.agentServerUrl,
-        "/api/skills",
+        "/api/skills/installed",
       );
       skin.skills = (skills.skills || [])
         .filter((s) => s.source)
-        .map((s) => ({ name: s.name, source: s.source }));
+        .map((s) => ({
+          name: s.name,
+          source: s.source,
+          // Installed skills expose the resolved commit, so preserve the
+          // actual installed content rather than resolving a moving branch.
+          ...(s.resolved_ref ? { ref: s.resolved_ref } : {}),
+          ...(s.repo_path ? { repo_path: s.repo_path } : {}),
+        }));
       report.exported.push("skills");
     } catch (err) {
       report.skipped.push(`skills: ${err.message}`);
@@ -1014,18 +1040,21 @@ export class SkinService {
     if (skin.llm && Object.keys(skin.llm).length > 0) {
       agentSettingsDiff.llm = skin.llm;
     }
-    if (Object.keys(agentSettingsDiff).length > 0) {
+    const settingsDiff = {
+      ...(Object.keys(agentSettingsDiff).length > 0
+        ? { agent_settings_diff: agentSettingsDiff }
+        : {}),
+      ...(skin.settings && Object.keys(skin.settings).length > 0
+        ? { conversation_settings_diff: skin.settings }
+        : {}),
+    };
+    if (Object.keys(settingsDiff).length > 0) {
       try {
         await this.backendFetch(this.agentServerUrl, "/api/settings", {
           method: "PATCH",
-          body: JSON.stringify({
-            agent_settings_diff: agentSettingsDiff,
-            ...(skin.settings
-              ? { conversation_settings_diff: skin.settings }
-              : {}),
-          }),
+          body: JSON.stringify(settingsDiff),
         });
-        report.applied.push("settings (mcp_servers, llm)");
+        report.applied.push("settings");
       } catch (err) {
         report.skipped.push(`settings: ${err.message}`);
       }
@@ -1036,7 +1065,12 @@ export class SkinService {
       try {
         await this.backendFetch(this.agentServerUrl, "/api/skills/install", {
           method: "POST",
-          body: JSON.stringify({ source: skill.source, force: true }),
+          body: JSON.stringify({
+            source: skill.source,
+            ...(skill.ref ? { ref: skill.ref } : {}),
+            ...(skill.repo_path ? { repo_path: skill.repo_path } : {}),
+            force: true,
+          }),
         });
         report.applied.push(`skill ${skill.name}`);
       } catch (err) {
@@ -1095,7 +1129,8 @@ function sanitizeName(name) {
 export function stripSecretValues(value) {
   if (Array.isArray(value)) return value.map(stripSecretValues);
   if (!value || typeof value !== "object") return value;
-  const SECRETISH = /(api_?key|token|secret|password|credential)/i;
+  const SECRETISH =
+    /(api_?key|token|secret|password|credential|^authorization$|^proxy[-_]authorization$|^cookie$|^set[-_]cookie$)/i;
   const out = {};
   for (const [key, v] of Object.entries(value)) {
     if (v === undefined) continue;

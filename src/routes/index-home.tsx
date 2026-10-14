@@ -1,21 +1,27 @@
 import { redirect } from "react-router";
-import { SkinService } from "#/api/skin-service";
-import HomeScreen from "./home";
+import { SkinService, SKIN_APP_BASE, isSkinBackend } from "#/api/skin-service";
+import { getActiveBackend } from "#/api/backend-registry/active-store";
+import { readPinnedHomeRoute } from "#/hooks/use-pinned-home-route";
 
 /**
- * Index route: when a skin is installed it is the default tab, so `/`
- * redirects to /skin. Otherwise the normal home screen renders.
+ * An explicit home pin for the active backend + org takes precedence over an
+ * installed local skin. Invalid pins are ignored without clearing them; the
+ * built-in home stays reachable at /conversations.
  */
 export const clientLoader = async () => {
+  const pinnedRoute = readPinnedHomeRoute();
+  if (pinnedRoute) return redirect(pinnedRoute);
+
+  const { backend } = getActiveBackend();
+  if (!isSkinBackend(backend)) return null;
+
   try {
     const status = await SkinService.getStatus();
-    if (status.installed) {
-      return redirect("/skin");
-    }
+    if (status.installed) return redirect(SKIN_APP_BASE);
   } catch {
-    // No skin service (dev server / cloud) — fall through to home.
+    // A launcher without the skin service falls through to the built-in home.
   }
   return null;
 };
 
-export default HomeScreen;
+export { default } from "./home";

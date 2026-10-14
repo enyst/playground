@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import yaml from "js-yaml";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   renderSkinAppSkill,
   sanitizeIconName,
@@ -8,7 +18,177 @@ import {
   themeCss,
   themeVars,
   SKIN_APP_SKILL_NAME,
+  SkinService,
 } from "../scripts/skin-service.mjs";
+
+const fixtureDirs: string[] = [];
+
+function installedSkin(config: Record<string, unknown> = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "skin-config-test-"));
+  fixtureDirs.push(dir);
+  const workspaceDir = join(dir, "repo");
+  mkdirSync(workspaceDir);
+  writeFileSync(
+    join(workspaceDir, "skin.yaml"),
+    yaml.dump({ name: "Test skin", ...config }),
+  );
+  const service = new SkinService({
+    home: join(dir, "state"),
+    workspaceDir,
+    skinPort: 18002,
+    agentServerUrl: "http://agent-server.test",
+    sessionApiKey: "fixture-session-key",
+  });
+  service.saveSettings({ autoPush: false });
+  return service;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  for (const dir of fixtureDirs.splice(0))
+    rmSync(dir, { recursive: true, force: true });
+});
+
+describe("skin configuration transfer", () => {
+  it("exports full agent profiles and reinstalls skills at their installed revision and subpath", async () => {
+    const service = installedSkin();
+    const profile = {
+      name: "reviewer",
+      agent_kind: "openhands",
+      llm_profile_ref: "review-model",
+      tools: ["TerminalTool", "FileEditorTool"],
+      disabled_skills: ["unrelated-skill"],
+      condenser: { kind: "LLMSummarizingCondenser", max_size: 80 },
+    };
+    const responses: Record<string, unknown> = {
+      "/api/settings": { agent_settings: {}, conversation_settings: {} },
+      "/api/agent-profiles": {
+        profiles: [
+          {
+            name: profile.name,
+            agent_kind: profile.agent_kind,
+            llm_profile_ref: profile.llm_profile_ref,
+          },
+        ],
+      },
+      "/api/agent-profiles/reviewer": { name: profile.name, profile },
+      "/api/settings/secrets": { secrets: [] },
+      "/api/skills/installed": {
+        skills: [
+          {
+            name: "review",
+            source: "github:example/skill-pack",
+            resolved_ref: "abc123",
+            repo_path: "skills/review",
+          },
+        ],
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const path = new URL(url).pathname;
+      const body =
+        options?.method && options.method !== "GET" ? {} : responses[path];
+      return new Response(JSON.stringify(body ?? {}), {
+        status: body === undefined ? 404 : 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const exported = await service.exportConfiguration();
+    const saved = yaml.load(
+      readFileSync(join(service.repoDir, "skin.yaml"), "utf-8"),
+    ) as { agent_profiles: unknown[]; skills: unknown[] };
+    expect(exported.report.skipped).toEqual([]);
+    expect(saved.agent_profiles).toEqual([profile]);
+    expect(saved.skills).toEqual([
+      {
+        name: "review",
+        source: "github:example/skill-pack",
+        ref: "abc123",
+        repo_path: "skills/review",
+      },
+    ]);
+
+    fetchMock.mockClear();
+    const applied = await service.applyConfiguration();
+    const requests = fetchMock.mock.calls.map(([url, options]) => ({
+      path: new URL(url).pathname,
+      method: options?.method,
+      body: options?.body ? JSON.parse(String(options.body)) : null,
+    }));
+    expect(applied.skipped).toEqual([]);
+    expect(requests).toContainEqual({
+      path: "/api/skills/install",
+      method: "POST",
+      body: {
+        source: "github:example/skill-pack",
+        ref: "abc123",
+        repo_path: "skills/review",
+        force: true,
+      },
+    });
+    expect(requests).toContainEqual({
+      path: "/api/agent-profiles/reviewer",
+      method: "POST",
+      body: profile,
+    });
+  });
+
+  it("keeps previously exported profiles when reading one profile fails", async () => {
+    const previousProfiles = [{ name: "reviewer", tools: ["TerminalTool"] }];
+    const service = installedSkin({ agent_profiles: previousProfiles });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const path = new URL(url).pathname;
+        const body =
+          path === "/api/agent-profiles"
+            ? { profiles: [{ name: "reviewer" }] }
+            : {};
+        return new Response(JSON.stringify(body), {
+          status: path === "/api/agent-profiles/reviewer" ? 503 : 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    const result = await service.exportConfiguration();
+    const saved = yaml.load(
+      readFileSync(join(service.repoDir, "skin.yaml"), "utf-8"),
+    ) as { agent_profiles: unknown[] };
+    expect(saved.agent_profiles).toEqual(previousProfiles);
+    expect(result.report.skipped).toContain(
+      "agent_profiles: /api/agent-profiles/reviewer -> HTTP 503",
+    );
+    expect(result.report.exported).not.toContain("agent_profiles");
+  });
+
+  it("applies conversation settings when a skin has no MCP or LLM settings", async () => {
+    const service = installedSkin({ settings: { max_iterations: 75 } });
+    const fetchMock = vi.fn(
+      async () =>
+        new Response("{}", { headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await service.applyConfiguration();
+
+    expect(result.skipped).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://agent-server.test/api/settings",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          conversation_settings_diff: { max_iterations: 75 },
+        }),
+        headers: expect.objectContaining({
+          "X-Session-API-Key": "fixture-session-key",
+        }),
+      }),
+    );
+  });
+});
 
 describe("renderSkinAppSkill", () => {
   it("wraps a bare markdown body in always-active frontmatter", () => {
@@ -202,6 +382,20 @@ describe("stripSecretValues", () => {
     expect(stripSecretValues({ value: "**********", kept: "yes" })).toEqual({
       kept: "yes",
     });
+  });
+
+  it("removes authentication headers from nested configuration records", () => {
+    expect(
+      stripSecretValues({
+        headers: {
+          Authorization: "Bearer fixture-token",
+          "Proxy-Authorization": "Basic fixture-credential",
+          Cookie: "session=fixture-cookie",
+          "Set-Cookie": "session=fixture-cookie; HttpOnly",
+          "X-Request-ID": "request-123",
+        },
+      }),
+    ).toEqual({ headers: { "X-Request-ID": "request-123" } });
   });
 
   it("handles arrays and scalars", () => {

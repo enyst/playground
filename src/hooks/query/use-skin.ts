@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SkinService, SkinStatus } from "#/api/skin-service";
+import { isSkinBackend, SkinService, SkinStatus } from "#/api/skin-service";
 import { SKIN_QUERY_KEYS } from "./query-keys";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 
@@ -10,7 +10,8 @@ import { useActiveBackend } from "#/contexts/active-backend-context";
  */
 export function useSkinStatus() {
   const { backend } = useActiveBackend();
-  return useQuery<SkinStatus>({
+  const supported = isSkinBackend(backend);
+  const query = useQuery<SkinStatus>({
     queryKey: SKIN_QUERY_KEYS.status,
     queryFn: async () => {
       try {
@@ -21,11 +22,12 @@ export function useSkinStatus() {
         return { installed: false, running: false };
       }
     },
-    // Skins are a local-instance concept; the cloud backend has none.
-    enabled: backend.kind === "local",
+    enabled: supported,
     staleTime: 30_000,
     meta: { disableToast: true },
   });
+  // Disabled queries retain their cache; never apply the instance's skin to another backend.
+  return { ...query, data: supported ? query.data : undefined };
 }
 
 export function useInstallSkin() {

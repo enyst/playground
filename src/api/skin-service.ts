@@ -6,9 +6,31 @@
  */
 
 import { getAgentServerSessionApiKey } from "./agent-server-config";
+import { getActiveBackend } from "./backend-registry/active-store";
+import type { Backend } from "./backend-registry/types";
 
 export const SKIN_API_BASE = "/skin-api";
 export const SKIN_APP_BASE = "/skin";
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** Skins configure the instance serving Canvas, so remote backends cannot own them. */
+export function isSkinBackend(backend: Backend): boolean {
+  if (backend.kind !== "local" || typeof window === "undefined") return false;
+  try {
+    const target = new URL(backend.host);
+    const instance = new URL(window.location.origin);
+    return (
+      target.origin === instance.origin ||
+      (LOOPBACK_HOSTS.has(target.hostname) &&
+        LOOPBACK_HOSTS.has(instance.hostname) &&
+        target.protocol === instance.protocol &&
+        target.port === instance.port)
+    );
+  } catch {
+    return false;
+  }
+}
 
 export interface SkinSecretDeclaration {
   name: string;
@@ -62,7 +84,15 @@ export interface SkinPushResult {
 }
 
 async function skinFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const sessionApiKey = getAgentServerSessionApiKey();
+  const { backend } = getActiveBackend();
+  if (init.method && init.method !== "GET" && !isSkinBackend(backend)) {
+    throw new Error(
+      "Select the backend hosting this Canvas instance to manage its skin.",
+    );
+  }
+  const sessionApiKey = isSkinBackend(backend)
+    ? backend.apiKey || getAgentServerSessionApiKey()
+    : getAgentServerSessionApiKey();
   const response = await fetch(`${SKIN_API_BASE}${path}`, {
     ...init,
     headers: {

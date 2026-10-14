@@ -2,6 +2,7 @@ import { CustomChatInput } from "./custom-chat-input";
 import { useBtwInterceptor } from "#/hooks/chat/use-btw-interceptor";
 import { useGoalInterceptor } from "#/hooks/chat/use-goal-interceptor";
 import { useModelInterceptor } from "#/hooks/chat/use-model-interceptor";
+import { usePlanModeInterceptor } from "#/hooks/chat/use-plan-mode-interceptor";
 import { useChatAttachmentUpload } from "#/hooks/chat/use-chat-attachment-upload";
 import { AgentState } from "#/types/agent-state";
 import { useActiveConversation } from "#/hooks/query/use-active-conversation";
@@ -17,12 +18,19 @@ interface InteractiveChatBoxProps {
   onSubmit: (message: string, images: File[], files: File[]) => void;
   disabled?: boolean;
   hasStartedConversation?: boolean;
+  showGitControlBar?: boolean;
+  placeholder?: string;
+  /** Whether the composer saves and restores a draft; see CustomChatInput. */
+  persistDraft?: boolean;
 }
 
 export function InteractiveChatBox({
   onSubmit,
   disabled = false,
   hasStartedConversation,
+  showGitControlBar = true,
+  placeholder,
+  persistDraft = true,
 }: InteractiveChatBoxProps) {
   const {
     images,
@@ -52,7 +60,15 @@ export function InteractiveChatBox({
     onSubmit(message, imagesToEmbed, [...files, ...imagesAsFiles]);
     clearAllFiles();
   });
-  const handleAfterModel = useGoalInterceptor(conversationId, handleAfterGoal);
+  const handleAfterPlanMode = usePlanModeInterceptor(
+    conversationId,
+    curAgentState,
+    handleAfterGoal,
+  );
+  const handleAfterModel = useGoalInterceptor(
+    conversationId,
+    handleAfterPlanMode,
+  );
   const handleSubmit = useModelInterceptor(conversationId, handleAfterModel);
 
   const handleSuggestionsClick = (suggestion: string) => {
@@ -70,12 +86,16 @@ export function InteractiveChatBox({
         disabled={isDisabled}
         isNewConversationPending={disabled}
         hasStartedConversation={hasStartedConversation}
+        placeholder={placeholder}
+        persistDraft={persistDraft}
         onSubmit={handleSubmit}
         onFilesPaste={handleUpload}
       />
-      <div className="mt-3 pb-3">
-        <GitControlBar onSuggestionsClick={handleSuggestionsClick} />
-      </div>
+      {showGitControlBar ? (
+        <div className="mt-3 pb-3" data-testid="chat-git-control-bar">
+          <GitControlBar onSuggestionsClick={handleSuggestionsClick} />
+        </div>
+      ) : null}
     </div>
   );
 }

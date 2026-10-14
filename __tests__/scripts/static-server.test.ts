@@ -1,10 +1,25 @@
 import { createServer, request, type Server } from "node:http";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
+import { connect as netConnect } from "node:net";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { parseArgs, startStaticServer } from "../../scripts/static-server.mjs";
+import {
+  parseArgs,
+  serializeForInlineScript,
+  startStaticServer,
+} from "../../scripts/static-server.mjs";
 
 describe("static-server.mjs", () => {
   const servers: Server[] = [];
@@ -107,6 +122,10 @@ describe("static-server.mjs", () => {
   }
 
   describe("parseArgs", () => {
+    it("defaults host to IPv4 loopback", () => {
+      expect(parseArgs([]).host).toBe("127.0.0.1");
+    });
+
     it("defaults sessionApiKey to null", () => {
       const config = parseArgs([]);
       expect(config.sessionApiKey).toBeNull();
@@ -145,6 +164,31 @@ describe("static-server.mjs", () => {
       expect(config.lockToCloud).toBeNull();
     });
 
+    it("defaults disableTelemetry to false", () => {
+      const config = parseArgs([], {});
+      expect(config.disableTelemetry).toBe(false);
+    });
+
+    it("parses --disable-telemetry", () => {
+      const config = parseArgs(["--disable-telemetry"], {});
+      expect(config.disableTelemetry).toBe(true);
+    });
+
+    it("enables disableTelemetry from AGENT_CANVAS_DISABLE_TELEMETRY=1", () => {
+      const config = parseArgs([], { AGENT_CANVAS_DISABLE_TELEMETRY: "1" });
+      expect(config.disableTelemetry).toBe(true);
+    });
+
+    it("enables disableTelemetry from AGENT_CANVAS_DISABLE_TELEMETRY=true", () => {
+      const config = parseArgs([], { AGENT_CANVAS_DISABLE_TELEMETRY: "true" });
+      expect(config.disableTelemetry).toBe(true);
+    });
+
+    it("ignores a falsy AGENT_CANVAS_DISABLE_TELEMETRY value", () => {
+      const config = parseArgs([], { AGENT_CANVAS_DISABLE_TELEMETRY: "0" });
+      expect(config.disableTelemetry).toBe(false);
+    });
+
     it("defaults basePath to root", () => {
       const config = parseArgs([]);
       expect(config.basePath).toBe("/");
@@ -169,6 +213,135 @@ describe("static-server.mjs", () => {
     it("treats empty string as null for runtime services info", () => {
       const config = parseArgs(["--runtime-services-info", ""]);
       expect(config.runtimeServicesInfo).toBeNull();
+    });
+  });
+
+  describe("serializeForInlineScript", () => {
+    it("escapes '<' and '>' to prevent breaking out of script tags", () => {
+      const input = "</script><script>alert(1)</script>";
+      const result = serializeForInlineScript(input);
+      expect(result).not.toContain("<");
+      expect(result).not.toContain(">");
+      expect(result).toBe(
+        '"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e"',
+      );
+    });
+
+    it("escapes line and paragraph separators U+2028 and U+2029", () => {
+      const input = "line1\u2028line2\u2029line3";
+      const result = serializeForInlineScript(input);
+      expect(result).toContain("\\u2028");
+      expect(result).toContain("\\u2029");
+      expect(result).not.toContain("\u2028");
+      expect(result).not.toContain("\u2029");
+    });
+
+    it("serializes complex objects properly with escaping", () => {
+      const input = { key: "<test>", count: 42 };
+      const result = serializeForInlineScript(input);
+      expect(result).toBe('{"key":"\\u003ctest\\u003e","count":42}');
+    });
+  });
+
+  describe("--vscode-base-path", () => {
+    it("parses the prefix and normalizes a trailing slash", () => {
+      const config = parseArgs([
+        "--route",
+        "/vscode=http://127.0.0.1:8001",
+        "--vscode-base-path",
+        "/vscode/",
+      ]);
+      expect(config.vscodeBasePath).toBe("/vscode");
+    });
+
+    it("defaults to null so an origin advertises nothing unless asked", () => {
+      expect(parseArgs([]).vscodeBasePath).toBeNull();
+    });
+
+    it("rejects a value that is not a path", () => {
+      expect(() => parseArgs(["--vscode-base-path", "vscode"])).toThrow(
+        /must start with '\//,
+      );
+    });
+
+    // The guard that makes this flag trustworthy: advertising the editor and
+    // routing it are the same decision, so a prefix with no route behind it
+    // must not start. Without it, the frontend would render the control and
+    // the navigation would fall through to the SPA — the exact bug the flag
+    // exists to prevent.
+    it("refuses to start when the advertised prefix has no matching route", () => {
+      const exit = vi.spyOn(process, "exit").mockImplementation((() => {
+        throw new Error("process.exit");
+      }) as never);
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        expect(() =>
+          parseArgs([
+            "--route",
+            "/api=http://127.0.0.1:8000",
+            "--vscode-base-path",
+            "/vscode",
+          ]),
+        ).toThrow("process.exit");
+        expect(exit).toHaveBeenCalledWith(1);
+        expect(error.mock.calls[0][0]).toContain("has no matching --route");
+      } finally {
+        exit.mockRestore();
+        error.mockRestore();
+      }
+    });
+  });
+
+  describe("vscode base path injection", () => {
+    async function startServerAdvertising(
+      dir: string,
+      vscodeBasePath: string | null,
+    ) {
+      const server = await startStaticServer({
+        port: 0,
+        host: "127.0.0.1",
+        dir,
+        routes: {},
+        vscodeBasePath,
+      });
+      servers.push(server);
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Static server did not bind to a TCP port");
+      }
+      return `http://127.0.0.1:${address.port}`;
+    }
+
+    function makeBuildDir() {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+      return buildDir;
+    }
+
+    // Read by getOriginVSCodeBasePath() in src/utils/vscode-origin.ts, which
+    // is what lets the frontend tell "this server has an editor" apart from
+    // "this origin can reach it".
+    it("exposes the prefix on window.__AGENT_CANVAS_VSCODE_BASE_PATH__", async () => {
+      const origin = await startServerAdvertising(makeBuildDir(), "/vscode");
+      const body = await (await fetch(`${origin}/`)).text();
+
+      expect(body).toContain(
+        'window.__AGENT_CANVAS_VSCODE_BASE_PATH__="/vscode"',
+      );
+    });
+
+    // Public mode: the same document, served without the advertisement, is
+    // what hides the control on an origin that has no editor route.
+    it("injects nothing when the origin serves no editor", async () => {
+      const origin = await startServerAdvertising(makeBuildDir(), null);
+      const body = await (await fetch(`${origin}/`)).text();
+
+      expect(body).not.toContain("__AGENT_CANVAS_VSCODE_BASE_PATH__");
     });
   });
 
@@ -254,7 +427,7 @@ describe("static-server.mjs", () => {
       const upstreamOrigin = await startHttpServer(
         createServer((_req, res) => {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ version: "1.28.0" }));
+          res.end(JSON.stringify({ version: "1.48.0" }));
         }),
       );
       const runtimeServicesInfo = JSON.stringify({
@@ -283,7 +456,7 @@ describe("static-server.mjs", () => {
       };
 
       expect(response.status).toBe(200);
-      expect(body.version).toBe("1.28.0");
+      expect(body.version).toBe("1.48.0");
       expect(body.runtime_services).toEqual(JSON.parse(runtimeServicesInfo));
     });
 
@@ -372,6 +545,57 @@ describe("static-server.mjs", () => {
 
       expect(response.status).toBe(200);
       expect(body).toContain("__AGENT_CANVAS_LOCK_TO_CLOUD__");
+    });
+  });
+
+  describe("disable-telemetry injection", () => {
+    async function startServerWithDisabledTelemetry(dir: string) {
+      const origin = await startServer(dir, { disableTelemetry: true });
+      return origin;
+    }
+
+    it("exposes window.__AGENT_CANVAS_DO_NOT_TRACK__ when enabled", async () => {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      const origin = await startServerWithDisabledTelemetry(buildDir);
+      const body = await (await fetch(`${origin}/`)).text();
+
+      expect(body).toContain("window.__AGENT_CANVAS_DO_NOT_TRACK__=true");
+    });
+
+    it("injects the flag into the SPA fallback index.html", async () => {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      const origin = await startServerWithDisabledTelemetry(buildDir);
+      const response = await fetch(`${origin}/some/deep/route`);
+      const body = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(body).toContain("window.__AGENT_CANVAS_DO_NOT_TRACK__=true");
+    });
+
+    it("does not inject the flag when telemetry is not disabled", async () => {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      const origin = await startServer(buildDir);
+      const body = await (await fetch(`${origin}/`)).text();
+
+      expect(body).not.toContain("__AGENT_CANVAS_DO_NOT_TRACK__");
     });
   });
 
@@ -477,7 +701,7 @@ describe("static-server.mjs", () => {
       expect(body).not.toContain("should-not-inject");
     });
 
-    it("sets Cache-Control: no-cache for injected index.html", async () => {
+    it("sets Cache-Control: no-store when session key is injected", async () => {
       const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
       tempDirs.push(buildDir);
       writeFileSync(
@@ -488,7 +712,111 @@ describe("static-server.mjs", () => {
       const origin = await startServerWithKey(buildDir, "cache-test-key");
       const response = await fetch(`${origin}/`);
 
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    });
+
+    it("sets Cache-Control: no-cache when session key is not present but other config is injected", async () => {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      const server = await startStaticServer({
+        port: 0,
+        host: "127.0.0.1",
+        dir: buildDir,
+        routes: {},
+        authRequired: true,
+      });
+      servers.push(server);
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("No port");
+      const origin = `http://127.0.0.1:${(address as { port: number }).port}`;
+
+      const response = await fetch(`${origin}/`);
+
       expect(response.headers.get("cache-control")).toBe("no-cache");
+    });
+
+    it("does not inject the session key when bound off-loopback", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      try {
+        const server = await startStaticServer({
+          port: 0,
+          host: "0.0.0.0",
+          dir: buildDir,
+          routes: {},
+          sessionApiKey: "lan-secret",
+        });
+        servers.push(server);
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("Static server did not bind to a TCP port");
+        }
+        const origin = `http://127.0.0.1:${address.port}`;
+        const body = await (await fetch(`${origin}/`)).text();
+
+        expect(body).not.toContain("lan-secret");
+        expect(body).not.toContain("__AGENT_CANVAS_SESSION_API_KEY__");
+        expect(body).toContain("__AGENT_CANVAS_AUTH_REQUIRED__");
+        expect(warn).toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it("injects the session key off-loopback only with --allow-lan-session-key", async () => {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      const server = await startStaticServer({
+        port: 0,
+        host: "0.0.0.0",
+        dir: buildDir,
+        routes: {},
+        sessionApiKey: "container-key",
+        allowLanSessionKey: true,
+      });
+      servers.push(server);
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Static server did not bind to a TCP port");
+      }
+      const origin = `http://127.0.0.1:${address.port}`;
+      const body = await (await fetch(`${origin}/`)).text();
+
+      expect(body).toContain("container-key");
+      expect(body).toContain("__AGENT_CANVAS_SESSION_API_KEY__");
+    });
+
+    it("escapes HTML special characters and script closing tags in injected values", async () => {
+      const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+      tempDirs.push(buildDir);
+      writeFileSync(
+        path.join(buildDir, "index.html"),
+        "<html><head></head><body>app</body></html>",
+      );
+
+      const payload = '</script><script>alert("xss")</script>';
+      const origin = await startServerWithKey(buildDir, payload);
+      const response = await fetch(`${origin}/`);
+      const body = await response.text();
+
+      expect(body).not.toContain("</script><script>");
+      expect(body).toContain("\\u003c/script\\u003e\\u003cscript\\u003e");
     });
 
     it("does not inject when sessionApiKey is null", async () => {
@@ -556,6 +884,33 @@ describe("static-server.mjs", () => {
       "application/javascript",
     );
     await expect(response.text()).resolves.toContain("loaded = true");
+  });
+
+  it("serves the current build after assets are replaced", async () => {
+    const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+    tempDirs.push(buildDir);
+    mkdirSync(path.join(buildDir, "assets"));
+    writeFileSync(path.join(buildDir, "index.html"), "<main>app</main>");
+    const oldAsset = path.join(buildDir, "assets", "old.js");
+    writeFileSync(oldAsset, "old build");
+    const origin = await startServer(buildDir);
+
+    rmSync(oldAsset);
+    writeFileSync(path.join(buildDir, "assets", "new.js"), "new build");
+
+    const removed = await fetch(`${origin}/assets/old.js`);
+    expect(removed.status).toBe(404);
+    await removed.text();
+    const replacement = await fetch(`${origin}/assets/new.js`);
+    expect(replacement.status).toBe(200);
+    expect(replacement.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    await expect(replacement.text()).resolves.toBe("new build");
+    const navigation = await fetch(`${origin}/conversations`, {
+      headers: { Accept: "text/html" },
+    });
+    await expect(navigation.text()).resolves.toContain("<main>app</main>");
   });
 
   describe("base path mounting", () => {
@@ -628,6 +983,332 @@ describe("static-server.mjs", () => {
     });
   });
 
+  describe("--no-referrer-prefix", () => {
+    it("defaults to none", () => {
+      expect(parseArgs([]).noReferrerPrefixes).toEqual([]);
+    });
+
+    it("collects repeated prefixes", () => {
+      const config = parseArgs([
+        "--no-referrer-prefix",
+        "/vscode",
+        "--no-referrer-prefix",
+        "/editor",
+      ]);
+      expect(config.noReferrerPrefixes).toEqual(["/vscode", "/editor"]);
+    });
+
+    it("rejects a prefix without a leading slash", () => {
+      expect(() => parseArgs(["--no-referrer-prefix", "vscode"])).toThrow(
+        /must start with/,
+      );
+    });
+
+    // Behaviour on a live proxied response is covered in ingress.test.ts,
+    // which drives a real child process; an in-process proxy deadlocks against
+    // the MSW interceptor this suite installs globally.
+  });
+
+  describe("skin integration", () => {
+    const staticScript = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../scripts/static-server.mjs",
+    );
+    const children: ChildProcess[] = [];
+    const skinPids: number[] = [];
+
+    it("refuses skin management on a LAN bind without a session key", () => {
+      expect(() =>
+        startStaticServer({
+          port: 0,
+          host: "0.0.0.0",
+          dir: ".",
+          routes: {},
+          skinPort: 18002,
+        }),
+      ).toThrow(/requires --session-api-key/);
+    });
+
+    afterEach(async () => {
+      for (const child of children.splice(0)) {
+        if (child.exitCode !== null || child.signalCode !== null) continue;
+        const exited = once(child, "exit");
+        child.kill("SIGTERM");
+        await Promise.race([exited, delay(6000)]);
+        if (child.exitCode === null && child.signalCode === null) {
+          child.kill("SIGKILL");
+          await exited;
+        }
+      }
+      for (const pid of skinPids.splice(0)) {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch {
+          // The successful shutdown already removed this process.
+        }
+      }
+    });
+
+    async function freePort() {
+      const temporaryServer = createServer();
+      const origin = await startHttpServer(temporaryServer);
+      await new Promise<void>((resolve) =>
+        temporaryServer.close(() => resolve()),
+      );
+      return new URL(origin).port;
+    }
+
+    async function startSkinHost({
+      skinPort,
+      installed = false,
+      closeFromStdin = false,
+      flags = [],
+    }: {
+      skinPort: string;
+      installed?: boolean;
+      closeFromStdin?: boolean;
+      flags?: string[];
+    }) {
+      const directory = mkdtempSync(path.join(tmpdir(), "canvas-skin-host-"));
+      tempDirs.push(directory);
+      const build = path.join(directory, "build");
+      const state = path.join(directory, "state");
+      const workspace = path.join(directory, "skin");
+      mkdirSync(build);
+      mkdirSync(state);
+      mkdirSync(workspace);
+      writeFileSync(
+        path.join(build, "index.html"),
+        "<html><head></head><body>Canvas shell</body></html>",
+      );
+      if (installed) {
+        writeFileSync(
+          path.join(state, "skin-settings.json"),
+          JSON.stringify({ repoUrl: "https://github.com/example/skin" }),
+        );
+        writeFileSync(
+          path.join(workspace, "skin.yaml"),
+          "name: Lifecycle fixture\n",
+        );
+        writeFileSync(
+          path.join(workspace, "SKILL.md"),
+          "# Lifecycle fixture\n",
+        );
+        writeFileSync(
+          path.join(workspace, "package.json"),
+          JSON.stringify({ scripts: { start: "node server.mjs" } }),
+        );
+        writeFileSync(
+          path.join(workspace, "server.mjs"),
+          `import { createServer } from "node:http";
+createServer((req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ pid: process.pid, url: req.url }));
+}).listen(Number(process.env.OPENHANDS_SKIN_PORT), "127.0.0.1");
+`,
+        );
+      }
+      const port = await freePort();
+      const args = [
+        "--port",
+        port,
+        "--dir",
+        build,
+        "--skin-port",
+        skinPort,
+        ...flags,
+      ];
+      const child = spawn(
+        process.execPath,
+        closeFromStdin
+          ? [
+              "--input-type=module",
+              "-e",
+              `const { parseArgs, startStaticServer } = await import(${JSON.stringify(pathToFileURL(staticScript).href)});
+const server = await startStaticServer(parseArgs(process.argv.slice(1)));
+process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
+              "--",
+              ...args,
+            ]
+          : [staticScript, ...args],
+        {
+          cwd: path.dirname(staticScript),
+          env: {
+            ...process.env,
+            // Isolate the child runtime's skill persistence as well as its checkout.
+            HOME: directory,
+            OPENHANDS_SKIN_STATE_DIR: state,
+            OPENHANDS_SKIN_WORKSPACE_DIR: workspace,
+            MARS_WEB: "0",
+          },
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
+      children.push(child);
+      let output = "";
+      child.stdout?.on("data", (chunk) => {
+        output += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk) => {
+        output += chunk.toString();
+      });
+      const origin = `http://127.0.0.1:${port}`;
+      await vi.waitFor(
+        async () => {
+          if (child.exitCode !== null) throw new Error(output);
+          expect((await getText(`${origin}/`)).status).toBe(200);
+        },
+        { timeout: 10000 },
+      );
+      return { child, origin, port };
+    }
+
+    it("keeps skin HTTP and WebSocket paths separate from management and backend routes", async () => {
+      const skin = createServer((req, res) => res.end(`skin:${req.url}`));
+      skin.on("upgrade", (req, socket) => {
+        socket.end(
+          "HTTP/1.1 101 Switching Protocols\r\n" +
+            "Upgrade: websocket\r\nConnection: Upgrade\r\n" +
+            `X-Skin-Path: ${req.url}\r\n\r\n`,
+        );
+      });
+      const skinOrigin = await startHttpServer(skin);
+      const backend = await startHttpServer(
+        createServer((req, res) => res.end(`backend:${req.url}`)),
+      );
+      const { origin, port } = await startSkinHost({
+        skinPort: new URL(skinOrigin).port,
+        flags: [
+          "--host",
+          "0.0.0.0",
+          "--session-api-key",
+          "private-key",
+          "--route",
+          `/api=${backend}`,
+          "--route",
+          `/vscode=${backend}`,
+          "--vscode-base-path",
+          "/vscode",
+          "--no-referrer-prefix",
+          "/vscode",
+        ],
+      });
+
+      expect(await getText(`${origin}/skin/api/items?q=one`)).toEqual({
+        status: 200,
+        body: "skin:/skin/api/items?q=one",
+      });
+      expect(await getJson(`${origin}/skin-api/status`)).toEqual({
+        status: 200,
+        body: { installed: false, running: false },
+      });
+      const unauthorized = await fetch(`${origin}/skin-api/restart`, {
+        method: "POST",
+      });
+      expect(unauthorized.status).toBe(401);
+      const authorized = await fetch(`${origin}/skin-api/restart`, {
+        method: "POST",
+        headers: { "X-Session-API-Key": "private-key" },
+      });
+      expect(authorized.status).toBe(409);
+      const page = await getText(`${origin}/`);
+      expect(page.body).toContain("Canvas shell");
+      expect(page.body).not.toContain("private-key");
+      const redirect = await fetch(`${origin}/skin?q=one`, {
+        redirect: "manual",
+      });
+      expect(redirect.headers.get("location")).toBe("/skin/?q=one");
+      expect(await getText(`${origin}/api/conversations`)).toEqual({
+        status: 200,
+        body: "backend:/api/conversations",
+      });
+      const editor = await fetch(`${origin}/vscode/`);
+      expect(editor.headers.get("referrer-policy")).toBe("no-referrer");
+      expect(await editor.text()).toBe("backend:/vscode/");
+      const upgrade = await new Promise<string>((resolve, reject) => {
+        const socket = netConnect(
+          { host: "127.0.0.1", port: Number(port) },
+          () => {
+            socket.write(
+              "GET /skin/socket?q=one HTTP/1.1\r\nHost: localhost\r\n" +
+                "Connection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
+            );
+          },
+        );
+        socket.setTimeout(3000, () => {
+          socket.destroy();
+          reject(new Error("Skin upgrade timed out"));
+        });
+        socket.once("error", reject);
+        socket.once("data", (data) => {
+          socket.destroy();
+          resolve(data.toString());
+        });
+      });
+      expect(upgrade).toContain("101 Switching Protocols");
+      expect(upgrade.toLowerCase()).toContain(
+        "x-skin-path: /skin/socket?q=one",
+      );
+    });
+
+    it.each(["close", "SIGINT", "SIGTERM", "SIGHUP"] as const)(
+      "stops the installed skin process and releases its port on %s",
+      async (mode) => {
+        const skinPort = await freePort();
+        const { child, origin } = await startSkinHost({
+          skinPort,
+          installed: true,
+          closeFromStdin: mode === "close",
+        });
+        let skinPid = 0;
+        await vi.waitFor(
+          async () => {
+            const response = await getJson(`${origin}/skin/`);
+            expect(response.status).toBe(200);
+            skinPid = (response.body as { pid: number }).pid;
+          },
+          { timeout: 10000 },
+        );
+        skinPids.push(skinPid);
+        const exited = once(child, "exit");
+
+        if (mode === "close") child.stdin?.end("close");
+        else child.kill(mode);
+
+        await exited;
+        expect(child.exitCode).toBe(0);
+        await vi.waitFor(() => {
+          try {
+            process.kill(skinPid, 0);
+            // Minimal container init processes may leave exited grandchildren
+            // as zombies. A zombie holds no resources and cannot run or restart.
+            const state =
+              process.platform === "linux"
+                ? readFileSync(`/proc/${skinPid}/stat`, "utf8").split(
+                    ") ",
+                  )[1][0]
+                : "running";
+            expect(state).toBe("Z");
+          } catch (error) {
+            if (
+              !["ESRCH", "ENOENT"].includes(
+                (error as NodeJS.ErrnoException).code ?? "",
+              )
+            ) {
+              throw error;
+            }
+          }
+        });
+        const portProbe = createServer();
+        await new Promise<void>((resolve, reject) => {
+          portProbe.once("error", reject);
+          portProbe.listen(Number(skinPort), "127.0.0.1", () => resolve());
+        });
+        await new Promise<void>((resolve) => portProbe.close(() => resolve()));
+      },
+    );
+  });
+
   it("keeps paths confined to the static directory", async () => {
     const parentDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-parent-"));
     tempDirs.push(parentDir);
@@ -665,5 +1346,84 @@ describe("static-server.mjs", () => {
     expect(response.body).toContain("Bad Gateway");
     expect(response.body).toContain("Invalid URL");
     expect(server.listening).toBe(true);
+  });
+});
+
+describe("static-server.mjs MARS web bridge (Docker arguments)", () => {
+  const servers: Server[] = [];
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(
+      servers.splice(0).map(
+        (server) =>
+          new Promise<void>((resolve) => {
+            server.close(() => resolve());
+          }),
+      ),
+    );
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  function makeBuildDir() {
+    const buildDir = mkdtempSync(path.join(tmpdir(), "agent-canvas-build-"));
+    tempDirs.push(buildDir);
+    writeFileSync(
+      path.join(buildDir, "index.html"),
+      "<html><head></head><body>app</body></html>",
+    );
+    return buildDir;
+  }
+
+  async function start(
+    overrides: Partial<Parameters<typeof startStaticServer>[0]>,
+  ) {
+    const server = await startStaticServer({
+      port: 0,
+      dir: makeBuildDir(),
+      routes: {},
+      ...overrides,
+    });
+    servers.push(server);
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Static server did not bind to a TCP port");
+    }
+    return `http://127.0.0.1:${address.port}`;
+  }
+
+  // docker/entrypoint.sh runs `--host :: --session-api-key <key>` with no
+  // `--allow-lan-session-key`: the key is stripped from the HTML, but the
+  // bridge must still mount behind it.
+  it("mounts with the entrypoint's `--host :: --session-api-key` arguments", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const origin = await start({ host: "::", sessionApiKey: "docker-key" });
+    expect(await (await fetch(`${origin}/mars/health`)).json()).toEqual({
+      ok: true,
+      authRequired: true,
+    });
+    const page = await (await fetch(`${origin}/`)).text();
+    expect(page).not.toContain("docker-key");
+    expect(
+      warn.mock.calls.some((c) => String(c[0]).includes("[mars-web]")),
+    ).toBe(false);
+  });
+
+  it("does not mount on a LAN bind with no key (public mode)", async () => {
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const origin = await start({ host: "::", authRequired: true });
+    const response = await fetch(`${origin}/mars/health`);
+    expect(response.headers.get("content-type")).toMatch(/text\/html/);
+  });
+
+  it("honours MARS_WEB=0", async () => {
+    vi.stubEnv("MARS_WEB", "0");
+    const origin = await start({ host: "127.0.0.1", sessionApiKey: "k" });
+    const response = await fetch(`${origin}/mars/health`);
+    expect(response.headers.get("content-type")).toMatch(/text\/html/);
   });
 });
