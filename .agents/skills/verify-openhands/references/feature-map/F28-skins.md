@@ -34,7 +34,7 @@ Source: `src/routes/skin-settings.tsx`, `src/routes/skin-tab.tsx`, `src/routes/i
 Preconditions:
 
 - Baseline isolated run, successful doctor, onboarding skipped, desktop viewport. No LLM is needed.
-- Verification status: new recipes awaiting live execution on the completed merge; this file does not claim a live pass.
+- Verification status (2026-10-14, Agent Server 1.54.0): the ordinary-launcher settings entry/form, empty tab, unskinned home pin, phone layouts and non-owning backend gate were observed live. Installed-state lifecycle, installed theme removal and pin priority over an installed skin remain blocked by the runtime prerequisite below.
 - The ordinary `control-openhands launch`/`bin/agent-canvas.mjs` stack does **not** enable the skin service. It can drive the form, empty state, existing home pins and backend gating only.
 - Installed-state checks are **blocked** on that launcher: they require the static server's `--skin-port <port>` plus `--skin-agent-server-url <url>`, `--skin-automation-url <url>` and `--skin-canvas-version <version>`, or the Docker entrypoint that supplies those flags. There is no CLI skin-launch flag; do not claim a successful install against the ordinary stack.
 - Installation additionally requires a reviewed GitHub skin repository with `skin.yaml`, `package.json` containing a start script, and root `SKILL.md`. Local fixture paths are rejected. Push and auto-push need explicit authorization to write to that repository; this map gives none.
