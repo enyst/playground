@@ -36,3 +36,18 @@ The quickstart restricts the published port to host loopback before explicitly e
 For per-conversation containers, run Canvas inside a Linux distribution under WSL 2, with Docker Desktop's WSL integration enabled for that distribution. Install Node.js 24 or later and `uv` inside WSL, and confirm that `docker info` succeeds there.
 
 Run the [multiple-sandbox quickstart](./README.md#option-3-with-multiple-docker-sandboxes) in the WSL shell, using workspace paths inside that Linux environment. The native Windows host is not supported by this runtime, which uses POSIX user/group IDs.
+
+## Optional instance skin
+
+To enable skins in the Docker quickstart above, add `-e OPENHANDS_ENABLE_SKIN=true` before the image name. The projects mount persists the skin checkout at `/projects/skin`; open **Settings → Skin** after starting Canvas. Skins and automatic push are disabled by default.
+
+For npm or source launchers inside WSL 2, use the same flags as on Linux:
+
+```sh
+agent-canvas --skin
+# From a source checkout:
+npm run dev -- --skin
+npm run dev:static -- --skin
+```
+
+`--skin-port 18002` enables support with an explicit app port. Use an absolute Linux path for a local Git skin source when Canvas runs in WSL. See the [skin guide](./docs/skins.md) for credential setup, repository requirements, and configuration export/restore.

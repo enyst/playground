@@ -4,7 +4,8 @@
 //   testid=ID | role=ROLE[name="Name"][exact][checked=true]... (also
 //   [name^="Prefix"] and [name*="part"]) | text=Text |
 //   text="Exact" | label=Label | placeholder=Text | title=Text | alt=Text |
-//   nth=N | has-text=Text | visible | any Playwright/CSS selector.
+//   nth=N | has-text=Text | visible | frame=<iframe-selector> |
+//   any Playwright/CSS selector.
 // ---------------------------------------------------------------------------
 export function unquote(value) {
   const trimmed = value.trim();
@@ -67,6 +68,14 @@ export function applySegment(scope, segment) {
   const engine = eq > 0 ? seg.slice(0, eq) : seg;
   const value = eq > 0 ? seg.slice(eq + 1) : "";
   switch (engine) {
+    case "frame": {
+      if (!value.trim()) throw new Error("frame= requires an iframe selector");
+      const iframe = applySegment(scope, value);
+      if (typeof iframe.contentFrame !== "function") {
+        throw new Error("frame= must select an iframe element");
+      }
+      return iframe.contentFrame();
+    }
     case "testid": {
       // testid=name[data-state="open"] narrows by extra attributes via CSS.
       const bracket = value.indexOf("[");

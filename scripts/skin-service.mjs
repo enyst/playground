@@ -2,15 +2,15 @@
  * Skin service — install, run, and sync a "skin" for this Agent Canvas
  * instance.
  *
- * A skin is a git-backed package (GitHub only for v1) that:
+ * A skin is a git-backed package (GitHub or a local Git repository) that:
  *   • serializes an instance's configuration (automations, skills, MCP server
  *     definitions, secret NAMES, LLM settings, agent profiles — never secret
  *     values, never conversations) into a `skin.yaml` + `automations/` layout,
  *   • ships an arbitrary web app started via `npm run start` on the single
  *     port given by the OPENHANDS_SKIN_PORT environment variable. The app
- *     must serve its UI under /skin/ (index.html + static, with
- *     <base href="/skin/">) and its own backend under /skin/api/* — the
- *     host proxies /skin verbatim and the Canvas frontend embeds it as
+ *     must serve its UI under /skin-app/ (index.html + static, with
+ *     <base href="/skin-app/">) and its own backend under /skin-app/api/* — the
+ *     host proxies /skin-app verbatim and the Canvas frontend embeds it as
  *     its default tab (nested inside the Canvas UI, not standalone at /),
  *   • surfaces in the Canvas UI as an auto-created menu item (iframe tab).
  *
@@ -23,7 +23,7 @@
  * state (settings, logs) stays in ~/.openhands/agent-canvas/skin.
  *
  * This module is consumed by scripts/static-server.mjs, which mounts the
- * REST API under /skin-api and reverse-proxies /skin → the running skin.
+ * REST API under /skin-api and reverse-proxies /skin-app → the running skin.
  *
  * Skin repo format (everything at the repo root):
  *   skin.yaml       — required. name, icon (lucide icon name for the nav
@@ -46,15 +46,32 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
+  readdirSync,
   readFileSync,
+  readlinkSync,
+  realpathSync,
+  renameSync,
+  rmdirSync,
+  lstatSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import yaml from "js-yaml";
+import semver from "semver";
+import {
+  applySkinConfiguration,
+  exportSkinConfiguration,
+} from "./skin-configuration.mjs";
+import {
+  inspectSkinFilesForPush,
+  sanitizeExportData,
+} from "./skin-export-safety.mjs";
 
 const SKIN_SETTINGS_FILE = "skin-settings.json";
 const SKIN_REPO_DIR = "repo";
@@ -312,48 +329,19 @@ export function themeCss(theme) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Version range check (minimal semver subset: ">=1.7.0 <2.0.0", "1.8.x", "*")
+// Canvas release compatibility uses standard semver ranges.
 // ─────────────────────────────────────────────────────────────────────────────
-
-function parseVersion(v) {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(v).trim());
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
-function compareVersions(a, b) {
-  for (let i = 0; i < 3; i += 1) {
-    if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
-  }
-  return 0;
-}
 
 export function satisfiesCanvasVersion(current, range) {
-  if (!range || range === "*") return true;
-  const cur = parseVersion(current);
-  if (!cur) return true; // dev builds ("dev", "unknown") are never blocked
-  const clauses = String(range).trim().split(/\s+/);
-  for (const clause of clauses) {
-    const m = /^(>=|<=|>|<|=)?\s*v?(\d+\.\d+\.\d+)$/.exec(clause);
-    if (!m) return true; // unparseable range — don't block install
-    const op = m[1] || "=";
-    const cmp = compareVersions(cur, parseVersion(m[2]));
-    const ok =
-      (op === ">=" && cmp >= 0) ||
-      (op === "<=" && cmp <= 0) ||
-      (op === ">" && cmp > 0) ||
-      (op === "<" && cmp < 0) ||
-      (op === "=" && cmp === 0);
-    if (!ok) return false;
-  }
-  return true;
+  if (!range) return true;
+  const version = semver.valid(current);
+  if (!version) return true; // Development builds have no release version.
+  const validRange =
+    typeof range === "string" ? semver.validRange(range) : null;
+  return validRange !== null && semver.satisfies(version, validRange);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// git helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-function runGit(args, { cwd, token } = {}) {
+function runGit(args, { cwd, token, binary = false } = {}) {
   return new Promise((resolve) => {
     const gitArgs = [...args];
     if (token) {
@@ -367,24 +355,40 @@ function runGit(args, { cwd, token } = {}) {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    let stdout = "";
+    const chunks = [];
+    let length = 0;
     let stderr = "";
     child.stdout.on("data", (d) => {
-      stdout += d;
+      length += d.length;
+      if (length > 32 * 1024 * 1024) child.kill("SIGKILL");
+      else chunks.push(d);
     });
     child.stderr.on("data", (d) => {
       stderr += d;
     });
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
+    child.on("close", (code) => {
+      const buffer = Buffer.concat(chunks);
+      resolve({
+        code,
+        stdout: binary ? buffer : buffer.toString("utf-8"),
+        stderr,
+      });
+    });
     child.on("error", (err) =>
-      resolve({ code: -1, stdout, stderr: String(err) }),
+      resolve({
+        code: -1,
+        stdout: binary
+          ? Buffer.concat(chunks)
+          : Buffer.concat(chunks).toString("utf-8"),
+        stderr: String(err),
+      }),
     );
   });
 }
 
 function parseGitHubRepo(url) {
   const m =
-    /^(?:https?:\/\/github\.com\/|git@github\.com:|github:)([^/]+)\/([^/.]+?)(?:\.git)?\/?$/.exec(
+    /^(?:https?:\/\/github\.com\/|git@github\.com:|github:)([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/.exec(
       String(url).trim(),
     );
   if (!m) return null;
@@ -424,11 +428,18 @@ export class SkinService {
     this.canvasVersion = opts.canvasVersion || "dev";
     this.githubToken = opts.githubToken || process.env.GITHUB_TOKEN || null;
     this.child = null;
+    this.installProcess = null;
+    this.startTask = null;
+    this.startGeneration = 0;
     this.restartCount = 0;
     this.stopping = false;
     this.lastError = null;
+    this.appError = null;
+    this.ready = false;
+    this.restartTimer = null;
     mkdirSync(this.home, { recursive: true });
     this.migrateLegacyRepoDir();
+    this.appError = this.loadSettings()?.appError || null;
   }
 
   /** The skin checkout lives in the agent's workspace (persistent volume)
@@ -449,9 +460,15 @@ export class SkinService {
     ) {
       return;
     }
+    if (existsSync(this.repoDir) && readdirSync(this.repoDir).length) {
+      this.lastError =
+        "Legacy skin migration was skipped because the destination contains user files.";
+      log(this.lastError);
+      return;
+    }
     log(`Migrating skin checkout ${legacy} → ${this.repoDir}…`);
     try {
-      rmSync(this.repoDir, { recursive: true, force: true });
+      if (existsSync(this.repoDir)) rmdirSync(this.repoDir);
       cpSync(legacy, this.repoDir, { recursive: true });
       rmSync(legacy, { recursive: true, force: true });
     } catch (err) {
@@ -475,9 +492,9 @@ export class SkinService {
     writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2));
   }
 
-  readSkinYaml() {
+  readSkinYaml(repoDir = this.repoDir) {
     try {
-      return yaml.load(readFileSync(join(this.repoDir, SKIN_YAML), "utf-8"));
+      return yaml.load(readFileSync(join(repoDir, SKIN_YAML), "utf-8"));
     } catch {
       return null;
     }
@@ -498,10 +515,19 @@ export class SkinService {
 
   async status() {
     if (!this.isInstalled()) {
-      return { installed: false, running: false };
+      return {
+        installed: false,
+        running: false,
+        error: this.appError || this.lastError,
+      };
     }
     const settings = this.loadSettings();
     const skin = this.readSkinYaml() || {};
+    const declarations = Array.isArray(skin.secrets)
+      ? skin.secrets.filter(
+          (secret) => secret && typeof secret.name === "string",
+        )
+      : [];
     return {
       installed: true,
       name: skin.name || "Skin",
@@ -510,51 +536,108 @@ export class SkinService {
       repoUrl: settings.repoUrl,
       branch: await this.currentBranch(),
       autoPush: !!settings.autoPush,
-      running: !!this.child,
+      applyReport: settings.applyReport || null,
+      exportReport: settings.exportReport || null,
+      running: !!this.child && this.ready,
       path: this.repoDir,
       port: this.skinPort,
       canvasVersion: this.canvasVersion,
       canvasVersionRange: skin.canvas_version || null,
-      secrets: Array.isArray(skin.secrets) ? skin.secrets : [],
+      secrets: [
+        ...declarations,
+        ...(settings.applyReport?.missingSecrets || [])
+          .filter(
+            (name) => !declarations.some((secret) => secret.name === name),
+          )
+          .map((name) => ({ name })),
+      ],
       theme: sanitizeTheme(skin.theme),
       themeVars: themeVars(skin.theme),
-      error: this.lastError,
+      error: this.appError || this.lastError,
     };
   }
 
   // ── install / uninstall ───────────────────────────────────────────────────
 
-  async install({ repoUrl, ref, autoPush = true }) {
+  /** @param {{repoUrl: string, ref?: string, autoPush?: boolean}} params */
+  async install(params) {
+    const { repoUrl, ref, autoPush = false } = params;
     if (this.isInstalled()) {
       throw new SkinError(
         409,
         "A skin is already installed. Uninstall it first — only one skin can be installed at a time.",
       );
     }
-    if (!parseGitHubRepo(repoUrl)) {
+    if (
+      typeof repoUrl !== "string" ||
+      repoUrl.startsWith("-") ||
+      /[\r\n\0]/.test(repoUrl)
+    ) {
       throw new SkinError(
         400,
-        "Only GitHub repository URLs are supported (e.g. https://github.com/owner/repo).",
+        "Provide a GitHub repository URL or an absolute local Git repository path.",
       );
     }
-
-    rmSync(this.repoDir, { recursive: true, force: true });
+    if (
+      ref !== undefined &&
+      (typeof ref !== "string" ||
+        !ref ||
+        ref.startsWith("-") ||
+        /[\r\n\0]/.test(ref))
+    ) {
+      throw new SkinError(400, "Provide a valid Git branch or tag.");
+    }
+    let source = repoUrl.trim();
+    const github = parseGitHubRepo(source);
+    if (github) {
+      if (source.startsWith("github:") || source.startsWith("http:"))
+        source = `https://github.com/${github.owner}/${github.repo}`;
+    } else {
+      try {
+        if (source.startsWith("file:")) source = fileURLToPath(source);
+        if (!isAbsolute(source)) throw new Error("not an absolute path");
+        source = realpathSync(source);
+        const gitRepo = await runGit(["-C", source, "rev-parse", "--git-dir"]);
+        if (gitRepo.code !== 0) throw new Error("not a Git repository");
+      } catch {
+        throw new SkinError(
+          400,
+          "Provide a GitHub repository URL or an existing absolute local Git repository path.",
+        );
+      }
+    }
+    if (existsSync(this.repoDir) && readdirSync(this.repoDir).length) {
+      throw new SkinError(
+        409,
+        "The configured skin checkout directory already contains files; choose an empty directory.",
+      );
+    }
+    mkdirSync(dirname(this.repoDir), { recursive: true });
+    const stagingDir = mkdtempSync(
+      join(dirname(this.repoDir), ".skin-install-"),
+    );
     const cloneArgs = ["clone", "--depth", "1"];
     if (ref) cloneArgs.push("--branch", ref);
-    cloneArgs.push(repoUrl, this.repoDir);
-    const clone = await runGit(cloneArgs, { token: this.githubToken });
-    if (clone.code !== 0) {
-      throw new SkinError(502, `git clone failed: ${clone.stderr.trim()}`);
-    }
-
-    const validationError = this.validateRepo();
-    if (validationError) {
-      rmSync(this.repoDir, { recursive: true, force: true });
-      throw new SkinError(422, validationError);
+    cloneArgs.push("--", source, stagingDir);
+    try {
+      const clone = await runGit(cloneArgs, {
+        token: github ? this.githubToken : undefined,
+      });
+      if (clone.code !== 0)
+        throw new SkinError(
+          502,
+          "Cloning the skin repository failed; verify its source and ref.",
+        );
+      const validationError = this.validateRepo(stagingDir);
+      if (validationError) throw new SkinError(422, validationError);
+      if (existsSync(this.repoDir)) rmdirSync(this.repoDir);
+      renameSync(stagingDir, this.repoDir);
+    } finally {
+      rmSync(stagingDir, { recursive: true, force: true });
     }
 
     this.saveSettings({
-      repoUrl,
+      repoUrl: source,
       ref: ref || null,
       autoPush: !!autoPush,
       installedAt: new Date().toISOString(),
@@ -565,8 +648,8 @@ export class SkinService {
     return { ...(await this.status()), applyReport };
   }
 
-  validateRepo() {
-    const skin = this.readSkinYaml();
+  validateRepo(repoDir = this.repoDir) {
+    const skin = this.readSkinYaml(repoDir);
     if (!skin || typeof skin !== "object") {
       return "skin.yaml is missing or invalid at the repository root.";
     }
@@ -575,16 +658,14 @@ export class SkinService {
     }
     let pkg;
     try {
-      pkg = JSON.parse(
-        readFileSync(join(this.repoDir, "package.json"), "utf-8"),
-      );
+      pkg = JSON.parse(readFileSync(join(repoDir, "package.json"), "utf-8"));
     } catch {
       return "package.json is missing or invalid at the repository root.";
     }
     if (!pkg.scripts?.start) {
       return "package.json must define a `start` script (the skin is launched with `npm run start`).";
     }
-    if (!existsSync(join(this.repoDir, "SKILL.md"))) {
+    if (!existsSync(join(repoDir, "SKILL.md"))) {
       return "SKILL.md is missing at the repository root. Every skin must ship a SKILL.md describing what it does; it is loaded into the agent's context at the start of every conversation.";
     }
     if (!satisfiesCanvasVersion(this.canvasVersion, skin.canvas_version)) {
@@ -636,8 +717,21 @@ export class SkinService {
     }
   }
 
-  async start() {
-    if (!this.isInstalled() || this.child) return;
+  start() {
+    if (this.startTask) return this.startTask;
+    const task = this.startInstalledSkin(this.startGeneration);
+    this.startTask = task;
+    task
+      .finally(() => {
+        if (this.startTask === task) this.startTask = null;
+      })
+      .catch(() => {});
+    return task;
+  }
+
+  async startInstalledSkin(generation) {
+    if (!this.isInstalled()) return;
+    if (this.child) return this.readyPromise;
     this.stopping = false;
     this.syncSkillMd();
 
@@ -646,22 +740,54 @@ export class SkinService {
     );
     if (pkg.dependencies || pkg.devDependencies) {
       log("Running npm install for skin dependencies…");
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         const npmInstall = spawn(
           "npm",
           ["install", "--omit=dev", "--no-audit", "--no-fund"],
-          { cwd: this.repoDir, stdio: "inherit" },
+          {
+            cwd: this.repoDir,
+            detached: process.platform !== "win32",
+            stdio: "inherit",
+          },
         );
-        npmInstall.on("close", resolve);
-        npmInstall.on("error", resolve);
+        this.installProcess = npmInstall;
+        npmInstall.on("close", (code) => {
+          if (this.installProcess === npmInstall) this.installProcess = null;
+          if (generation !== this.startGeneration || this.stopping) {
+            resolve();
+            return;
+          }
+          if (code === 0) resolve();
+          else
+            reject(
+              new SkinError(
+                502,
+                "Installing skin dependencies failed. Check the skin log and its package lockfile.",
+              ),
+            );
+        });
+        npmInstall.on("error", () =>
+          reject(
+            new SkinError(
+              502,
+              "Could not start npm to install skin dependencies.",
+            ),
+          ),
+        );
+      }).catch((error) => {
+        if (generation === this.startGeneration)
+          this.setAppError(error.message);
+        throw error;
       });
     }
-
-    this.spawnSkin();
+    if (generation !== this.startGeneration || this.stopping) return;
+    return this.spawnSkin();
   }
 
   spawnSkin() {
-    if (this.stopping) return;
+    if (this.stopping || this.child) return this.readyPromise;
+    this.ready = false;
+    this.setAppError(null);
     log(`Starting skin app on port ${this.skinPort} (npm run start)…`);
     const logPath = join(this.home, SKIN_LOG_FILE);
     // detached: the skin runs in its own process group so stop() can kill
@@ -690,47 +816,112 @@ export class SkinService {
     child.stdout.on("data", append);
     child.stderr.on("data", append);
     child.on("close", (code) => {
+      if (this.child !== child) return;
       this.child = null;
+      this.ready = false;
       if (this.stopping) return;
       const backoff =
         RESTART_BACKOFF_MS[
           Math.min(this.restartCount, RESTART_BACKOFF_MS.length - 1)
         ];
       this.restartCount += 1;
-      this.lastError = `Skin app exited with code ${code}; restarting in ${backoff}ms`;
-      log(this.lastError);
-      setTimeout(() => this.spawnSkin(), backoff);
+      this.setAppError(
+        `Skin app exited with code ${code}; restarting in ${backoff}ms`,
+      );
+      log(this.appError);
+      this.restartTimer = setTimeout(() => {
+        this.spawnSkin()?.catch(() => {});
+      }, backoff);
+      this.restartTimer.unref?.();
     });
     child.on("error", (err) => {
+      if (this.child !== child) return;
       this.child = null;
-      this.lastError = `Failed to start skin app: ${err.message}`;
-      log(this.lastError);
+      this.setAppError(`Failed to start skin app: ${err.message}`);
+      log(this.appError);
     });
     this.child = child;
+    this.readyPromise = this.waitForSkinReady(child);
+    this.readyPromise.catch((error) => {
+      if (!this.stopping && this.child === child)
+        this.setAppError(error.message);
+    });
+    return this.readyPromise;
   }
 
-  async stop() {
+  async waitForSkinReady(child) {
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      if (this.child !== child || this.stopping)
+        throw new SkinError(
+          502,
+          "Skin app stopped before its HTTP interface was ready.",
+        );
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:${this.skinPort}/skin-app/`,
+          { redirect: "manual", signal: AbortSignal.timeout(1000) },
+        );
+        await response.body?.cancel();
+        if (response.status >= 200 && response.status < 400) {
+          this.ready = true;
+          this.setAppError(null);
+          return;
+        }
+      } catch {
+        /* The child may still be binding its HTTP port. */
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    throw new SkinError(
+      504,
+      "Skin app did not serve /skin-app/ within 30 seconds. Check its start command and log.",
+    );
+  }
+
+  async stop({ timeoutMs = 5000 } = {}) {
     this.stopping = true;
-    const child = this.child;
-    if (!child) return;
+    this.ready = false;
+    clearTimeout(this.restartTimer);
+    this.restartTimer = null;
+    this.startGeneration += 1;
+    this.startTask = null;
+    const processes = [this.child, this.installProcess].filter(Boolean);
     this.child = null;
-    const exited = new Promise((resolve) => {
-      child.once("close", resolve);
-      setTimeout(resolve, 5000).unref?.();
-    });
-    try {
-      process.kill(-child.pid, "SIGTERM");
-    } catch {
-      child.kill("SIGTERM");
-    }
-    await exited;
-    // Whatever survived SIGTERM gets the axe — a lingering server would
-    // hold the port and make the restarted skin crash-loop on EADDRINUSE.
-    try {
-      process.kill(-child.pid, "SIGKILL");
-    } catch {
-      /* group already gone */
-    }
+    this.installProcess = null;
+    await Promise.all(
+      processes.map(async (child) => {
+        const exited = new Promise((resolve) => {
+          child.once("close", resolve);
+          setTimeout(resolve, timeoutMs).unref?.();
+        });
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch {
+          child.kill("SIGTERM");
+        }
+        await exited;
+        // Whatever survived SIGTERM gets the axe — a lingering server would
+        // hold the port and make the restarted skin crash-loop on EADDRINUSE.
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          /* group already gone */
+        }
+        // Observe the forced exit before admitting a replacement. The process
+        // identity guards also prevent a delayed old event clearing a new child.
+        await Promise.race([
+          exited,
+          new Promise((resolve) => setTimeout(resolve, 250)),
+        ]);
+      }),
+    );
+  }
+
+  setAppError(message) {
+    this.appError = message;
+    if (this.isInstalled())
+      this.saveSettings({ ...this.loadSettings(), appError: message });
   }
 
   /** Cleanly restart the skin app (e.g. after the agent edited the code in
@@ -753,8 +944,17 @@ export class SkinService {
       token: this.githubToken,
     });
     if (res.code !== 0) {
-      throw new SkinError(502, `git pull failed: ${res.stderr.trim()}`);
+      this.lastError =
+        "Pull failed. Resolve local Git changes or verify access to the remote repository.";
+      throw new SkinError(502, this.lastError);
     }
+    const validationError = this.validateRepo();
+    if (validationError) {
+      this.lastError = validationError;
+      throw new SkinError(422, validationError);
+    }
+    this.lastError = null;
+    await this.applyConfiguration();
     await this.stop();
     await this.start();
     return this.status();
@@ -765,21 +965,190 @@ export class SkinService {
    * currently checked-out branch (main by default). If push access is
    * missing, falls back to pushing a new branch and opening a pull request.
    */
-  async push({ message } = {}) {
+  async push({ message, reviewedSource = false, automatic = false } = {}) {
     this.requireInstalled();
     const commitMessage = message || "Update skin (agent-modified)";
+    if (typeof commitMessage !== "string")
+      throw new SkinError(422, "The Git commit message must be text.");
+    const metadataRejected = sanitizeExportData(commitMessage, {
+      path: "Git commit message",
+    }).rejectedPaths;
+    const branch = await this.currentBranch();
+    if (!branch || branch === "HEAD")
+      throw new SkinError(
+        409,
+        "Check out a named branch before pushing the skin.",
+      );
+    const remote = await runGit(
+      ["rev-parse", "--verify", `refs/remotes/origin/${branch}`],
+      { cwd: this.repoDir },
+    );
+    const paths = new Set();
+    for (const args of [
+      ["diff", "--name-only", "-z", "HEAD"],
+      ["ls-files", "--others", "--exclude-standard", "-z"],
+      remote.code === 0
+        ? ["diff", "--name-only", "-z", `origin/${branch}...HEAD`]
+        : ["ls-files", "-z"],
+    ]) {
+      const changed = await runGit(args, { cwd: this.repoDir });
+      if (changed.code !== 0)
+        throw new SkinError(
+          409,
+          "Could not inspect changed files before pushing.",
+        );
+      changed.stdout
+        .split("\0")
+        .filter(Boolean)
+        .forEach((path) => paths.add(path));
+    }
+    const files = [...paths].map((path) => {
+      const absolute = join(this.repoDir, path);
+      return {
+        path,
+        content: existsSync(absolute)
+          ? lstatSync(absolute).isSymbolicLink()
+            ? readlinkSync(absolute)
+            : readFileSync(absolute)
+          : null,
+      };
+    });
+    // Inspect each unpublished revision, including blobs removed by a later
+    // local commit. A clean final tree does not erase secrets from Git history.
+    const outgoing = await runGit(
+      ["rev-list", "HEAD", "--not", "--remotes=origin"],
+      { cwd: this.repoDir },
+    );
+    if (outgoing.code !== 0)
+      throw new SkinError(409, "Could not inspect outgoing Git history.");
+    for (const commit of outgoing.stdout.trim().split("\n").filter(Boolean)) {
+      const metadata = await runGit(
+        ["show", "--no-patch", "--format=raw", commit],
+        { cwd: this.repoDir },
+      );
+      if (metadata.code !== 0)
+        throw new SkinError(409, "Could not inspect outgoing Git metadata.");
+      metadataRejected.push(
+        ...sanitizeExportData(metadata.stdout, {
+          path: `Git commit ${commit} metadata`,
+        }).rejectedPaths,
+      );
+      const changed = await runGit(
+        [
+          "diff-tree",
+          "--root",
+          "-m",
+          "--no-commit-id",
+          "--name-only",
+          "-r",
+          "-z",
+          commit,
+        ],
+        { cwd: this.repoDir },
+      );
+      if (changed.code !== 0)
+        throw new SkinError(
+          409,
+          "Could not inspect files in an outgoing commit.",
+        );
+      for (const path of changed.stdout.split("\0").filter(Boolean)) {
+        const blob = await runGit(["show", `${commit}:${path}`], {
+          cwd: this.repoDir,
+          binary: true,
+        });
+        if (blob.code === 0) files.push({ path, content: blob.stdout });
+        else {
+          const deleted = await runGit(["ls-tree", "-z", commit, "--", path], {
+            cwd: this.repoDir,
+          });
+          if (deleted.code !== 0 || deleted.stdout.length)
+            throw new SkinError(
+              409,
+              "Could not inspect a file in outgoing Git history.",
+            );
+        }
+      }
+    }
+    const safety = inspectSkinFilesForPush(files);
+    safety.rejectedPaths.push(...metadataRejected);
+    if (safety.rejectedPaths.length)
+      return {
+        pushed: false,
+        reviewRequired: false,
+        reviewPaths: safety.rejectedPaths,
+        error:
+          "Credential material was found in changed files or Git metadata. Remove it before pushing.",
+      };
+    if (safety.opaquePaths.length && (automatic || !reviewedSource))
+      return {
+        pushed: false,
+        reviewRequired: true,
+        reviewPaths: safety.opaquePaths,
+        warnings: safety.warnings,
+      };
 
+    const identity = await Promise.all(
+      ["user.name", "user.email"].map(async (key) => ({
+        key,
+        result: await runGit(["config", "--get", key], { cwd: this.repoDir }),
+      })),
+    );
+    const overrides = [];
+    if (
+      identity.some(({ result }) => result.code !== 0 || !result.stdout.trim())
+    ) {
+      let preferences = {};
+      if (this.agentServerUrl) {
+        try {
+          const settings = await this.backendFetch(
+            this.agentServerUrl,
+            "/api/settings",
+          );
+          preferences = settings.misc_settings?.app_preferences || {};
+        } catch {
+          /* Bot identity remains an explicit service fallback. */
+        }
+      }
+      for (const { key, result } of identity) {
+        if (result.code === 0 && result.stdout.trim()) continue;
+        const value =
+          key === "user.name"
+            ? preferences.git_user_name || "OpenHands Skin"
+            : preferences.git_user_email || "skin-bot@openhands.local";
+        overrides.push("-c", `${key}=${value}`);
+      }
+    }
+    for (const variable of ["GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"]) {
+      const identityValue = await runGit([...overrides, "var", variable], {
+        cwd: this.repoDir,
+      });
+      if (identityValue.code !== 0)
+        throw new SkinError(409, "Could not inspect the Git commit identity.");
+      const checked = sanitizeExportData(identityValue.stdout, {
+        path: `Git ${variable}`,
+      });
+      if (checked.rejectedPaths.length)
+        return {
+          pushed: false,
+          reviewRequired: false,
+          reviewPaths: checked.rejectedPaths,
+          error:
+            "Credential material was found in the Git identity. Remove it before pushing.",
+        };
+    }
     await runGit(["add", "-A"], { cwd: this.repoDir });
-    const commit = await runGit(["commit", "-m", commitMessage], {
+    const commit = await runGit([...overrides, "commit", "-m", commitMessage], {
       cwd: this.repoDir,
     });
     const nothingToCommit =
       commit.code !== 0 && /nothing to commit/i.test(commit.stdout);
     if (commit.code !== 0 && !nothingToCommit) {
-      throw new SkinError(500, `git commit failed: ${commit.stderr.trim()}`);
+      throw new SkinError(
+        500,
+        "Could not commit the skin changes. Verify the repository's Git user identity.",
+      );
     }
 
-    const branch = (await this.currentBranch()) || "main";
     const push = await runGit(["push", "origin", `HEAD:${branch}`], {
       cwd: this.repoDir,
       token: this.githubToken,
@@ -791,15 +1160,20 @@ export class SkinService {
     // No push access to the branch — push a topic branch and open a PR.
     const settings = this.loadSettings();
     const gh = parseGitHubRepo(settings.repoUrl);
+    if (!gh || !this.githubToken)
+      throw new SkinError(
+        502,
+        "Could not push the skin. Verify access to its remote repository and branch.",
+      );
     const topic = `skin-update-${Date.now()}`;
     const pushTopic = await runGit(["push", "origin", `HEAD:${topic}`], {
       cwd: this.repoDir,
       token: this.githubToken,
     });
-    if (pushTopic.code !== 0 || !gh || !this.githubToken) {
+    if (pushTopic.code !== 0) {
       throw new SkinError(
         502,
-        `git push failed (no access to ${branch}, topic-branch fallback also failed): ${push.stderr.trim()}`,
+        "Could not push the skin. Verify access to its remote repository and branch.",
       );
     }
     const pr = await this.openPullRequest(gh, topic, branch, commitMessage);
@@ -842,7 +1216,7 @@ export class SkinService {
     const settings = this.loadSettings();
     if (!settings?.autoPush) return { pushed: false };
     try {
-      return await this.push({ message });
+      return await this.push({ message, automatic: true });
     } catch (err) {
       // Auto-push failures must never block the skin from running.
       this.lastError = `Auto-push failed: ${err.message}`;
@@ -862,6 +1236,7 @@ export class SkinService {
   async backendFetch(base, path, init = {}) {
     const res = await fetch(`${base}${path}`, {
       ...init,
+      redirect: "error",
       headers: {
         "X-Session-API-Key": this.sessionApiKey || "",
         "Content-Type": "application/json",
@@ -871,238 +1246,21 @@ export class SkinService {
     if (!res.ok) {
       throw new Error(`${path} -> HTTP ${res.status}`);
     }
+    if (res.status === 204 || res.status === 205) return null;
     const contentType = res.headers.get("content-type") || "";
-    return contentType.includes("json") ? res.json() : res.arrayBuffer();
+    if (contentType.includes("json")) return res.json();
+    if (contentType.includes("text/")) return res.text();
+    return res.arrayBuffer();
   }
-
-  // ── serialization (export instance config → skin repo) ──────────────────
-  //
-  // Serialized:   automations (+code), skills, MCP server definitions,
-  //               secret NAMES, LLM settings, agent profiles, settings.
-  // NEVER:        conversations, secret VALUES, credential material.
 
   async exportConfiguration() {
     this.requireInstalled();
-    if (!this.agentServerUrl) {
-      throw new SkinError(503, "Agent server URL is not configured.");
-    }
-
-    const skin = this.readSkinYaml() || {};
-    const report = { exported: [], skipped: [] };
-
-    // Settings (masked — the agent server never returns raw secret values
-    // without X-Expose-Secrets, which we deliberately do not send).
-    let settings = null;
-    try {
-      settings = await this.backendFetch(this.agentServerUrl, "/api/settings");
-    } catch (err) {
-      report.skipped.push(`settings: ${err.message}`);
-    }
-    if (settings) {
-      const agentSettings = settings.agent_settings || {};
-      skin.mcp_servers = stripSecretValues(agentSettings.mcp_config || {});
-      skin.llm = stripSecretValues({
-        ...(agentSettings.llm || {}),
-        api_key: undefined,
-      });
-      skin.settings = stripSecretValues(settings.conversation_settings || {});
-      report.exported.push("settings", "mcp_servers", "llm");
-    }
-
-    // Agent profiles.
-    try {
-      const profiles = await this.backendFetch(
-        this.agentServerUrl,
-        "/api/agent-profiles",
-      );
-      // The list endpoint returns summaries, not the launch configuration.
-      // Read every detail before replacing the saved set so a failed read
-      // cannot turn an existing profile into a summary on the next import.
-      const exportedProfiles = await Promise.all(
-        (profiles.profiles || []).map(async (summary) => {
-          const detail = await this.backendFetch(
-            this.agentServerUrl,
-            `/api/agent-profiles/${encodeURIComponent(summary.name)}`,
-          );
-          if (
-            !detail.profile ||
-            typeof detail.profile !== "object" ||
-            Array.isArray(detail.profile)
-          ) {
-            throw new Error(
-              `agent profile ${summary.name}: missing profile detail`,
-            );
-          }
-          return stripSecretValues({ ...detail.profile, name: summary.name });
-        }),
-      );
-      skin.agent_profiles = exportedProfiles;
-      report.exported.push("agent_profiles");
-    } catch (err) {
-      report.skipped.push(`agent_profiles: ${err.message}`);
-    }
-
-    // Secret NAMES only.
-    try {
-      const secrets = await this.backendFetch(
-        this.agentServerUrl,
-        "/api/settings/secrets",
-      );
-      skin.secrets = (secrets.secrets || []).map((s) => ({
-        name: s.name,
-        description: s.description || "",
-      }));
-      report.exported.push("secrets (names only)");
-    } catch (err) {
-      report.skipped.push(`secrets: ${err.message}`);
-    }
-
-    // Skills (source references).
-    try {
-      const skills = await this.backendFetch(
-        this.agentServerUrl,
-        "/api/skills/installed",
-      );
-      skin.skills = (skills.skills || [])
-        .filter((s) => s.source)
-        .map((s) => ({
-          name: s.name,
-          source: s.source,
-          // Installed skills expose the resolved commit, so preserve the
-          // actual installed content rather than resolving a moving branch.
-          ...(s.resolved_ref ? { ref: s.resolved_ref } : {}),
-          ...(s.repo_path ? { repo_path: s.repo_path } : {}),
-        }));
-      report.exported.push("skills");
-    } catch (err) {
-      report.skipped.push(`skills: ${err.message}`);
-    }
-
-    // Automations: definition + tarball (contains the Python code).
-    if (this.automationUrl) {
-      try {
-        const list = await this.backendFetch(
-          this.automationUrl,
-          "/api/automation/v1?limit=100",
-        );
-        const automations = list.items || list.automations || [];
-        const automationsDir = join(this.repoDir, "automations");
-        mkdirSync(automationsDir, { recursive: true });
-        for (const automation of automations) {
-          const dir = join(automationsDir, sanitizeName(automation.name));
-          mkdirSync(dir, { recursive: true });
-          writeFileSync(
-            join(dir, "automation.json"),
-            JSON.stringify(stripSecretValues(automation), null, 2),
-          );
-          try {
-            const tarball = await this.backendFetch(
-              this.automationUrl,
-              `/api/automation/v1/${encodeURIComponent(automation.id)}/tarball`,
-            );
-            writeFileSync(join(dir, "automation.tar.gz"), Buffer.from(tarball));
-          } catch (err) {
-            report.skipped.push(
-              `automation tarball ${automation.name}: ${err.message}`,
-            );
-          }
-        }
-        report.exported.push(`automations (${automations.length})`);
-      } catch (err) {
-        report.skipped.push(`automations: ${err.message}`);
-      }
-    }
-
-    skin.canvas_version = skin.canvas_version || `>=${this.canvasVersion}`;
-    writeFileSync(join(this.repoDir, SKIN_YAML), yaml.dump(skin));
-
-    const pushResult = await this.autoPushIfEnabled(
-      "Export Agent Canvas instance configuration to skin",
-    );
-    return { report, pushResult };
+    return exportSkinConfiguration(this);
   }
 
-  // ── deserialization (apply skin config → this instance) ─────────────────
-
   async applyConfiguration() {
-    const skin = this.readSkinYaml() || {};
-    const report = { applied: [], skipped: [] };
-    if (!this.agentServerUrl) {
-      report.skipped.push("no agent server URL configured");
-      return report;
-    }
-
-    // MCP servers + LLM settings + conversation settings.
-    const agentSettingsDiff = {};
-    if (skin.mcp_servers && Object.keys(skin.mcp_servers).length > 0) {
-      agentSettingsDiff.mcp_config = skin.mcp_servers;
-    }
-    if (skin.llm && Object.keys(skin.llm).length > 0) {
-      agentSettingsDiff.llm = skin.llm;
-    }
-    const settingsDiff = {
-      ...(Object.keys(agentSettingsDiff).length > 0
-        ? { agent_settings_diff: agentSettingsDiff }
-        : {}),
-      ...(skin.settings && Object.keys(skin.settings).length > 0
-        ? { conversation_settings_diff: skin.settings }
-        : {}),
-    };
-    if (Object.keys(settingsDiff).length > 0) {
-      try {
-        await this.backendFetch(this.agentServerUrl, "/api/settings", {
-          method: "PATCH",
-          body: JSON.stringify(settingsDiff),
-        });
-        report.applied.push("settings");
-      } catch (err) {
-        report.skipped.push(`settings: ${err.message}`);
-      }
-    }
-
-    // Skills.
-    for (const skill of skin.skills || []) {
-      try {
-        await this.backendFetch(this.agentServerUrl, "/api/skills/install", {
-          method: "POST",
-          body: JSON.stringify({
-            source: skill.source,
-            ...(skill.ref ? { ref: skill.ref } : {}),
-            ...(skill.repo_path ? { repo_path: skill.repo_path } : {}),
-            force: true,
-          }),
-        });
-        report.applied.push(`skill ${skill.name}`);
-      } catch (err) {
-        report.skipped.push(`skill ${skill.name}: ${err.message}`);
-      }
-    }
-
-    // Agent profiles.
-    for (const profile of skin.agent_profiles || []) {
-      if (!profile.name) continue;
-      try {
-        await this.backendFetch(
-          this.agentServerUrl,
-          `/api/agent-profiles/${encodeURIComponent(profile.name)}`,
-          { method: "POST", body: JSON.stringify(profile) },
-        );
-        report.applied.push(`agent profile ${profile.name}`);
-      } catch (err) {
-        report.skipped.push(`agent profile ${profile.name}: ${err.message}`);
-      }
-    }
-
-    // Automations are re-registered from their stored tarballs when the
-    // automation backend supports tarball import; report otherwise.
-    const automationsDir = join(this.repoDir, "automations");
-    if (existsSync(automationsDir)) {
-      report.skipped.push(
-        "automations: bundled in repo (automations/); re-register via the Automations UI or the automation API",
-      );
-    }
-
-    return report;
+    this.requireInstalled();
+    return applySkinConfiguration(this);
   }
 }
 
@@ -1111,14 +1269,6 @@ export class SkinError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-function sanitizeName(name) {
-  return String(name)
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
 }
 
 /**
@@ -1178,7 +1328,9 @@ function send(res, status, body) {
  * matching how the agent-server and automation backends authenticate.
  */
 export function createSkinApiHandler(service) {
+  let mutationBusy = false;
   return async function handleSkinApi(req, res, pathname) {
+    let ownsMutation = false;
     try {
       const method = req.method || "GET";
       const isThemeRead =
@@ -1209,6 +1361,17 @@ export function createSkinApiHandler(service) {
         send(res, 200, await service.status());
         return;
       }
+      if (["POST", "PATCH", "DELETE"].includes(method)) {
+        if (mutationBusy) {
+          send(res, 409, {
+            error:
+              "A skin operation is already running. Wait for it to finish.",
+          });
+          return;
+        }
+        mutationBusy = true;
+        ownsMutation = true;
+      }
       if (method === "POST" && pathname === "/skin-api/install") {
         const body = await readBody(req);
         send(res, 200, await service.install(body));
@@ -1235,6 +1398,10 @@ export function createSkinApiHandler(service) {
         send(res, 200, await service.exportConfiguration());
         return;
       }
+      if (method === "POST" && pathname === "/skin-api/apply") {
+        send(res, 200, await service.applyConfiguration());
+        return;
+      }
       if (method === "PATCH" && pathname === "/skin-api/settings") {
         const body = await readBody(req);
         send(res, 200, await service.setAutoPush(body.autoPush));
@@ -1244,6 +1411,8 @@ export function createSkinApiHandler(service) {
     } catch (err) {
       const status = err instanceof SkinError ? err.status : 500;
       send(res, status, { error: err.message });
+    } finally {
+      if (ownsMutation) mutationBusy = false;
     }
   };
 }

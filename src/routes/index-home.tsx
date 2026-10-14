@@ -1,5 +1,5 @@
 import { redirect } from "react-router";
-import { SkinService, SKIN_APP_BASE, isSkinBackend } from "#/api/skin-service";
+import { SkinService, SKIN_PAGE_PATH, isSkinBackend } from "#/api/skin-service";
 import { getActiveBackend } from "#/api/backend-registry/active-store";
 import { readPinnedHomeRoute } from "#/hooks/use-pinned-home-route";
 
@@ -17,7 +17,7 @@ export const clientLoader = async () => {
 
   try {
     const status = await SkinService.getStatus();
-    if (status.installed) return redirect(SKIN_APP_BASE);
+    if (status.installed) return redirect(SKIN_PAGE_PATH);
   } catch {
     // A launcher without the skin service falls through to the built-in home.
   }

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SettingsClient } from "@openhands/typescript-client/clients";
 
 import type { Backend } from "#/api/backend-registry/types";
 import {
@@ -60,6 +61,70 @@ describe("SecretsService", () => {
       { name: "OPENHANDS_URL", description: "Canvas origin" },
     ]);
     expect(mockListSecrets).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps secret retries on the originating backend after the user switches", async () => {
+    // Arrange: use the real SDK client, with a transient HTTP failure that
+    // arrives just as the user selects another Agent Server.
+    const instance = { ...localBackend, apiKey: "instance-session-key" };
+    const remote: Backend = {
+      ...localBackend,
+      id: "remote",
+      host: "http://127.0.0.1:9001",
+      apiKey: "remote-session-key",
+    };
+    setRegisteredBackends([instance, remote]);
+    setActiveSelection({ backendId: instance.id });
+    const actual = await vi.importActual<
+      typeof import("@openhands/typescript-client/clients")
+    >("@openhands/typescript-client/clients");
+    const previousConstructor = vi
+      .mocked(SettingsClient)
+      .getMockImplementation();
+    vi.mocked(SettingsClient).mockImplementation(function (options) {
+      return new actual.SettingsClient(options);
+    });
+    const requests: Array<{
+      url: string;
+      apiKey: string | null;
+      body: unknown;
+    }> = [];
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input, init) => {
+        const request = new Request(input, init);
+        requests.push({
+          url: request.url,
+          apiKey: request.headers.get("X-Session-API-Key"),
+          body: await request.json(),
+        });
+        if (requests.length === 1) {
+          setActiveSelection({ backendId: remote.id });
+          return Response.json(
+            { detail: "Temporarily unavailable" },
+            { status: 503 },
+          );
+        }
+        return Response.json({ name: "SKIN_PROVIDER_KEY" });
+      });
+
+    try {
+      // Act
+      await SecretsService.createSecret("SKIN_PROVIDER_KEY", "fixture-secret");
+
+      // Assert: both HTTP writes, including their credential and secret value,
+      // belong to the original instance even after active selection changes.
+      const expectedRequest = {
+        url: `${instance.host}/api/settings/secrets`,
+        apiKey: instance.apiKey,
+        body: { name: "SKIN_PROVIDER_KEY", value: "fixture-secret" },
+      };
+      expect(requests).toEqual([expectedRequest, expectedRequest]);
+    } finally {
+      fetch.mockRestore();
+      if (previousConstructor)
+        vi.mocked(SettingsClient).mockImplementation(previousConstructor);
+    }
   });
 
   it("preserves the existing value when updating description", async () => {

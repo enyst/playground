@@ -57,15 +57,16 @@
 #                          Override in production when the external URL differs.
 #   AUTOMATION_WORKSPACE_BASE – Directory for automation run workspaces
 #                          (default: ~/.openhands/workspaces)
+#   OPENHANDS_ENABLE_SKIN – Enable skin management when true (off by default).
 #   OPENHANDS_SKIN_PORT   – Port the installed skin app listens on
 #                          (default: 18002). The skin is reverse-proxied
-#                          verbatim under /skin (embedded as the default
+#                          verbatim under /skin-app (embedded as the default
 #                          Canvas tab, not served standalone at /);
 #                          managed via /skin-api. The checkout lives in
-#                          the agent workspace (~/workspace/skin, override
+#                          the persistent workspace (/projects/skin, override
 #                          with OPENHANDS_SKIN_WORKSPACE_DIR) so the agent
 #                          can edit it and POST /skin-api/restart.
-#   OPENHANDS_SKIN_REPO   – Optional GitHub repo URL of a skin to install on
+#   OPENHANDS_SKIN_REPO   – Explicit Git repo URL or local path to install on
 #                          first boot (skipped when a skin is already
 #                          installed). OPENHANDS_SKIN_REF pins a branch/tag.
 #   Any agent-server or automation env vars are passed through.
@@ -157,7 +158,7 @@ case "$VSCODE_PATH_SEGMENT" in
     exit 1
     ;;
 esac
-for reserved in /api /sockets /server_info /alive /health /ready /docs /redoc /openapi.json /skin /skin-api "${AGENT_CANVAS_BASE_PATH:-}"; do
+for reserved in /api /sockets /server_info /alive /health /ready /docs /redoc /openapi.json /skin /skin-app /skin-api "${AGENT_CANVAS_BASE_PATH:-}"; do
   if [ -n "$reserved" ] && [ "$VSCODE_BASE_PATH" = "$reserved" ]; then
     log_error "VSCODE_BASE_PATH '$VSCODE_BASE_PATH' collides with an existing route and would take it over. Set a different prefix, such as /vscode."
     exit 1
@@ -182,9 +183,10 @@ VSCODE_ROUTE="${VSCODE_BASE_PATH}=http://127.0.0.1:${VSCODE_PORT}"
 
 # Skin support: the single port the installed skin app must listen on.
 # The static-server starts the skin (npm run start) when one is installed
-# and reverse-proxies it verbatim under /skin (embedded in the Canvas UI).
+# and reverse-proxies it verbatim under /skin-app (embedded in the Canvas UI).
 OPENHANDS_SKIN_PORT="${OPENHANDS_SKIN_PORT:-${CONFIG_SKIN_PORT:-18002}}"
 export OPENHANDS_SKIN_PORT
+export OPENHANDS_SKIN_WORKSPACE_DIR="${OPENHANDS_SKIN_WORKSPACE_DIR:-/projects/skin}"
 
 # Persistence paths — keep settings, conversations, bash history under a
 # single well-known directory that the VOLUME directive exposes.
@@ -432,6 +434,18 @@ if [ "${AGENT_CANVAS_ALLOW_LAN_SESSION_KEY:-false}" = "true" ]; then
   STATIC_SERVER_SESSION_KEY_ARGS+=(--allow-lan-session-key)
 fi
 # <<< docker-session-key-policy
+# >>> docker-skin-runtime: executed by the skin runtime regression tests.
+STATIC_SERVER_SKIN_ARGS=()
+if [ "${OPENHANDS_ENABLE_SKIN:-false}" = "true" ] || [ "${OPENHANDS_ENABLE_SKIN:-}" = "1" ] || [ -n "${OPENHANDS_SKIN_REPO:-}" ]; then
+  STATIC_SERVER_SKIN_ARGS=(
+    --skin-port "$OPENHANDS_SKIN_PORT"
+    --skin-api-key "$EFFECTIVE_SESSION_KEY"
+    --skin-agent-server-url "http://127.0.0.1:${AGENT_SERVER_PORT}"
+    --skin-automation-url "http://127.0.0.1:${AUTOMATION_PORT}"
+    --skin-canvas-version "${AGENT_CANVAS_VERSION:-dev}"
+  )
+fi
+# <<< docker-skin-runtime
 node /opt/agent-canvas/static-server.mjs \
   --port "$PORT" \
   --host "$STATIC_SERVER_BIND_HOST" \
@@ -440,10 +454,7 @@ node /opt/agent-canvas/static-server.mjs \
   --base-path "$AGENT_CANVAS_BASE_PATH" \
   --session-api-key "$EFFECTIVE_SESSION_KEY" \
   --runtime-services-info "$RUNTIME_SERVICES_INFO" \
-  --skin-port "$OPENHANDS_SKIN_PORT" \
-  --skin-agent-server-url "http://127.0.0.1:${AGENT_SERVER_PORT}" \
-  --skin-automation-url "http://127.0.0.1:${AUTOMATION_PORT}" \
-  --skin-canvas-version "${AGENT_CANVAS_VERSION:-dev}" \
+  "${STATIC_SERVER_SKIN_ARGS[@]}" \
   --route "/api/automation=http://127.0.0.1:${AUTOMATION_PORT}" \
   --route "/api=http://127.0.0.1:${AGENT_SERVER_PORT}" \
   --route "/server_info=http://127.0.0.1:${AGENT_SERVER_PORT}" \
@@ -489,7 +500,7 @@ PIDS+=("$STATIC_PID")
 # this exclusion and the --no-referrer-prefix below can both be revisited.
 if [ -n "${PUBLIC_MODE_PORT:-}" ]; then
   log "Starting public-mode frontend on port $PUBLIC_MODE_PORT (--auth-required)..."
-  node /opt/agent-canvas/static-server.mjs \
+  OPENHANDS_ENABLE_SKIN=false node /opt/agent-canvas/static-server.mjs \
     --port "$PUBLIC_MODE_PORT" \
     --host "$STATIC_SERVER_BIND_HOST" \
     --dir /opt/agent-canvas/frontend \

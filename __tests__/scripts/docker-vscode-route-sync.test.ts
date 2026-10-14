@@ -307,6 +307,7 @@ describe.skipIf(process.platform === "win32")(
       "/health",
       "/openapi.json",
       "/skin",
+      "/skin-app",
       "/skin-api",
       "/canvas",
     ])("refuses %j, which would take over an existing route", (given) => {

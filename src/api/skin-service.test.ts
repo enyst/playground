@@ -5,7 +5,11 @@ import {
   setRegisteredBackends,
 } from "./backend-registry/active-store";
 import type { Backend } from "./backend-registry/types";
-import { isSkinBackend, SkinService } from "./skin-service";
+import {
+  isSkinBackend,
+  SkinService,
+  SkinUnsupportedError,
+} from "./skin-service";
 
 const instance: Backend = {
   id: "instance",
@@ -70,5 +74,55 @@ describe("skin instance authentication", () => {
       false,
     );
     expect(isSkinBackend(instance)).toBe(true);
+  });
+
+  it.each([
+    {
+      host: `${window.location.origin}/mars/sessions/qa-session`,
+      marsSessionId: "qa-session",
+    },
+    { host: `${window.location.origin}/mars/sessions/qa-session` },
+    { host: window.location.origin, marsSessionId: "qa-session" },
+  ])("rejects same-origin proxies to another Agent Server", async (target) => {
+    const remote = { ...instance, ...target, id: "remote-session" };
+    setRegisteredBackends([instance, remote]);
+    setActiveSelection({ backendId: remote.id });
+
+    expect(isSkinBackend(remote)).toBe(false);
+    await expect(SkinService.uninstall()).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    new Response("Not found", { status: 404 }),
+    new Response("<!doctype html><title>Canvas</title>"),
+  ])("recognizes a launcher without the skin API", async (response) => {
+    vi.mocked(fetch).mockResolvedValue(response);
+
+    await expect(SkinService.getStatus()).rejects.toBeInstanceOf(
+      SkinUnsupportedError,
+    );
+  });
+
+  it("retains authentication failures as errors rather than showing an install form", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ error: "Invalid session key" }), {
+        status: 401,
+      }),
+    );
+
+    await expect(SkinService.getStatus()).rejects.toMatchObject({
+      message: "Invalid session key",
+      status: 401,
+    });
+  });
+
+  it("returns the export report from the management API response", async () => {
+    const report = { complete: false, errors: ["Could not export skills"] };
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ report, pushResult: { pushed: false } })),
+    );
+
+    await expect(SkinService.exportConfiguration()).resolves.toEqual(report);
   });
 });

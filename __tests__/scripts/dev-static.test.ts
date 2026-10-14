@@ -9,6 +9,13 @@ import {
 import { buildFrontendEnv } from "../../scripts/static-build.mjs";
 
 describe("dev-static CLI", () => {
+  it("forwards explicit skin runtime opt-in and port flags", () => {
+    expect(parseArgs(["--skin", "--skin-port", "19500"])).toMatchObject({
+      skin: true,
+      skinPort: "19500",
+    });
+    expect(parseArgs([]).skin).toBeFalsy();
+  });
   it.each([
     [["--host", "0.0.0.0"], "0.0.0.0"],
     [["-H", "::"], "::"],

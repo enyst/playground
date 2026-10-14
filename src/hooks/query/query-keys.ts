@@ -63,6 +63,9 @@ export const LOCAL_WORKSPACES_QUERY_KEYS = {
 export const SKIN_QUERY_KEYS = {
   /** Installed-skin status from the local /skin-api endpoint. */
   status: ["skin", "status"] as const,
+  statusFor: (backendId: string, connectionRevision: number) =>
+    ["skin", "status", backendId, connectionRevision] as const,
+  mutation: ["skin", "mutation"] as const,
 } as const;
 
 export const PLUGINS_QUERY_KEYS = {

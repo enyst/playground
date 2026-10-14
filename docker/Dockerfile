@@ -147,6 +147,11 @@ COPY scripts/static-server.mjs /opt/agent-canvas/static-server.mjs
 COPY scripts/bind-host.mjs /opt/agent-canvas/bind-host.mjs
 COPY scripts/proxy-utils.mjs /opt/agent-canvas/proxy-utils.mjs
 COPY scripts/skin-service.mjs /opt/agent-canvas/skin-service.mjs
+COPY scripts/skin-runtime.mjs /opt/agent-canvas/skin-runtime.mjs
+COPY scripts/skin-configuration.mjs /opt/agent-canvas/skin-configuration.mjs
+COPY scripts/skin-export-safety.mjs /opt/agent-canvas/skin-export-safety.mjs
+# Flattened runtime scripts resolve their shared config one directory above.
+COPY config/defaults.json /opt/config/defaults.json
 # static-server.mjs mounts the MARS web bridge, which pulls in these modules.
 COPY scripts/http-body.mjs /opt/agent-canvas/http-body.mjs
 COPY scripts/mars-web-bridge.mjs /opt/agent-canvas/mars-web-bridge.mjs
@@ -164,6 +169,7 @@ COPY --from=frontend-build /build/node_modules/@polka /opt/agent-canvas/node_mod
 COPY --from=frontend-build /build/node_modules/mrmime /opt/agent-canvas/node_modules/mrmime
 COPY --from=frontend-build /build/node_modules/totalist /opt/agent-canvas/node_modules/totalist
 COPY --from=frontend-build /build/node_modules/js-yaml /opt/agent-canvas/node_modules/js-yaml
+COPY --from=frontend-build /build/node_modules/semver /opt/agent-canvas/node_modules/semver
 COPY --from=frontend-build /build/node_modules/argparse /opt/agent-canvas/node_modules/argparse
 
 # Copy the runtime-services-info builder (entrypoint.sh runs it as a CLI to

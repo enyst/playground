@@ -13,7 +13,7 @@ import type { IconName } from "lucide-react/dynamic";
 import { OpenHandsLogoButton } from "#/components/shared/buttons/openhands-logo-button";
 import { NavigationLink } from "#/components/shared/navigation-link";
 import { getLockedCloudHost } from "#/api/agent-server-config";
-import { SKIN_APP_BASE } from "#/api/skin-service";
+import { SKIN_PAGE_PATH } from "#/api/skin-service";
 import {
   automationListPath,
   getInterfaceCopy,
@@ -214,7 +214,7 @@ export function SidebarRailBody({
           // topmost nav entry, labeled with the skin's name, opening the
           // iframe tab that embeds the skin app.
           <SidebarNavLink
-            to={SKIN_APP_BASE}
+            to={SKIN_PAGE_PATH}
             label={skinStatus.name || t(I18nKey.SKIN$TITLE)}
             testId="sidebar-skin-link"
             collapsed={collapsed}

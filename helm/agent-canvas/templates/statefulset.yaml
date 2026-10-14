@@ -67,6 +67,10 @@ spec:
               value: {{ .Values.config.automationDbUrl | quote }}
             {{- end }}
             {{- with .Values.config.skin }}
+            {{- if .enabled }}
+            - name: OPENHANDS_ENABLE_SKIN
+              value: "true"
+            {{- end }}
             {{- if .repo }}
             - name: OPENHANDS_SKIN_REPO
               value: {{ .repo | quote }}

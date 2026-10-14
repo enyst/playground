@@ -7,6 +7,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { gzipSync } from "node:zlib";
 import yaml from "js-yaml";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -45,8 +47,519 @@ function installedSkin(config: Record<string, unknown> = {}) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   for (const dir of fixtureDirs.splice(0))
     rmSync(dir, { recursive: true, force: true });
+});
+
+function archive(code = 'print("fixture automation")\n') {
+  const content = Buffer.from(code);
+  const header = Buffer.alloc(512);
+  header.write("main.py");
+  header.write("0000644\0", 100);
+  header.write("0000000\0", 108);
+  header.write("0000000\0", 116);
+  header.write(content.length.toString(8).padStart(11, "0") + "\0", 124);
+  header.write("00000000000\0", 136);
+  header.fill(" ", 148, 156);
+  header.write("0", 156);
+  header.write("ustar\0", 257);
+  const checksum = header.reduce((sum, byte) => sum + byte, 0);
+  header.write(checksum.toString(8).padStart(6, "0") + "\0 ", 148);
+  return gzipSync(
+    Buffer.concat([
+      header,
+      content,
+      Buffer.alloc((512 - (content.length % 512)) % 512),
+      Buffer.alloc(1024),
+    ]),
+  );
+}
+
+function jsonResponse(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+describe("portable skin configuration kits", () => {
+  it("roundtrips dependencies, target credentials, active IDs, local skills and inactive automation bundles", async () => {
+    const service = installedSkin({
+      mcp_servers: {
+        tracker: { headers: { Authorization: "Bearer ${TRACKER_TOKEN}" } },
+      },
+    });
+    service.automationUrl = "http://automation.test";
+    const skillDir = join(service.repoDir, "skills", "review");
+    mkdirSync(skillDir, { recursive: true });
+    const profile = {
+      id: "source-agent-id",
+      name: "reviewer",
+      agent_kind: "openhands",
+      llm_profile_ref: "review-model",
+      tools: [],
+      secret_refs: [],
+      mcp_server_refs: ["tracker"],
+    };
+    const source: Record<string, unknown> = {
+      "/api/settings": {
+        agent_settings: {
+          agent_kind: "openhands",
+          llm: { model: "openai/source" },
+          mcp_config: {
+            tracker: {
+              transport: "http",
+              url: "https://tracker.example/mcp",
+              headers: { Authorization: "**********" },
+            },
+          },
+          verification: { max_refinement_iterations: 3 },
+          agent_context: {
+            secrets: {
+              CONTEXT_VAR: {
+                kind: "LookupSecret",
+                url: "http://source-instance.example/api/settings/secrets/TRACKER_TOKEN",
+                headers: { "X-Session-API-Key": "source-session-credential" },
+              },
+              STATIC_CONTEXT: {
+                kind: "StaticSecret",
+                value: "source-static-credential",
+              },
+            },
+          },
+        },
+        conversation_settings: { max_iterations: 77, confirmation_mode: true },
+        misc_settings: {
+          app_preferences: { language: "fr", user_consents_to_analytics: true },
+        },
+        active_profile: "review-model",
+        active_agent_profile_id: "source-agent-id",
+        active_meta_profile: null,
+      },
+      "/api/llm/provider-connections": [
+        {
+          id: "source-provider-id",
+          display_name: "Review provider",
+          provider: "openai",
+          base_url: null,
+          api_key_set: true,
+        },
+      ],
+      "/api/profiles": { profiles: [{ name: "review-model" }] },
+      "/api/profiles/review-model": {
+        config: {
+          model: "openai/review",
+          provider_connection_id: "source-provider-id",
+          extra_headers: { "X.Customer": "source-header-credential" },
+        },
+        api_key_set: true,
+      },
+      "/api/agent-profiles": {
+        profiles: [{ name: "reviewer", id: "source-agent-id" }],
+      },
+      "/api/agent-profiles/reviewer": { profile },
+      "/api/meta-profiles": { meta_profiles: [] },
+      "/api/settings/secrets": {
+        secrets: [{ name: "TRACKER_TOKEN" }, { name: "STATIC_CONTEXT" }],
+      },
+      "/api/skills/installed": {
+        skills: [{ name: "review", source: skillDir, enabled: true }],
+      },
+      "/api/automation/v1": {
+        automations: [
+          {
+            id: "source-automation",
+            name: "Daily review",
+            model: "review-model",
+            agent_profile_id: "source-agent-id",
+            trigger: { type: "cron", schedule: "0 9 * * *", timezone: "UTC" },
+            entrypoint: "python main.py",
+            state: "ACTIVE",
+          },
+        ],
+        total: 1,
+      },
+    };
+    let restoring = false;
+    const calls: Array<{ path: string; options: RequestInit }> = [];
+    const bytes = archive();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, options: RequestInit = {}) => {
+        const path = new URL(url).pathname;
+        calls.push({ path, options });
+        if (!restoring) {
+          if (path.endsWith("/tarball")) return new Response(bytes);
+          return jsonResponse(
+            source[path] ?? {},
+            source[path] === undefined ? 404 : 200,
+          );
+        }
+        if (options.method === "POST" || options.method === "PATCH") {
+          if (path.includes("provider-connections"))
+            return jsonResponse({ id: "target-provider-id" });
+          if (path.endsWith("/uploads"))
+            return jsonResponse({
+              id: "upload-id",
+              status: "COMPLETED",
+              tarball_path: "oh-internal://uploads/upload-id",
+            });
+          if (path === "/api/automation/v1")
+            return jsonResponse({ id: "target-automation-id" });
+          return jsonResponse({ name: "review" });
+        }
+        const target: Record<string, unknown> = {
+          "/api/settings/secrets": {
+            secrets: [{ name: "TRACKER_TOKEN" }, { name: "STATIC_CONTEXT" }],
+          },
+          "/api/settings/secrets/TRACKER_TOKEN": "target-token",
+          "/api/settings": { agent_settings: { mcp_config: {} } },
+          "/api/llm/provider-connections": [
+            {
+              id: "target-provider-id",
+              display_name: "Review provider",
+              api_key_set: true,
+            },
+          ],
+          "/api/profiles": { profiles: [{ name: "review-model" }] },
+          "/api/profiles/review-model": {
+            config: {
+              model: "openai/old",
+              api_key: "retained-target-key",
+              extra_headers: { "X.Customer": "retained-target-header" },
+            },
+          },
+          "/api/meta-profiles": { meta_profiles: [] },
+          "/api/agent-profiles/reviewer": {
+            profile: { ...profile, id: "target-agent-id" },
+          },
+          "/api/automation/v1": { automations: [], total: 0 },
+        };
+        if (path === "/api/settings/secrets/TRACKER_TOKEN")
+          return new Response("target-token", {
+            headers: { "Content-Type": "text/plain" },
+          });
+        if (path === "/api/settings/secrets/STATIC_CONTEXT")
+          return new Response("target-static", {
+            headers: { "Content-Type": "text/plain" },
+          });
+        return jsonResponse(
+          target[path] ?? {},
+          target[path] === undefined ? 404 : 200,
+        );
+      }),
+    );
+
+    const exported = await service.exportConfiguration();
+    expect(exported.report.errors).toEqual([]);
+    const text = readFileSync(join(service.repoDir, "skin.yaml"), "utf8");
+    expect(text).not.toContain("source-provider-id");
+    expect(text).not.toContain("source-agent-id");
+    expect(text).not.toContain("source-header-credential");
+    expect(text).not.toContain("source-instance.example");
+    expect(text).not.toContain("source-session-credential");
+    expect(text).not.toContain("source-static-credential");
+    const saved = yaml.load(text) as {
+      skills: Array<{ source: string }>;
+      active: { agent_profile: string };
+      app_preferences: Record<string, unknown>;
+    };
+    expect(saved.skills[0].source).toBe("./skills/review");
+    expect(saved.active.agent_profile).toBe("reviewer");
+    expect(saved.app_preferences).not.toHaveProperty(
+      "user_consents_to_analytics",
+    );
+    expect(
+      exported.report.opaquePaths.some((path: string) =>
+        path.endsWith("automation.tar.gz"),
+      ),
+    ).toBe(true);
+
+    restoring = true;
+    calls.length = 0;
+    const applied = await service.applyConfiguration();
+    expect(applied.errors).toEqual([]);
+    expect(applied.missingSecrets).toEqual([]);
+    expect(applied.complete).toBe(true);
+    const writes = calls
+      .filter((call) => ["POST", "PATCH"].includes(call.options.method || ""))
+      .map((call) => ({
+        path: call.path,
+        body: call.path.endsWith("/uploads")
+          ? null
+          : JSON.parse(String(call.options.body)),
+      }));
+    expect(
+      writes.find((call) => call.path.includes("provider-connections"))?.body,
+    ).not.toHaveProperty("api_key");
+    expect(
+      writes.find((call) => call.path === "/api/profiles/review-model")?.body,
+    ).toMatchObject({
+      llm: {
+        provider_connection_id: "target-provider-id",
+        api_key: "retained-target-key",
+        extra_headers: { "X.Customer": "retained-target-header" },
+      },
+      include_secrets: true,
+    });
+    expect(
+      writes.find((call) => call.body?.agent_settings_diff?.mcp_config)?.body
+        .agent_settings_diff.mcp_config.tracker.headers.Authorization,
+    ).toBe("Bearer target-token");
+    expect(
+      writes.find((call) => call.body?.agent_settings_diff?.agent_context)?.body
+        .agent_settings_diff.agent_context.secrets,
+    ).toMatchObject({
+      CONTEXT_VAR: { kind: "StaticSecret", value: "target-token" },
+      STATIC_CONTEXT: { kind: "StaticSecret", value: "target-static" },
+    });
+    expect(writes).toContainEqual({
+      path: "/api/settings",
+      body: {
+        active_profile: "review-model",
+        active_agent_profile_id: "target-agent-id",
+      },
+    });
+    expect(
+      writes.find((call) => call.path === "/api/automation/v1")?.body,
+    ).toMatchObject({
+      agent_profile_id: "target-agent-id",
+      tarball_path: "oh-internal://uploads/upload-id",
+      state: "INACTIVE",
+      enabled: false,
+    });
+    expect(
+      writes.find((call) => call.path === "/api/automation/v1")?.body,
+    ).not.toHaveProperty("model");
+    expect(
+      writes.find((call) => call.path === "/api/skills/install")?.body.source,
+    ).toBe(skillDir);
+    expect(writes).toContainEqual({
+      path: "/api/skills/installed/review",
+      body: { enabled: true },
+    });
+    expect(
+      readFileSync(join(service.repoDir, "skin.yaml"), "utf8"),
+    ).not.toContain("retained-target-key");
+  });
+
+  it("reports missing provider requirements without replacing a working profile or activating a dangling choice", async () => {
+    const service = installedSkin({
+      configuration_version: 2,
+      secrets: [{ name: "NEW_PROVIDER_KEY" }],
+      provider_connections: [
+        {
+          display_name: "New provider",
+          provider: "openai",
+          secret_name: "NEW_PROVIDER_KEY",
+        },
+      ],
+      llm_profiles: [
+        {
+          name: "new-model",
+          config: { model: "openai/new" },
+          provider_connection: "New provider",
+        },
+      ],
+      active: { llm_profile: "new-model" },
+    });
+    const calls: Array<{ path: string; method?: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, options: RequestInit = {}) => {
+        const path = new URL(url).pathname;
+        calls.push({ path, method: options.method });
+        return jsonResponse(
+          path.includes("provider-connections")
+            ? []
+            : path === "/api/meta-profiles"
+              ? { meta_profiles: [] }
+              : { secrets: [], profiles: [] },
+        );
+      }),
+    );
+
+    const result = await service.applyConfiguration();
+
+    expect(result.complete).toBe(false);
+    expect(result.missingSecrets).toContain("NEW_PROVIDER_KEY");
+    expect(
+      calls.some((call) => ["POST", "PATCH"].includes(call.method || "")),
+    ).toBe(false);
+    expect((await service.status()).applyReport).toEqual(result);
+  });
+
+  it("rejects known credential material inside compressed automation code before uploading it", async () => {
+    const service = installedSkin();
+    service.automationUrl = "http://automation.test";
+    const dir = join(service.repoDir, "automations", "unsafe");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "automation.json"),
+      JSON.stringify({
+        name: "Unsafe code",
+        trigger: { type: "cron", schedule: "0 9 * * *" },
+        entrypoint: "python main.py",
+      }),
+    );
+    writeFileSync(
+      join(dir, "automation.tar.gz"),
+      archive('token = "ghp_abcdefghijklmnopqrstuvwxyz1234"\n'),
+    );
+    const fetchMock = vi.fn(async (url: string) =>
+      jsonResponse(
+        new URL(url).pathname.includes("automation")
+          ? { automations: [], total: 0 }
+          : { secrets: [] },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const report = await service.applyConfiguration();
+
+    expect(report.complete).toBe(false);
+    expect(report.rejectedPaths).toContain(
+      "automations/unsafe/automation.tar.gz",
+    );
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes("/uploads")),
+    ).toBe(false);
+  });
+});
+
+describe("local skin Git installation and reviewed push", () => {
+  it("keeps user files and the legacy checkout when migration's destination is occupied", async () => {
+    const existing = installedSkin();
+    rmSync(join(existing.repoDir, "skin.yaml"));
+    writeFileSync(join(existing.repoDir, "user.txt"), "preserved data");
+    const legacy = join(existing.home, "repo");
+    mkdirSync(legacy);
+    writeFileSync(join(legacy, "skin.yaml"), "name: Legacy skin\n");
+    const service = new SkinService({
+      home: existing.home,
+      workspaceDir: existing.repoDir,
+      skinPort: 18002,
+    });
+
+    expect(readFileSync(join(service.repoDir, "user.txt"), "utf8")).toBe(
+      "preserved data",
+    );
+    expect(readFileSync(join(legacy, "skin.yaml"), "utf8")).toContain(
+      "Legacy skin",
+    );
+    expect((await service.status()).error).toContain("migration was skipped");
+  });
+  function git(cwd: string, ...args: string[]) {
+    return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] })
+      .toString()
+      .trim();
+  }
+  function repository() {
+    const service = installedSkin();
+    writeFileSync(
+      join(service.repoDir, "package.json"),
+      JSON.stringify({ scripts: { start: "node app.mjs" } }),
+    );
+    writeFileSync(join(service.repoDir, "SKILL.md"), "# Fixture skin\n");
+    git(service.repoDir, "init", "-b", "main");
+    git(service.repoDir, "config", "user.name", "Fixture");
+    git(service.repoDir, "config", "user.email", "fixture@example.test");
+    git(service.repoDir, "add", ".");
+    git(service.repoDir, "commit", "-m", "Initial fixture");
+    const remote = join(service.home, "remote.git");
+    git(service.home, "init", "--bare", remote);
+    git(service.repoDir, "remote", "add", "origin", remote);
+    git(service.repoDir, "push", "-u", "origin", "main");
+    return { service, remote };
+  }
+
+  it("clones a local Git skin only after validating it, defaults auto-push off, and preserves nonempty user directories", async () => {
+    const { service: source } = repository();
+    const destination = new SkinService({
+      home: join(source.home, "second-state"),
+      workspaceDir: join(source.home, "second-checkout"),
+      skinPort: 18003,
+      agentServerUrl: "http://agent-server.test",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ secrets: [] })),
+    );
+    vi.spyOn(destination, "start").mockResolvedValue();
+
+    await destination.install({ repoUrl: source.repoDir });
+
+    expect(destination.isInstalled()).toBe(true);
+    expect(destination.loadSettings().autoPush).toBe(false);
+    const occupied = new SkinService({
+      home: join(source.home, "occupied-state"),
+      workspaceDir: join(source.home, "occupied"),
+      skinPort: 18004,
+    });
+    mkdirSync(occupied.repoDir);
+    writeFileSync(join(occupied.repoDir, "user.txt"), "keep me");
+    await expect(occupied.install({ repoUrl: source.repoDir })).rejects.toThrow(
+      "already contains files",
+    );
+    expect(readFileSync(join(occupied.repoDir, "user.txt"), "utf8")).toBe(
+      "keep me",
+    );
+    await expect(
+      occupied.install({ repoUrl: source.repoDir, ref: "--upload-pack=other" }),
+    ).rejects.toThrow("valid Git branch");
+  });
+
+  it("requires source review before committing opaque changes and rejects credentials hidden in outgoing history", async () => {
+    const { service } = repository();
+    writeFileSync(
+      join(service.repoDir, "app.mjs"),
+      'console.log("reviewed fixture");\n',
+    );
+    const before = git(service.repoDir, "rev-parse", "HEAD");
+
+    const review = await service.push();
+
+    expect(review).toMatchObject({ pushed: false, reviewRequired: true });
+    expect(git(service.repoDir, "rev-parse", "HEAD")).toBe(before);
+    expect((await service.push({ reviewedSource: true })).pushed).toBe(true);
+    writeFileSync(
+      join(service.repoDir, "credentials.json"),
+      JSON.stringify({ api_key: "historical-fixture-key" }),
+    );
+    git(service.repoDir, "add", ".");
+    git(service.repoDir, "commit", "-m", "Add unsafe history");
+    git(service.repoDir, "rm", "credentials.json");
+    git(service.repoDir, "commit", "-m", "Remove from final tree");
+    const result = await service.push({ reviewedSource: true });
+    expect(result.pushed).toBe(false);
+    expect(
+      (result.reviewPaths || []).some((path: string) =>
+        path.startsWith("credentials.json"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects recognized credentials in proposed messages and outgoing commit metadata before publishing", async () => {
+    const { service, remote } = repository();
+    const before = git(remote, "rev-parse", "main");
+    const token = "github_pat_" + "x".repeat(45);
+    writeFileSync(join(service.repoDir, "skin.yaml"), "name: Updated skin\n");
+
+    const proposed = await service.push({
+      message: `Copied log ${token}`,
+      automatic: true,
+    });
+
+    expect(proposed.pushed).toBe(false);
+    expect(git(service.repoDir, "rev-parse", "HEAD")).toBe(before);
+    git(service.repoDir, "add", ".");
+    git(service.repoDir, "commit", "-m", `Copied log ${token}`);
+    const outgoing = await service.push({ automatic: true });
+    expect(outgoing.pushed).toBe(false);
+    expect((outgoing.reviewPaths || []).join(" ")).toContain("metadata");
+    expect(git(remote, "rev-parse", "main")).toBe(before);
+  });
 });
 
 describe("skin configuration transfer", () => {
@@ -62,6 +575,13 @@ describe("skin configuration transfer", () => {
     };
     const responses: Record<string, unknown> = {
       "/api/settings": { agent_settings: {}, conversation_settings: {} },
+      "/api/llm/provider-connections": [],
+      "/api/profiles": { profiles: [{ name: "review-model" }] },
+      "/api/profiles/review-model": {
+        config: { model: "openai/review" },
+        api_key_set: false,
+      },
+      "/api/meta-profiles": { meta_profiles: [] },
       "/api/agent-profiles": {
         profiles: [
           {
@@ -71,7 +591,10 @@ describe("skin configuration transfer", () => {
           },
         ],
       },
-      "/api/agent-profiles/reviewer": { name: profile.name, profile },
+      "/api/agent-profiles/reviewer": {
+        name: profile.name,
+        profile: { ...profile, id: "target-agent-id" },
+      },
       "/api/settings/secrets": { secrets: [] },
       "/api/skills/installed": {
         skills: [
@@ -99,7 +622,8 @@ describe("skin configuration transfer", () => {
     const saved = yaml.load(
       readFileSync(join(service.repoDir, "skin.yaml"), "utf-8"),
     ) as { agent_profiles: unknown[]; skills: unknown[] };
-    expect(exported.report.skipped).toEqual([]);
+    expect(exported.report.errors).toEqual([]);
+    expect(exported.report.complete).toBe(true);
     expect(saved.agent_profiles).toEqual([profile]);
     expect(saved.skills).toEqual([
       {
@@ -143,9 +667,19 @@ describe("skin configuration transfer", () => {
       vi.fn(async (url: string) => {
         const path = new URL(url).pathname;
         const body =
-          path === "/api/agent-profiles"
-            ? { profiles: [{ name: "reviewer" }] }
-            : {};
+          path === "/api/llm/provider-connections"
+            ? []
+            : path === "/api/agent-profiles"
+              ? { profiles: [{ name: "reviewer" }] }
+              : path === "/api/meta-profiles"
+                ? { meta_profiles: [] }
+                : path === "/api/profiles"
+                  ? { profiles: [] }
+                  : ["/api/settings/secrets", "/api/skills/installed"].includes(
+                        path,
+                      )
+                    ? { secrets: [], skills: [] }
+                    : {};
         return new Response(JSON.stringify(body), {
           status: path === "/api/agent-profiles/reviewer" ? 503 : 200,
           headers: { "Content-Type": "application/json" },
@@ -158,10 +692,10 @@ describe("skin configuration transfer", () => {
       readFileSync(join(service.repoDir, "skin.yaml"), "utf-8"),
     ) as { agent_profiles: unknown[] };
     expect(saved.agent_profiles).toEqual(previousProfiles);
-    expect(result.report.skipped).toContain(
-      "agent_profiles: /api/agent-profiles/reviewer -> HTTP 503",
+    expect(result.report.errors).toContain(
+      "/api/agent-profiles/reviewer -> HTTP 503",
     );
-    expect(result.report.exported).not.toContain("agent_profiles");
+    expect(result.report.complete).toBe(false);
   });
 
   it("applies conversation settings when a skin has no MCP or LLM settings", async () => {
@@ -336,6 +870,16 @@ describe("themeCss", () => {
 });
 
 describe("satisfiesCanvasVersion", () => {
+  it("enforces caret ranges instead of treating them as unknown", () => {
+    expect(satisfiesCanvasVersion("2.0.0", "^1.7.0")).toBe(false);
+    expect(satisfiesCanvasVersion("1.8.0", "^1.7.0")).toBe(true);
+  });
+
+  it("rejects malformed release ranges", () => {
+    expect(satisfiesCanvasVersion("1.8.0", "this is not a version range")).toBe(
+      false,
+    );
+  });
   it("accepts any version when the range is empty or *", () => {
     expect(satisfiesCanvasVersion("1.8.0", "")).toBe(true);
     expect(satisfiesCanvasVersion("1.8.0", undefined)).toBe(true);

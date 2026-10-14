@@ -299,13 +299,13 @@ function releaseClaim(run) {
   }
 }
 
-async function findPortBlock(start, runDir, editor) {
+async function findPortBlock(start, runDir, editor, skin = false) {
   // The launcher needs ingress P, agent-server P+1, automation P+2, static
   // frontend P+3, and the editor port only when it serves VS Code (`editor`
   // is its offset from the agent-server port, or null; see editorOffset).
   mkdirSync(verifyHome, { recursive: true });
   for (let base = start; base < start + 900; base += 10) {
-    const ports = Object.values(runPorts(base, editor));
+    const ports = Object.values(runPorts(base, editor, skin));
     const busy = await Promise.all(ports.map((p) => portOpen(p)));
     if (busy.some(Boolean)) continue;
     if (tryClaim(base, runDir)) return base;
@@ -735,8 +735,9 @@ async function cmdLaunch({ flags }) {
         intFlag(flags["port-from"], 18800),
         dir,
         editor.offset,
+        Boolean(flags.skin),
       );
-  const ports = runPorts(base, editor.offset);
+  const ports = runPorts(base, editor.offset, Boolean(flags.skin));
   if (flags.port) {
     const busy = [];
     for (const [name, port] of Object.entries(ports))
@@ -757,6 +758,13 @@ async function cmdLaunch({ flags }) {
     // the 108-byte Unix socket limit.
     TMUX_TMPDIR: tmuxDirFor(dir),
   });
+  if (flags.skin) {
+    Object.assign(env, {
+      OPENHANDS_SKIN_PORT: String(ports.skin),
+      OPENHANDS_SKIN_STATE_DIR: join(priv, "skin-state"),
+      OPENHANDS_SKIN_WORKSPACE_DIR: join(priv, "skin-workspace"),
+    });
+  }
   const envWarning = warnings.length ? warnings.join(" ") : undefined;
 
   // 5. Start the repository's own production launcher, isolated.
@@ -766,6 +774,7 @@ async function cmdLaunch({ flags }) {
     String(ports.ingress),
   ];
   if (flags.public) launcherArgs.push("--public");
+  if (flags.skin) launcherArgs.push("--skin");
   const savedEnv = { ...env };
   delete savedEnv.LOCAL_BACKEND_API_KEY;
   delete savedEnv.OH_SECRET_KEY;
@@ -1159,6 +1168,17 @@ async function cmdDoctor({ flags }) {
     );
   for (const [name, port] of Object.entries(run.ports)) {
     if (name === "vscode") continue;
+    if (name === "skin") {
+      try {
+        const skin = await http(run, "GET", "/skin-api/status");
+        const healthy =
+          skin.status === 200 && typeof skin.json?.installed === "boolean";
+        add("skin management API readable", healthy, `status=${skin.status}`);
+        if (healthy && !skin.json.installed) continue;
+      } catch (error) {
+        add("skin management API readable", false, String(error.message));
+      }
+    }
     const open = await portOpen(port);
     add(`port ${name}:${port} listening`, open, open ? "open" : "closed");
   }
@@ -4566,7 +4586,7 @@ Examples:
 `,
   launch: `control-openhands launch [--public] [--new] [--print-run] [--port N | --port-from N] [--build auto|always|never] [--min-free-mb 2000]
                          [--no-browser] [--timeout SEC] [--sdk-path DIR | --sdk-ref REF | --sdk-version V]
-                         [--automation-path DIR | --automation-ref REF | --automation-version V] [--run-id ID] [--vscode]
+                         [--automation-path DIR | --automation-ref REF | --automation-version V] [--run-id ID] [--vscode] [--skin]
 
 Builds the checkout when build/verify-revision.txt does not match HEAD, then
 starts bin/agent-canvas.mjs with a private HOME, state dir, session key and
@@ -4577,6 +4597,10 @@ ports, only when the checkout's launcher serves VS Code. Where that is opt-in
 is bundled (before #17660, or since #18048), it is always reserved and --vscode
 changes nothing. Waits for authenticated settings, automation health and the
 SPA, then starts the browser daemon.
+--skin enables the instance skin service, reserves port P+4 for its app, and
+keeps the skin state and checkout inside this run's private directory. The app
+port starts listening after installation; doctor checks the management API
+before an app is installed. Without --skin the ordinary stack has no skin API.
 Idempotent: an alive current run is reused unless --new is given.
 --print-run prints only the run directory, for
   export OH_VERIFY_RUN=$(control-openhands launch --new --print-run)
@@ -4709,7 +4733,9 @@ Selectors: segments joined by ' >> ', each one of
   testid=ID   role=button[name="Save"][exact]   text=Partial   text="Exact"
   label=Name  placeholder=Text  title=Text  alt=Text  nth=0  has-text=Text
   visible     or any Playwright/CSS selector
+  frame=<iframe-selector>    enter an iframe, then select an element inside it
 Example: 'testid=add-secret-form >> testid=submit-button'
+Iframe example: 'frame=testid=skin-iframe >> testid=demo-api-button'
 
 Verbs
   start | stop                          daemon lifecycle (launch starts it)

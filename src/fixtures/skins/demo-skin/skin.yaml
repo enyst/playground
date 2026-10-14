@@ -1,0 +1,50 @@
+name: QA Demo Skin
+icon: palette
+canvas_version: ">=1.27.0"
+configuration_version: 2
+provider_connections:
+  - display_name: QA Skin Provider
+    provider: openai
+    base_url: http://127.0.0.1:9/v1
+    secret_name: QA_SKIN_PROVIDER_KEY
+llm_profiles:
+  - name: qa-skin-model
+    config:
+      model: openai/gpt-4o-mini
+    provider_connection: QA Skin Provider
+agent_profiles:
+  - name: qa-skin-agent
+    agent_kind: openhands
+    llm_profile_ref: qa-skin-model
+    tools: []
+    mcp_server_refs:
+      - qa-skin-mcp
+    disabled_skills: []
+mcp_servers:
+  qa-skin-mcp:
+    transport: http
+    url: http://127.0.0.1:9/mcp
+    headers:
+      Authorization: "${QA_SKIN_TOKEN}"
+app_preferences:
+  language: en
+skills:
+  - name: qa-skin-knowledge
+    source: ./skills/qa-skin-knowledge
+    enabled: true
+active:
+  llm_profile: qa-skin-model
+  agent_profile: qa-skin-agent
+theme:
+  accent: "#a78bfa"
+  background: "#162330"
+  surface: "#243649"
+  text: "#f2f5f8"
+  muted: "#b6c3cf"
+  border: "#52687e"
+  success: "#7ee0af"
+secrets:
+  - name: QA_SKIN_TOKEN
+    description: Disposable value used only by the local skin verification run.
+  - name: QA_SKIN_PROVIDER_KEY
+    description: Disposable credential for a stored offline provider profile; no model call is made.

@@ -1,0 +1,13 @@
+{
+  "name": "QA Skin Schedule",
+  "model": "qa-skin-model",
+  "trigger": {
+    "type": "cron",
+    "schedule": "0 9 * * *",
+    "timezone": "UTC"
+  },
+  "entrypoint": "python main.py",
+  "agent_profile_ref": "qa-skin-agent",
+  "enabled": false,
+  "state": "INACTIVE"
+}

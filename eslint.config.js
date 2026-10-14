@@ -335,6 +335,14 @@ export default [
     },
   },
 
+  // Standalone skin fixture apps run in Node, outside the Canvas TS project.
+  // Keep syntax/style checks without requiring a TypeScript project entry.
+  {
+    files: ["src/fixtures/skins/**/*.mjs"],
+    languageOptions: { parserOptions: { project: null } },
+    rules: { "@typescript-eslint/prefer-optional-chain": "off" },
+  },
+
   // TypeScript-only overrides (re-applied airbnb-ish relaxations from the
   // previous `.eslintrc` overrides block).
   {

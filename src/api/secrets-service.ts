@@ -66,8 +66,10 @@ export class SecretsService {
       await saveCloudSecret({ name, value, description });
       return;
     }
+    // Keep a pending secret write on its originating connection through retries.
+    const client = new SettingsClient(getAgentServerClientOptions());
     await withRetry(() =>
-      new SettingsClient(getAgentServerClientOptions()).upsertSecret({
+      client.upsertSecret({
         name,
         value,
         description,

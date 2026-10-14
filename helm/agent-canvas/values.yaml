@@ -145,10 +145,10 @@ config:
   # default tab of the Canvas UI. See docker/entrypoint.sh
   # (OPENHANDS_SKIN_REPO / OPENHANDS_SKIN_REF / OPENHANDS_SKIN_PORT).
   skin:
-    # GitHub repo URL of the skin to install on first boot. The default is
-    # the Agent Canvas Manager (ACM) skin, so a plain `helm install` yields
-    # an instance running ACM. Set to "" for a plain, unskinned Canvas.
-    repo: "https://github.com/OpenHands/app-acm"
+    # Explicitly opt in to skin management. No repository is installed by default.
+    enabled: false
+    # Compatible skin repository URL to install on first boot (also enables skins).
+    repo: ""
     # Optional branch or tag to pin.
     ref: ""
     # Internal port the skin app listens on (OPENHANDS_SKIN_PORT).

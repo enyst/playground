@@ -71,6 +71,7 @@ import {
   signalProcessTree,
 } from "./dev-process-utils.mjs";
 import { fileLog, stripAnsi } from "./logger.mjs";
+import { buildSkinServerArgs, resolveSkinPort } from "./skin-runtime.mjs";
 import {
   applySessionKeyPolicy,
   bindHostArgs,
@@ -204,6 +205,14 @@ function parseArgs() {
       case "--static":
         config.static = true;
         break;
+      case "--skin":
+        config.skin = true;
+        break;
+      case "--skin-port":
+        config.skinPort = args[++i];
+        if (config.skinPort == null)
+          throw new Error("Missing skin port after --skin-port.");
+        break;
       case "--dynamic":
         config.dynamic = true;
         break;
@@ -256,6 +265,8 @@ OPTIONS:
   --static                    Serve an existing production build instead of Vite
   --static-dir <dir>          Static build directory (default: build/)
   --skip-build                Reuse build/ when the launcher builds static assets
+  --skin                      Enable instance skin management (local full stack)
+  --skin-port <port>          Enable skins with an explicit app port
   --dynamic                   Force Vite dev server when a wrapper defaults static
   --frontend-only             Start only the frontend behind ingress
   --backend-only              Start only agent-server + automation behind ingress
@@ -272,6 +283,8 @@ ENVIRONMENT VARIABLES:
   OH_AGENT_SERVER_GIT_REF     Git ref for agent-server SDK (overrides default version)
   OH_AGENT_SERVER_VERSION     Specific PyPI version for agent-server
   OH_SECRET_KEY               Secret key for sessions
+  OPENHANDS_ENABLE_SKIN       Enable skins when true (disabled by default)
+  OPENHANDS_SKIN_PORT         Skin app port (default from config/defaults.json)
 
 SECRETS:
   The session API key is automatically seeded into agent-server secrets
@@ -418,6 +431,12 @@ async function buildConfig(args, env = process.env) {
   const launchFrontend = !backendOnly;
   const launchAgentServer = !frontendOnly;
   const launchAutomation = !frontendOnly;
+  const skinPort = resolveSkinPort(args, env);
+  if (skinPort && (frontendOnly || backendOnly)) {
+    throw new Error(
+      "Skins require the complete local frontend and backend stack.",
+    );
+  }
   const isPublic = args.public;
 
   if (isPublic && frontendOnly) {
@@ -455,6 +474,17 @@ async function buildConfig(args, env = process.env) {
   }
   if (launchFrontend) {
     requiredPorts.push({ name: "frontend", port: preferredVitePort });
+  }
+  if (skinPort) {
+    if (
+      requiredPorts.some(({ port }) => port === skinPort) ||
+      skinPort === preferredBackendPort + 1000
+    ) {
+      throw new Error(
+        `Skin port ${skinPort} collides with another stack service.`,
+      );
+    }
+    requiredPorts.push({ name: "skin", port: skinPort });
   }
 
   logStep("ports", "Checking ports...");
@@ -514,6 +544,8 @@ async function buildConfig(args, env = process.env) {
     autoBackendPort: preferredAutomationPort,
     vitePort: preferredVitePort,
     vscodePort,
+    skinPort,
+    canvasVersion: SHARED_DEFAULTS.versions.agentCanvas,
     // Prefix the editor is served under on the ingress origin. Carried on the
     // config so the route table and the agent-server env are built from one
     // value (see getLocalServiceRoutes / buildAgentServerEnv).
@@ -1148,16 +1180,33 @@ export function buildMarsWebEnv(role, config) {
 function startIngress(config) {
   logService("ingress", `Starting on port ${config.ingressPort}...`, c.yellow);
 
-  const ingressScript = join(projectRoot, "scripts", "ingress.mjs");
+  const command = buildIngressCommand(config);
+  spawnService("ingress", command.command, command.args, {
+    cwd: projectRoot,
+    color: c.yellow,
+    env: buildMarsWebEnv("ingress", config),
+  });
+}
+
+export function buildIngressCommand(config) {
+  // In Vite mode the optional skin manager shares ingress. Static mode hosts
+  // it on the static child, which ingress already forwards unknown paths to.
+  const skinIngress = Boolean(
+    config.skinPort && config.frontendKind !== "static",
+  );
+  const ingressScript = join(
+    projectRoot,
+    "scripts",
+    skinIngress ? "static-server.mjs" : "ingress.mjs",
+  );
   const frontendBackend = getFrontendBackend(config);
   const runtimeServicesInfo = config.launchAgentServer
     ? JSON.stringify(buildAutomationRuntimeServicesInfo(config))
     : null;
 
-  spawnService(
-    "ingress",
-    "node",
-    [
+  return {
+    command: "node",
+    args: [
       ingressScript,
       "--port",
       config.ingressPort.toString(),
@@ -1167,14 +1216,10 @@ function startIngress(config) {
         : []),
       ...buildRouteArgs(getLocalServiceRoutes(config)),
       ...getNoReferrerPrefixArgs(config),
+      ...(skinIngress ? buildSkinServerArgs(config) : []),
       ...(frontendBackend ? ["--default", frontendBackend] : []),
     ],
-    {
-      cwd: projectRoot,
-      color: c.yellow,
-      env: buildMarsWebEnv("ingress", config),
-    },
-  );
+  };
 }
 
 /**
@@ -1547,6 +1592,7 @@ async function main(options = {}) {
     checkNpm:
       !skipNpmCheck &&
       ((!useStaticMode && !args.backendOnly) ||
+        resolveSkinPort(args) != null ||
         typeof buildStaticFrontend === "function"),
     checkFrontendDependencies:
       (!useStaticMode && !args.backendOnly) ||
@@ -1743,6 +1789,7 @@ function startStaticFrontend(config, staticDir) {
       // Proxy routes only to services that this launch mode started.
       // (MARS web bridge: see the env below — the ingress hosts it.)
       ...buildRouteArgs(getLocalServiceRoutes(config)),
+      ...buildSkinServerArgs(config),
       // Only the static server injects into the document, so only it can tell
       // the frontend this origin serves the editor. The ingress routes the same
       // prefix but proxies the HTML through untouched.

@@ -20,6 +20,7 @@ import {
   buildAutomationTelemetryEnv,
   buildAutomationRuntimeServicesInfo,
   buildConfig,
+  buildIngressCommand,
   buildRouteArgs,
   buildViteBackendEnv,
   buildViteFrontendEnv,
@@ -41,6 +42,7 @@ import {
   resetPersistedSessionApiKeyCache,
 } from "../../scripts/dev-safe.mjs";
 import { createRouter } from "../../scripts/proxy-utils.mjs";
+import { parseArgs as parseStaticArgs } from "../../scripts/static-server.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -288,6 +290,64 @@ describe("buildAutomationTelemetryEnv", () => {
 });
 
 describe("buildConfig", () => {
+  it("supports an explicit skin runtime with its own configurable port", async () => {
+    const config = await buildConfig(
+      { skin: true },
+      envWithIsolatedKeyPath({ OPENHANDS_SKIN_PORT: "19904" }),
+    );
+    expect(config.skinPort).toBe(19904);
+    const disabled = await buildConfig(
+      {},
+      envWithIsolatedKeyPath({ OPENHANDS_SKIN_PORT: "19904" }),
+    );
+    expect(disabled.skinPort).toBeNull();
+    const fromEnv = await buildConfig(
+      {},
+      envWithIsolatedKeyPath({
+        OPENHANDS_ENABLE_SKIN: "true",
+        OPENHANDS_SKIN_PORT: "19904",
+      }),
+    );
+    expect(fromEnv.skinPort).toBe(19904);
+  });
+
+  it("mounts skin management at dynamic ingress and preserves its key on public listeners", async () => {
+    const config = await buildConfig(
+      { skinPort: 19904, host: "0.0.0.0" },
+      envWithIsolatedKeyPath(),
+    );
+    const dynamic = buildIngressCommand({ ...config, frontendKind: "vite" });
+    expect(path.basename(dynamic.args[0])).toBe("static-server.mjs");
+    const resolved = parseStaticArgs(dynamic.args.slice(1), {});
+    expect(resolved.skinPort).toBe(19904);
+    expect(resolved.skinSessionApiKey).toBe(config.sessionApiKey);
+    expect(resolved.sessionApiKey).toBeNull();
+    const route = createRouter(resolved.routes, resolved.defaultBackend);
+    expect(route("/skin")).toBe(`http://localhost:${config.vitePort}`);
+    expect(route("/api/conversations")).toBe(
+      `http://127.0.0.1:${config.agentServerPort}`,
+    );
+    const staticIngress = buildIngressCommand({
+      ...config,
+      frontendKind: "static",
+    });
+    expect(path.basename(staticIngress.args[0])).toBe("ingress.mjs");
+  });
+
+  it.each([{ frontendOnly: true }, { backendOnly: true }])(
+    "rejects skins without a complete local stack: %o",
+    async (mode) => {
+      await expect(
+        buildConfig({ ...mode, skin: true }, envWithIsolatedKeyPath()),
+      ).rejects.toThrow(/skin.*local.*stack/i);
+    },
+  );
+
+  it("rejects a skin port that collides with another stack service", async () => {
+    await expect(
+      buildConfig({ skinPort: 19900 }, envWithIsolatedKeyPath()),
+    ).rejects.toThrow(/skin.*port.*collid/i);
+  });
   const servers: net.Server[] = [];
   const keyDirs: string[] = [];
 
@@ -340,6 +400,7 @@ describe("buildConfig", () => {
     expect(typeof config.vitePort).toBe("number");
     expect(config.vitePort).toBeGreaterThan(0);
     expect(config.vscodePort).toBe(config.agentServerPort + 1000);
+    expect(config.skinPort).toBeNull();
 
     // All four main ports should be unique
     const ports = new Set([

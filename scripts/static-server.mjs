@@ -48,9 +48,11 @@ import {
   proxyServerInfoRequest,
 } from "./proxy-utils.mjs";
 import { SkinService, createSkinApiHandler } from "./skin-service.mjs";
-
-const SKIN_API_PREFIX = "/skin-api";
-const SKIN_APP_PREFIX = "/skin";
+import {
+  resolveSkinPort,
+  SKIN_API_PREFIX,
+  SKIN_APP_PREFIX,
+} from "./skin-runtime.mjs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPA fallback helpers
@@ -99,6 +101,7 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     host: DEFAULT_BIND_HOST,
     dir: "build",
     routes: {},
+    defaultBackend: null,
     rejectPrefixes: [],
     noReferrerPrefixes: [],
     sessionApiKey: null,
@@ -108,6 +111,8 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     lockToCloud: null,
     basePath: "/",
     skinPort: null,
+    skin: false,
+    skinSessionApiKey: null,
     skinAgentServerUrl: null,
     skinAutomationUrl: null,
     skinCanvasVersion: null,
@@ -149,6 +154,9 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
       case "--session-api-key":
         config.sessionApiKey = argv[++i] || null;
         break;
+      case "--default":
+        config.defaultBackend = argv[++i] || null;
+        break;
       case "--runtime-services-info":
         config.runtimeServicesInfo = argv[++i] || null;
         break;
@@ -158,8 +166,16 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
       case "--base-path":
         config.basePath = normalizeBasePath(argv[++i]);
         break;
+      case "--skin":
+        config.skin = true;
+        break;
       case "--skin-port":
-        config.skinPort = Number.parseInt(argv[++i], 10);
+        config.skinPort = argv[++i];
+        if (config.skinPort == null)
+          throw new Error("Missing skin port after --skin-port.");
+        break;
+      case "--skin-api-key":
+        config.skinSessionApiKey = argv[++i] || null;
         break;
       case "--skin-agent-server-url":
         config.skinAgentServerUrl = argv[++i] || null;
@@ -247,6 +263,7 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     process.exit(1);
   }
 
+  config.skinPort = resolveSkinPort(config, env);
   return config;
 }
 
@@ -274,6 +291,8 @@ OPTIONS:
   -d, --dir   <dir>            Directory to serve (default: build)
   -r, --route <prefix=url>     Proxy <prefix> (and subpaths) to <url>;
                                may be repeated. WebSockets supported.
+  --default <url>             Proxy otherwise unmatched paths to a frontend
+                               server, while hosting skin management here.
   --session-api-key <key>      Inject session API key into index.html so the
                                pre-built frontend authenticates to agent-server
                                without needing VITE_SESSION_API_KEY baked in.
@@ -314,15 +333,18 @@ OPTIONS:
                                instead of SPA-fallbacking to index.html;
                                may be repeated. Useful in --frontend-only
                                mode to cleanly reject API paths.
-  --skin-port <port>           Enable skin support. The skin app (an
+  --skin                      Enable skin support using config/defaults.json's
+                               port (or OPENHANDS_SKIN_PORT). Disabled by default;
+                               OPENHANDS_ENABLE_SKIN=true also enables it.
+  --skin-port <port>           Enable skin support on a chosen port. The skin app (an
                                arbitrary web app from a GitHub skin repo)
                                is launched via \`npm run start\` with
                                OPENHANDS_SKIN_PORT=<port> and reverse-proxied
-                               under /skin (prefix passed through verbatim:
-                               the skin serves its UI at /skin/ and its own
-                               backend at /skin/api/*). The Canvas frontend
+                               under /skin-app (prefix passed through verbatim:
+                               the skin serves its UI at /skin-app/ and its own
+                               backend at /skin-app/api/*). The Canvas frontend
                                embeds the skin as its default tab (iframe at
-                               /skin/) — the skin is nested inside the
+                               /skin-app/) — the skin is nested inside the
                                Canvas UI, never served standalone at /. The
                                skin management REST API is mounted at
                                /skin-api.
@@ -333,6 +355,8 @@ OPTIONS:
                                (definitions + code tarballs) into the skin.
   --skin-canvas-version <ver>  Running Agent Canvas version, checked against
                                the skin's canvas_version range at install.
+  --skin-api-key <key>         Key for skin management independent of HTML
+                               injection, including --auth-required mode.
   -h, --help                   Show this help
 
 ROUTING:
@@ -700,16 +724,14 @@ async function handleStatic(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function startStaticServer(config) {
-  if (
-    config.skinPort &&
-    !config.sessionApiKey &&
-    !isLoopbackBind(config.host)
-  ) {
+  const skinSessionApiKey =
+    config.skinSessionApiKey || config.sessionApiKey || null;
+  if (config.skinPort && !skinSessionApiKey && !isLoopbackBind(config.host)) {
     throw new Error(
-      "Skin support on a non-loopback host requires --session-api-key to protect the skin management API.",
+      "Skin support on a non-loopback host requires --session-api-key or --skin-api-key to protect the skin management API.",
     );
   }
-  const route = createRouter(config.routes);
+  const route = createRouter(config.routes, config.defaultBackend || null);
   const proxy = createProxyHandlers({ label: `static:${config.port}` });
   const dirAbs = resolve(config.dir);
   const policy = applySessionKeyPolicy({
@@ -721,13 +743,13 @@ export function startStaticServer(config) {
 
   // ── Optional skin support ──────────────────────────────────────────────
   // When --skin-port is given, the installed skin app (npm run start on
-  // OPENHANDS_SKIN_PORT) is reverse-proxied under /skin — the prefix is
+  // OPENHANDS_SKIN_PORT) is reverse-proxied under /skin-app — the prefix is
   // passed through VERBATIM (HTTP + WebSockets), so the skin app serves
-  // its UI at /skin/ and its own backend at /skin/api/*. The public URL
+  // its UI at /skin-app/ and its own backend at /skin-app/api/*. The public URL
   // and the URL the skin sees are identical, which keeps absolute and
   // relative URLs working both inside the Canvas iframe and standalone.
   // The skin is NESTED inside the Canvas UI: the frontend's index route
-  // redirects to its /skin tab (an iframe pointing at /skin/) when a skin
+  // redirects to its /skin tab (an iframe pointing at /skin-app/) when a skin
   // is installed, so the Canvas chrome (sidebar, settings, conversations)
   // always frames the skin. `/` itself keeps serving the Canvas frontend.
   // The management REST API (install/status/push) is host-owned and stays
@@ -747,7 +769,7 @@ export function startStaticServer(config) {
       skinPort: config.skinPort,
       agentServerUrl: config.skinAgentServerUrl,
       automationUrl: config.skinAutomationUrl,
-      sessionApiKey: config.sessionApiKey,
+      sessionApiKey: skinSessionApiKey,
       canvasVersion: config.skinCanvasVersion || "dev",
     });
     skinApiHandler = createSkinApiHandler(skinService);
@@ -858,7 +880,7 @@ export function startStaticServer(config) {
   let disposePromise = null;
   const disposeServices = () => {
     disposePromise ??= Promise.all([
-      skinService?.stop().catch((err) => {
+      skinService?.stop({ timeoutMs: 1500 }).catch((err) => {
         console.error("Failed to stop skin:", err);
       }),
       marsWeb?.dispose().catch(() => {}),

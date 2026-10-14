@@ -10,16 +10,24 @@ import { getActiveBackend } from "./backend-registry/active-store";
 import type { Backend } from "./backend-registry/types";
 
 export const SKIN_API_BASE = "/skin-api";
-export const SKIN_APP_BASE = "/skin";
+export const SKIN_PAGE_PATH = "/skin";
+export const SKIN_APP_BASE = "/skin-app";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** Skins configure the instance serving Canvas, so remote backends cannot own them. */
 export function isSkinBackend(backend: Backend): boolean {
-  if (backend.kind !== "local" || typeof window === "undefined") return false;
+  if (
+    backend.kind !== "local" ||
+    backend.marsSessionId ||
+    typeof window === "undefined"
+  )
+    return false;
   try {
     const target = new URL(backend.host);
     const instance = new URL(window.location.origin);
+    // A path-prefixed proxy reaches another Agent Server even on this origin.
+    if (target.pathname !== "/" || target.search || target.hash) return false;
     return (
       target.origin === instance.origin ||
       (LOOPBACK_HOSTS.has(target.hostname) &&
@@ -51,6 +59,8 @@ export interface SkinTheme {
 }
 
 export interface SkinStatus {
+  /** False when this launcher has not enabled the skin service. */
+  available?: boolean;
   installed: boolean;
   running: boolean;
   name?: string;
@@ -74,6 +84,22 @@ export interface SkinStatus {
    */
   themeVars?: Record<string, string> | null;
   error?: string | null;
+  path?: string;
+  operation?: string | null;
+  applyReport?: SkinConfigurationReport;
+  exportReport?: SkinConfigurationReport;
+}
+
+export interface SkinConfigurationReport {
+  complete: boolean;
+  applied?: string[];
+  exported?: string[];
+  skipped?: string[];
+  errors?: string[];
+  warnings?: string[];
+  missingSecrets?: string[];
+  opaquePaths?: string[];
+  rejectedPaths?: string[];
 }
 
 export interface SkinPushResult {
@@ -81,6 +107,19 @@ export interface SkinPushResult {
   branch?: string;
   pullRequest?: { url: string; number: number } | null;
   error?: string;
+  reviewRequired?: boolean;
+  reviewPaths?: string[];
+}
+
+export class SkinUnsupportedError extends Error {}
+
+export class SkinRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
 }
 
 async function skinFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -101,12 +140,21 @@ async function skinFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...(init.headers || {}),
     },
   });
-  const body = await response.json().catch(() => ({}));
+  const body = await response.json().catch(() => null);
+  if (path === "/status" && response.status === 404) {
+    throw new SkinUnsupportedError("Skin support is not enabled.");
+  }
   if (!response.ok) {
-    throw new Error(
-      (body as { error?: string }).error || `HTTP ${response.status}`,
+    throw new SkinRequestError(
+      (body as { error?: string } | null)?.error || `HTTP ${response.status}`,
+      response.status,
     );
   }
+  if (path === "/status" && typeof body?.installed !== "boolean") {
+    throw new SkinUnsupportedError("Skin support is not enabled.");
+  }
+  if (!body)
+    throw new SkinRequestError("Invalid skin API response.", response.status);
   return body as T;
 }
 
@@ -134,15 +182,29 @@ export class SkinService {
     return skinFetch<SkinStatus>("/pull", { method: "POST" });
   }
 
-  static push(message?: string): Promise<SkinPushResult> {
+  static push(
+    params: { message?: string; reviewedSource?: boolean } = {},
+  ): Promise<SkinPushResult> {
     return skinFetch<SkinPushResult>("/push", {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(params),
     });
   }
 
-  static exportConfiguration(): Promise<unknown> {
-    return skinFetch<unknown>("/export", { method: "POST" });
+  static async exportConfiguration(): Promise<SkinConfigurationReport> {
+    const result = await skinFetch<{ report: SkinConfigurationReport }>(
+      "/export",
+      { method: "POST" },
+    );
+    return result.report;
+  }
+
+  static applyConfiguration(): Promise<SkinConfigurationReport> {
+    return skinFetch<SkinConfigurationReport>("/apply", { method: "POST" });
+  }
+
+  static restart(): Promise<SkinStatus> {
+    return skinFetch<SkinStatus>("/restart", { method: "POST" });
   }
 
   static setAutoPush(autoPush: boolean): Promise<SkinStatus> {

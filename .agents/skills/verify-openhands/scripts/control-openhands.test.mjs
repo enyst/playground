@@ -618,6 +618,18 @@ test("a restart follows the launcher's editor answer, or keeps its ports", () =>
   assert.match(unknown.warning, /Cannot find module.*keeping this run's ports/);
 });
 
+test("skin runs reserve an isolated port and retain it through editor changes", () => {
+  const skinPorts = runPorts(18800, null, true);
+  assert.equal(skinPorts.skin, 18804);
+  assert.equal(runPorts(18800, null).skin, undefined);
+  const restarted = portsAfterRestart(skinPorts, {
+    source: "launcher",
+    offset: 1000,
+  });
+  assert.equal(restarted.ports.skin, 18804);
+  assert.equal(restarted.ports.vscode, 19801);
+});
+
 test("restart refuses, before stopping anything, when a newly served editor port is busy", async () => {
   const listener = createServer();
   await new Promise((done) => listener.listen(0, "127.0.0.1", done));

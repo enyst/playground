@@ -70,6 +70,7 @@ import {
   getVSCodeAdvertiseArgs,
 } from "./dev-with-automation.mjs";
 import { applySessionKeyPolicy, bindHostArgs } from "./bind-host.mjs";
+import { buildSkinServerArgs } from "./skin-runtime.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
@@ -119,6 +120,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
     skipBuild: false,
     verbose: false,
     host: null,
+    skin: false,
+    skinPort: null,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -139,6 +142,14 @@ export function parseArgs(argv = process.argv.slice(2)) {
         break;
       case "--skip-build":
         config.skipBuild = true;
+        break;
+      case "--skin":
+        config.skin = true;
+        break;
+      case "--skin-port":
+        config.skinPort = argv[++i];
+        if (config.skinPort == null)
+          throw new Error("Missing skin port after --skin-port.");
         break;
       case "-v":
       case "--verbose":
@@ -171,6 +182,8 @@ OPTIONS:
   --automation-ref <ref>      Git ref for automation backend (default: main)
   --automation-repo <url>     Git repo URL for automation
   --skip-build                Reuse existing build/ directory (faster restart)
+  --skin                      Enable instance skin management (disabled by default)
+  --skin-port <port>          Enable skins with an explicit app port
   -v, --verbose               Show detailed output
   -h, --help                  Show this help
 
@@ -179,6 +192,8 @@ ENVIRONMENT VARIABLES:
   OH_AUTOMATION_GIT_REF       Alternative to --automation-ref
   OH_AGENT_SERVER_GIT_REF     Git ref for agent-server SDK
   OH_SECRET_KEY               Secret key for sessions
+  OPENHANDS_ENABLE_SKIN       Enable skins when true (disabled by default)
+  OPENHANDS_SKIN_PORT         Skin app port (default from config/defaults.json)
 
 ACCESS POINTS:
   Main UI:      http://localhost:PORT/
@@ -471,6 +486,7 @@ function startStaticServer(config) {
       "--runtime-services-info",
       runtimeServicesInfo,
       ...buildLocalServiceRouteArgs(config),
+      ...buildSkinServerArgs(config),
       // Only the static server injects into the document, so only it can tell
       // the frontend this origin serves the editor. The ingress below routes
       // the same prefix but proxies the HTML through untouched.

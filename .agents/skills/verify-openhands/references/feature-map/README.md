@@ -256,9 +256,9 @@ How to write and prove new entries: [../mapping.md](../mapping.md).
 | F25 | [Backends, Cloud and sharing](F25-backends-and-cloud.md) | add, edit, remove and switch backends, per-backend consent, Cloud login, shared pages | backend selector | a second stack; Cloud account (blocked) | 33 |
 | F26 | [Launcher modes, Docker, desktop and library](F26-runtime-variants.md) | launcher flags, partial stacks, LAN bind, Docker, Electron, embeddable library | a terminal | Docker/Electron where available | 33 |
 | F27 | [Workspace tools](F27-workspace-tools.md) | terminal, browser, planner, task list, usage, `canvas_ui_control` | drawer tabs | LLM | 30 |
-| F28 | [Instance skins](F28-skins.md) | instance package, custom home, settings, backend ownership, theme and lifecycle | `/skin`, `/settings/skin` | skin-enabled static server/Docker for lifecycle; CLI form/gating checks need no LLM | 15 |
+| F28 | [Instance skins](F28-skins.md) | instance package, custom home, settings, backend ownership, theme, configuration restore and lifecycle | `/skin`, `/settings/skin` | skin-enabled static server/Docker for lifecycle; CLI form/gating checks need no LLM | 17 |
 
-28 families, 775 sub-features. `control-openhands map ids` lists every ID with its file.
+28 families, 777 sub-features. `control-openhands map ids` lists every ID with its file.
 
 ### Neighbouring families
 

@@ -143,6 +143,12 @@ Local (`npx` / `npm run dev`) listeners bind **loopback only** (`127.0.0.1`) so 
 
 Docker listens on all container interfaces so port publishing works, but does not inject its session key into HTML by default. The quickstart above explicitly enables injection while publishing the host port on `127.0.0.1` only. If you publish Docker on a LAN or public interface, omit `AGENT_CANVAS_ALLOW_LAN_SESSION_KEY` and enter the API key in the UI. Set `LOCAL_BACKEND_API_KEY` to a strong value, or retrieve the generated value with `docker exec <container> sh -c 'cat "$STATE_DIR/api-key.txt"'`. For internet-facing installs, follow [self-hosting](./docs/SELF_HOSTING.md).
 
+### Optional instance skin
+
+An [instance skin](./docs/skins.md) adds a Git-backed app, theme, and reusable configuration kit. Enable support with `agent-canvas --skin`, `npm run dev -- --skin`, or `npm run dev:static -- --skin`, then open **Settings → Skin**. Docker uses `-e OPENHANDS_ENABLE_SKIN=true`; existing mounts and port publishing remain the same. Support and automatic push are disabled by default.
+
+The [skin guide](./docs/skins.md) covers local Git and GitHub installation, app routing, named credential bindings, and export/restore of profiles, skills, MCP servers, preferences, and inactive automations. Conversations and credential values are excluded from the kit.
+
 # Architecture
 
 Agent Canvas is powered by the [OpenHands Agent Server](https://github.com/OpenHands/software-agent-sdk/tree/main/openhands-agent-server/openhands/agent_server), a REST API for running multiple agents on a single machine. Each Agent Server runs on a single host/port; the Agent Canvas can connect to multiple Agent Servers and easily flip between them.

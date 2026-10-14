@@ -123,12 +123,13 @@ export function editorOffset(repoRoot, env) {
  * A run's ports from its block base: ingress P, agent-server P+1, automation
  * P+2, static frontend P+3, and the editor only when the launcher serves it.
  */
-export function runPorts(base, offset) {
+export function runPorts(base, offset, skin = false) {
   return {
     ingress: base,
     agentServer: base + 1,
     automation: base + 2,
     frontend: base + 3,
+    ...(skin ? { skin: base + 4 } : {}),
     ...(offset === null ? {} : { vscode: base + 1 + offset }),
   };
 }
@@ -147,7 +148,11 @@ export function portsAfterRestart(previous, editor) {
       ports: previous,
       warning: `Could not ask scripts/dev-with-automation.mjs whether it serves VS Code (${editor.reason}); keeping this run's ports.`,
     };
-  const ports = runPorts(previous.ingress, editor.offset);
+  const ports = runPorts(
+    previous.ingress,
+    editor.offset,
+    previous.skin != null,
+  );
   if (ports.vscode === previous.vscode) return { ports };
   if (ports.vscode === undefined)
     return {

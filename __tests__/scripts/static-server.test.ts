@@ -1017,6 +1017,37 @@ describe("static-server.mjs", () => {
     const children: ChildProcess[] = [];
     const skinPids: number[] = [];
 
+    it("enables the runtime explicitly and reads its port from shared config", () => {
+      const defaults = JSON.parse(
+        readFileSync(
+          path.resolve(path.dirname(staticScript), "../config/defaults.json"),
+          "utf8",
+        ),
+      );
+      expect(parseArgs([], {}).skinPort).toBeNull();
+      expect(parseArgs(["--skin"], {}).skinPort).toBe(defaults.ports.skin);
+      expect(
+        parseArgs([], {
+          OPENHANDS_ENABLE_SKIN: "true",
+          OPENHANDS_SKIN_PORT: "18500",
+        }).skinPort,
+      ).toBe(18500);
+      expect(parseArgs(["--skin-port", "18501"], {}).skinPort).toBe(18501);
+    });
+
+    it.each(["0", "65536", "bad", "18500garbage"])(
+      "rejects invalid skin port %s",
+      (port) => {
+        expect(() => parseArgs(["--skin-port", port], {})).toThrow(
+          /skin.*port/i,
+        );
+      },
+    );
+
+    it("rejects a missing explicit skin port", () => {
+      expect(() => parseArgs(["--skin-port"], {})).toThrow(/Missing skin port/);
+    });
+
     it("refuses skin management on a LAN bind without a session key", () => {
       expect(() =>
         startStaticServer({
@@ -1062,11 +1093,13 @@ describe("static-server.mjs", () => {
       skinPort,
       installed = false,
       closeFromStdin = false,
+      ignoreTermination = false,
       flags = [],
     }: {
       skinPort: string;
       installed?: boolean;
       closeFromStdin?: boolean;
+      ignoreTermination?: boolean;
       flags?: string[];
     }) {
       const directory = mkdtempSync(path.join(tmpdir(), "canvas-skin-host-"));
@@ -1101,12 +1134,22 @@ describe("static-server.mjs", () => {
         writeFileSync(
           path.join(workspace, "server.mjs"),
           `import { createServer } from "node:http";
+${ignoreTermination ? 'process.on("SIGTERM", () => {});' : ""}
 createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify({ pid: process.pid, url: req.url }));
 }).listen(Number(process.env.OPENHANDS_SKIN_PORT), "127.0.0.1");
 `,
         );
+        if (ignoreTermination) {
+          // An npm shim that execs a signal-resistant service proves the
+          // process-group deadline even when the group leader cannot exit.
+          writeFileSync(
+            path.join(workspace, "npm"),
+            "#!/bin/sh\nexec node server.mjs\n",
+            { mode: 0o755 },
+          );
+        }
       }
       const port = await freePort();
       const args = [
@@ -1140,6 +1183,9 @@ process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
             OPENHANDS_SKIN_STATE_DIR: state,
             OPENHANDS_SKIN_WORKSPACE_DIR: workspace,
             MARS_WEB: "0",
+            ...(ignoreTermination
+              ? { PATH: `${workspace}${path.delimiter}${process.env.PATH}` }
+              : {}),
           },
           stdio: ["pipe", "pipe", "pipe"],
         },
@@ -1156,102 +1202,148 @@ process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
       await vi.waitFor(
         async () => {
           if (child.exitCode !== null) throw new Error(output);
-          expect((await getText(`${origin}/`)).status).toBe(200);
+          expect([200, 308]).toContain((await getText(`${origin}/`)).status);
         },
         { timeout: 10000 },
       );
       return { child, origin, port };
     }
 
-    it("keeps skin HTTP and WebSocket paths separate from management and backend routes", async () => {
-      const skin = createServer((req, res) => res.end(`skin:${req.url}`));
-      skin.on("upgrade", (req, socket) => {
-        socket.end(
-          "HTTP/1.1 101 Switching Protocols\r\n" +
-            "Upgrade: websocket\r\nConnection: Upgrade\r\n" +
-            `X-Skin-Path: ${req.url}\r\n\r\n`,
+    it.each(["/", "/canvas"])(
+      "keeps skin app, Canvas page and backend routes separate with base path %s",
+      async (basePath) => {
+        const skin = createServer((req, res) => res.end(`skin:${req.url}`));
+        skin.on("upgrade", (req, socket) => {
+          socket.end(
+            "HTTP/1.1 101 Switching Protocols\r\n" +
+              "Upgrade: websocket\r\nConnection: Upgrade\r\n" +
+              `X-Skin-Path: ${req.url}\r\n\r\n`,
+          );
+        });
+        const skinOrigin = await startHttpServer(skin);
+        const backend = await startHttpServer(
+          createServer((req, res) => res.end(`backend:${req.url}`)),
         );
-      });
-      const skinOrigin = await startHttpServer(skin);
-      const backend = await startHttpServer(
-        createServer((req, res) => res.end(`backend:${req.url}`)),
+        const { origin, port } = await startSkinHost({
+          skinPort: new URL(skinOrigin).port,
+          flags: [
+            "--base-path",
+            basePath,
+            "--host",
+            "0.0.0.0",
+            ...(basePath === "/"
+              ? ["--session-api-key", "private-key"]
+              : ["--auth-required", "--skin-api-key", "private-key"]),
+            "--route",
+            `/api=${backend}`,
+            "--route",
+            `/vscode=${backend}`,
+            "--vscode-base-path",
+            "/vscode",
+            "--no-referrer-prefix",
+            "/vscode",
+          ],
+        });
+
+        expect(await getText(`${origin}/skin-app/api/items?q=one`)).toEqual({
+          status: 200,
+          body: "skin:/skin-app/api/items?q=one",
+        });
+        expect(await getJson(`${origin}/skin-api/status`)).toEqual({
+          status: 200,
+          body: { installed: false, running: false },
+        });
+        const unauthorized = await fetch(`${origin}/skin-api/restart`, {
+          method: "POST",
+        });
+        expect(unauthorized.status).toBe(401);
+        const authorized = await fetch(`${origin}/skin-api/restart`, {
+          method: "POST",
+          headers: { "X-Session-API-Key": "private-key" },
+        });
+        expect(authorized.status).toBe(409);
+        const page = await getText(
+          `${origin}${basePath === "/" ? "" : basePath}/skin`,
+        );
+        expect(page.body).toContain("Canvas shell");
+        expect(page.body).not.toContain("private-key");
+        const redirect = await fetch(`${origin}/skin-app?q=one`, {
+          redirect: "manual",
+        });
+        expect(redirect.headers.get("location")).toBe("/skin-app/?q=one");
+        expect(await getText(`${origin}/api/conversations`)).toEqual({
+          status: 200,
+          body: "backend:/api/conversations",
+        });
+        const editor = await fetch(`${origin}/vscode/`);
+        expect(editor.headers.get("referrer-policy")).toBe("no-referrer");
+        expect(await editor.text()).toBe("backend:/vscode/");
+        const upgrade = await new Promise<string>((resolve, reject) => {
+          const socket = netConnect(
+            { host: "127.0.0.1", port: Number(port) },
+            () => {
+              socket.write(
+                "GET /skin-app/socket?q=one HTTP/1.1\r\nHost: localhost\r\n" +
+                  "Connection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
+              );
+            },
+          );
+          socket.setTimeout(3000, () => {
+            socket.destroy();
+            reject(new Error("Skin upgrade timed out"));
+          });
+          socket.once("error", reject);
+          socket.once("data", (data) => {
+            socket.destroy();
+            resolve(data.toString());
+          });
+        });
+        expect(upgrade).toContain("101 Switching Protocols");
+        expect(upgrade.toLowerCase()).toContain(
+          "x-skin-path: /skin-app/socket?q=one",
+        );
+      },
+    );
+
+    it("hosts skin management beside a proxied development frontend", async () => {
+      const skin = await startHttpServer(
+        createServer((req, res) => res.end(`skin:${req.url}`)),
       );
-      const { origin, port } = await startSkinHost({
-        skinPort: new URL(skinOrigin).port,
+      const frontend = await startHttpServer(
+        createServer((req, res) => res.end(`Canvas frontend:${req.url}`)),
+      );
+      const { origin } = await startSkinHost({
+        skinPort: new URL(skin).port,
         flags: [
+          "--default",
+          frontend,
+          "--skin-api-key",
+          "manager-key",
           "--host",
           "0.0.0.0",
-          "--session-api-key",
-          "private-key",
-          "--route",
-          `/api=${backend}`,
-          "--route",
-          `/vscode=${backend}`,
-          "--vscode-base-path",
-          "/vscode",
-          "--no-referrer-prefix",
-          "/vscode",
         ],
       });
-
-      expect(await getText(`${origin}/skin/api/items?q=one`)).toEqual({
+      expect(await getText(`${origin}/skin`)).toEqual({
         status: 200,
-        body: "skin:/skin/api/items?q=one",
+        body: "Canvas frontend:/skin",
       });
-      expect(await getJson(`${origin}/skin-api/status`)).toEqual({
+      expect(await getText(`${origin}/skin-app/api/status`)).toEqual({
         status: 200,
-        body: { installed: false, running: false },
+        body: "skin:/skin-app/api/status",
       });
-      const unauthorized = await fetch(`${origin}/skin-api/restart`, {
-        method: "POST",
+      expect((await getJson(`${origin}/skin-api/status`)).body).toEqual({
+        installed: false,
+        running: false,
       });
-      expect(unauthorized.status).toBe(401);
-      const authorized = await fetch(`${origin}/skin-api/restart`, {
-        method: "POST",
-        headers: { "X-Session-API-Key": "private-key" },
-      });
-      expect(authorized.status).toBe(409);
-      const page = await getText(`${origin}/`);
-      expect(page.body).toContain("Canvas shell");
-      expect(page.body).not.toContain("private-key");
-      const redirect = await fetch(`${origin}/skin?q=one`, {
-        redirect: "manual",
-      });
-      expect(redirect.headers.get("location")).toBe("/skin/?q=one");
-      expect(await getText(`${origin}/api/conversations`)).toEqual({
-        status: 200,
-        body: "backend:/api/conversations",
-      });
-      const editor = await fetch(`${origin}/vscode/`);
-      expect(editor.headers.get("referrer-policy")).toBe("no-referrer");
-      expect(await editor.text()).toBe("backend:/vscode/");
-      const upgrade = await new Promise<string>((resolve, reject) => {
-        const socket = netConnect(
-          { host: "127.0.0.1", port: Number(port) },
-          () => {
-            socket.write(
-              "GET /skin/socket?q=one HTTP/1.1\r\nHost: localhost\r\n" +
-                "Connection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
-            );
-          },
-        );
-        socket.setTimeout(3000, () => {
-          socket.destroy();
-          reject(new Error("Skin upgrade timed out"));
-        });
-        socket.once("error", reject);
-        socket.once("data", (data) => {
-          socket.destroy();
-          resolve(data.toString());
-        });
-      });
-      expect(upgrade).toContain("101 Switching Protocols");
-      expect(upgrade.toLowerCase()).toContain(
-        "x-skin-path: /skin/socket?q=one",
-      );
     });
 
-    it.each(["close", "SIGINT", "SIGTERM", "SIGHUP"] as const)(
+    it.each([
+      "close",
+      "SIGINT",
+      "SIGTERM",
+      "SIGHUP",
+      "SIGTERM-ignored",
+    ] as const)(
       "stops the installed skin process and releases its port on %s",
       async (mode) => {
         const skinPort = await freePort();
@@ -1259,11 +1351,12 @@ process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
           skinPort,
           installed: true,
           closeFromStdin: mode === "close",
+          ignoreTermination: mode === "SIGTERM-ignored",
         });
         let skinPid = 0;
         await vi.waitFor(
           async () => {
-            const response = await getJson(`${origin}/skin/`);
+            const response = await getJson(`${origin}/skin-app/`);
             expect(response.status).toBe(200);
             skinPid = (response.body as { pid: number }).pid;
           },
@@ -1273,9 +1366,15 @@ process.stdin.on("data", () => { process.stdin.pause(); server.close(); });`,
         const exited = once(child, "exit");
 
         if (mode === "close") child.stdin?.end("close");
-        else child.kill(mode);
+        else child.kill(mode === "SIGTERM-ignored" ? "SIGTERM" : mode);
 
+        // The enclosing dev launcher force-kills its static child after 3s.
+        const deadline =
+          mode === "SIGTERM-ignored"
+            ? setTimeout(() => child.kill("SIGKILL"), 2700)
+            : null;
         await exited;
+        if (deadline) clearTimeout(deadline);
         expect(child.exitCode).toBe(0);
         await vi.waitFor(() => {
           try {

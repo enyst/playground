@@ -1,0 +1,1 @@
+print("QA_SKIN_AUTOMATION_OK")

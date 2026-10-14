@@ -81,6 +81,8 @@ OPTIONS:
   --public              Enable public mode (see above)
   --frontend-only       Start only the static frontend behind ingress
   --backend-only        Start only agent-server + automation behind ingress
+  --skin                Enable instance skin management (full local stack)
+  --skin-port <port>    Enable skins with an explicit app port
   -v, --version         Show version number
   --info                Show version and default stack configuration
   -h, --help            Show this help message
