@@ -1,24 +1,48 @@
+import { useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
-import type { ConversationDeletionScope } from "#/api/conversation-service/agent-server-conversation-service.api";
+import type { DeleteConversationOperation } from "#/api/conversation-service/agent-server-conversation-service.types";
 import { clearConversationLocalStorage } from "#/utils/conversation-local-storage";
+
+interface DeleteConversationVariables {
+  conversationId: string;
+  deleteOperation?: DeleteConversationOperation;
+}
+
+type CapturedDeleteConversationVariables = DeleteConversationVariables & {
+  deleteOperation: DeleteConversationOperation;
+};
+
+function captureDeletion(
+  variables: DeleteConversationVariables,
+): CapturedDeleteConversationVariables {
+  if (variables.deleteOperation) {
+    return { ...variables, deleteOperation: variables.deleteOperation };
+  }
+  try {
+    return {
+      ...variables,
+      deleteOperation:
+        AgentServerConversationService.createConversationDeletionTarget()
+          .deleteConversation,
+    };
+  } catch (error) {
+    // Report capture failures through the mutation's normal error lifecycle.
+    return {
+      ...variables,
+      deleteOperation: async () => {
+        throw error;
+      },
+    };
+  }
+}
 
 export const useDeleteConversation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (variables: {
-      conversationId: string;
-      deletionScope?: ConversationDeletionScope;
-    }) =>
-      variables.deletionScope
-        ? AgentServerConversationService.deleteConversation(
-            variables.conversationId,
-            variables.deletionScope,
-          )
-        : AgentServerConversationService.deleteConversation(
-            variables.conversationId,
-          ),
+  const mutation = useMutation({
+    mutationFn: (variables: CapturedDeleteConversationVariables) =>
+      variables.deleteOperation(variables.conversationId),
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ["user", "conversations"] });
       const previousConversations = queryClient.getQueryData([
@@ -58,4 +82,28 @@ export const useDeleteConversation = () => {
       queryClient.invalidateQueries({ queryKey: ["start-tasks"] });
     },
   });
+
+  const { mutate, mutateAsync } = mutation;
+  // Capture at invocation, before React Query awaits any onMutate callbacks.
+  // Single deletes and prepared bulk deletes share the same invariant.
+  const deleteConversation = useCallback(
+    (
+      variables: DeleteConversationVariables,
+      options?: Parameters<typeof mutate>[1],
+    ) => mutate(captureDeletion(variables), options),
+    [mutate],
+  );
+  const deleteConversationAsync = useCallback(
+    (
+      variables: DeleteConversationVariables,
+      options?: Parameters<typeof mutateAsync>[1],
+    ) => mutateAsync(captureDeletion(variables), options),
+    [mutateAsync],
+  );
+
+  return {
+    ...mutation,
+    mutate: deleteConversation,
+    mutateAsync: deleteConversationAsync,
+  };
 };

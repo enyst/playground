@@ -27,6 +27,7 @@ import {
 import {
   ActiveBackendProvider,
   useActiveBackendContext,
+  useActiveBackendIdentity,
 } from "#/contexts/active-backend-context";
 
 function makeWrapper(queryClient = new QueryClient()) {
@@ -54,6 +55,85 @@ afterEach(() => {
   vi.unstubAllEnvs();
   __resetActiveStoreForTests();
   __resetHealthStoreForTests();
+});
+
+describe("useActiveBackendIdentity", () => {
+  function useBackendWithIdentity() {
+    return {
+      context: useActiveBackendContext(),
+      identity: useActiveBackendIdentity(),
+    };
+  }
+
+  it("distinguishes backend and organization selections", () => {
+    const { result } = renderHook(useBackendWithIdentity, {
+      wrapper: makeWrapper(),
+    });
+    const localIdentity = result.current.identity;
+    let cloudId = "";
+
+    act(() => {
+      cloudId = result.current.context.addBackend({
+        name: "Cloud",
+        host: "https://app.all-hands.dev",
+        apiKey: "private-cloud-key",
+        kind: "cloud",
+      }).id;
+      result.current.context.setActive(cloudId, "org-1");
+    });
+    const firstOrgIdentity = result.current.identity;
+    expect(firstOrgIdentity).not.toBe(localIdentity);
+
+    act(() => result.current.context.setActive(cloudId, "org-2"));
+    expect(result.current.identity).not.toBe(firstOrgIdentity);
+
+    act(() => result.current.context.setActive(cloudId, "org-1"));
+    expect(result.current.identity).toBe(firstOrgIdentity);
+
+    act(() => result.current.context.setActive(SEEDED_DEFAULT_BACKEND_ID));
+    expect(result.current.identity).toBe(localIdentity);
+  });
+
+  it.each([
+    ["host", { host: "http://localhost:9001" }],
+    ["credentials", { apiKey: "replacement-private-key" }],
+    ["backend kind", { kind: "cloud" as const }],
+    ["authentication mode", { authMode: "cookie" as const }],
+  ])("invalidates captured identity after changing %s", (_field, patch) => {
+    const { result } = renderHook(useBackendWithIdentity, {
+      wrapper: makeWrapper(),
+    });
+    const identityBeforeEdit = result.current.identity;
+
+    act(() => {
+      result.current.context.updateBackend(SEEDED_DEFAULT_BACKEND_ID, patch);
+    });
+
+    expect(result.current.identity).not.toBe(identityBeforeEdit);
+    expect(result.current.identity).not.toContain("replacement-private-key");
+    expect(result.current.identity).not.toContain("session-key");
+  });
+
+  it("keeps identity stable across rerenders and cosmetic or unchanged edits", () => {
+    const { result, rerender } = renderHook(useBackendWithIdentity, {
+      wrapper: makeWrapper(),
+    });
+    const originalIdentity = result.current.identity;
+    const originalBackend = result.current.context.active.backend;
+
+    rerender();
+    expect(result.current.identity).toBe(originalIdentity);
+
+    act(() => {
+      result.current.context.updateBackend(SEEDED_DEFAULT_BACKEND_ID, {
+        name: "Renamed backend",
+        host: originalBackend.host,
+        apiKey: originalBackend.apiKey,
+        authMode: "api-key",
+      });
+    });
+    expect(result.current.identity).toBe(originalIdentity);
+  });
 });
 
 describe("ActiveBackendProvider", () => {

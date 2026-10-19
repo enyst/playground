@@ -20,18 +20,16 @@ import {
   resolveNewConversationWorkspace,
 } from "../conversation-workspace";
 import HooksService from "../hooks-service";
-import type { Backend } from "../backend-registry/types";
 import {
   getActiveBackend,
   getEffectiveLocalBackend,
 } from "../backend-registry/active-store";
 import { callCloudProxy } from "../cloud/proxy";
-import { activeOrgForBackend } from "../cloud/client";
 import ProfilesService from "../profiles-service/profiles-service.api";
 import {
   batchGetCloudConversations,
   createCloudAppConversation,
-  deleteCloudConversation,
+  createCloudConversationDeletionTarget,
   downloadCloudConversation,
   getCloudAppConversationStartTask,
   readCloudConversationFile,
@@ -69,7 +67,10 @@ import {
 } from "../conversation-metadata-store";
 import { resolveTitleLlmProfile } from "#/utils/title-llm-profile";
 import { toAcpModelOptions } from "#/constants/acp-providers";
-import { isPlannerConversationOf } from "#/utils/plan-file";
+import {
+  isPlannerConversationOf,
+  LOCAL_PLANNER_PARENT_TAG_KEY,
+} from "#/utils/plan-file";
 import { buildAutomationSetupModeTags } from "#/utils/automation-draft-tags";
 import { AUTOMATION_FORM_UPDATE_CLIENT_TOOL } from "../automation-form-client-tool";
 import { CANVAS_UI_CLIENT_TOOL } from "../canvas-ui-client-tool";
@@ -79,6 +80,7 @@ import type {
   PluginSpec,
   AppConversation,
   AppConversationPage,
+  ConversationDeletionTarget,
   AppConversationStartRequest,
   AppConversationStartTask,
   MetricsSnapshot,
@@ -90,14 +92,6 @@ import type {
 
 const DEFAULT_CONVERSATION_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
-/** Captured synchronously before a delete mutation's asynchronous callbacks. */
-export type ConversationDeletionScope =
-  | { kind: "local"; client: ConversationClient }
-  | {
-      kind: "cloud";
-      backend: Backend;
-      orgId: string | null;
-    };
 // Creating the first conversation right after a cold agent-server boot (fresh
 // machine or the packaged desktop app, where uvx may still be warming caches)
 // can exceed the client's 60s default timeout.
@@ -751,20 +745,33 @@ class AgentServerConversationService {
    */
   static async getLocalPlanningConversationIds(
     parentConversationId: string,
-    client?: ConversationClient,
   ): Promise<string[]> {
-    if (!client && getActiveBackend().backend.kind === "cloud") return [];
+    if (getActiveBackend().backend.kind === "cloud") return [];
+    return this.getPlanningConversationIdsFromClient(
+      parentConversationId,
+      new ConversationClient(getAgentServerClientOptions()),
+    );
+  }
 
+  private static async getPlanningConversationIdsFromClient(
+    parentConversationId: string,
+    client: ConversationClient,
+  ): Promise<string[]> {
     const ids = new Set<string>();
 
     try {
-      const [parent] = await this.batchGetAppConversations(
-        [parentConversationId],
-        client,
+      // Discovery needs only IDs and tags. Display adaptation reads the active
+      // connection and must not run after this target's selection has changed.
+      const [parent] = requireDirectConversationBatch(
+        await client.getConversations<DirectConversationInfo>([
+          parentConversationId,
+        ]),
       );
       const childIds = parent?.sub_conversation_ids ?? [];
       if (childIds.length > 0) {
-        const children = await this.batchGetAppConversations(childIds, client);
+        const children = requireDirectConversationBatch(
+          await client.getConversations<DirectConversationInfo>(childIds),
+        );
         for (const child of children) {
           if (child && isPlannerConversationOf(child, parentConversationId)) {
             ids.add(child.id);
@@ -862,16 +869,15 @@ class AgentServerConversationService {
 
   static async batchGetAppConversations(
     ids: string[],
-    client?: ConversationClient,
   ): Promise<(AppConversation | null)[]> {
     if (ids.length === 0) return [];
 
-    if (!client && getActiveBackend().backend.kind === "cloud") {
+    if (getActiveBackend().backend.kind === "cloud") {
       return batchGetCloudConversations(ids);
     }
 
-    const data: unknown = await (
-      client ?? new ConversationClient(getAgentServerClientOptions())
+    const data: unknown = await new ConversationClient(
+      getAgentServerClientOptions(),
     ).getConversations<DirectConversationInfo>(ids);
 
     return requireDirectConversationBatch(data).map((item) =>
@@ -1028,52 +1034,73 @@ class AgentServerConversationService {
       return searchCloudConversations(limit, pageId);
     }
 
-    const data = await new ConversationClient(
-      getAgentServerClientOptions(),
-    ).searchConversations({
+    return toConversationPage(
+      await this.searchLocalConversations(
+        new ConversationClient(getAgentServerClientOptions()),
+        limit,
+        pageId,
+      ),
+    );
+  }
+
+  private static async searchLocalConversations(
+    client: ConversationClient,
+    limit: number = 20,
+    pageId?: string,
+  ) {
+    const data = await client.searchConversations({
       limit,
       page_id: pageId,
       sort_order: ConversationSortOrder.UPDATED_AT_DESC,
     });
 
-    return toConversationPage(requireConversationSearchPage(data));
+    return requireConversationSearchPage(data);
   }
 
-  static createConversationDeletionScope(): ConversationDeletionScope {
-    const backend = getActiveBackend().backend;
-    if (backend.kind === "cloud") {
+  static createConversationDeletionTarget(): ConversationDeletionTarget {
+    if (getActiveBackend().backend.kind === "cloud") {
+      const target = createCloudConversationDeletionTarget();
       return {
-        kind: "cloud",
-        backend,
-        orgId: activeOrgForBackend(backend),
+        searchConversations: target.searchConversations,
+        deleteConversation: async (conversationId) => {
+          await target.deleteConversation(conversationId);
+          removeStoredConversationMetadata(conversationId);
+        },
       };
     }
+    const client = new ConversationClient(getAgentServerClientOptions());
     return {
-      kind: "local",
-      client: new ConversationClient(getAgentServerClientOptions()),
+      searchConversations: async (limit, pageId) => {
+        const page = await this.searchLocalConversations(client, limit, pageId);
+        return {
+          items: page.items
+            .filter((item) => !item.tags?.[LOCAL_PLANNER_PARENT_TAG_KEY])
+            .map(({ id }) => ({ id })),
+          next_page_id: page.next_page_id ?? null,
+        };
+      },
+      deleteConversation: (conversationId) =>
+        this.deleteLocalConversation(conversationId, client),
     };
   }
 
-  static async deleteConversation(
-    conversationId: string,
-    scope: ConversationDeletionScope = this.createConversationDeletionScope(),
-  ): Promise<void> {
-    if (scope.kind === "cloud") {
-      await deleteCloudConversation(conversationId, scope);
-      removeStoredConversationMetadata(conversationId);
-      return;
-    }
+  static async deleteConversation(conversationId: string): Promise<void> {
+    await this.createConversationDeletionTarget().deleteConversation(
+      conversationId,
+    );
+  }
 
+  private static async deleteLocalConversation(
+    conversationId: string,
+    client: ConversationClient,
+  ): Promise<void> {
     // The agent-server orphans children rather than cascading, and the local
     // planner helper is hidden from the conversation list by its
     // `plannerparent` tag — so without this it would survive its parent as an
     // invisible, unreachable conversation (plus its events and state).
-    const planningConversationIds = await this.getLocalPlanningConversationIds(
-      conversationId,
-      scope.client,
-    );
+    const planningConversationIds =
+      await this.getPlanningConversationIdsFromClient(conversationId, client);
 
-    const { client } = scope;
     await Promise.all(
       planningConversationIds.map(async (planningConversationId) => {
         try {

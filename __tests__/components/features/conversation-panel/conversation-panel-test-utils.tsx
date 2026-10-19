@@ -141,6 +141,19 @@ export const setupConversationPanelTest = () => {
       items: [...mockConversations],
       next_page_id: null,
     });
+    vi.spyOn(AgentServerConversationService, "deleteConversation")
+      .mockReset()
+      .mockResolvedValue();
+    // Keep panel tests at the service boundary while allowing each case to
+    // provide search/delete behavior through its existing service spies.
+    vi.spyOn(AgentServerConversationService, "createConversationDeletionTarget")
+      .mockReset()
+      .mockImplementation(() => ({
+        searchConversations: (limit, pageId) =>
+          AgentServerConversationService.searchConversations(limit, pageId),
+        deleteConversation: (conversationId) =>
+          AgentServerConversationService.deleteConversation(conversationId),
+      }));
   });
 
   afterEach(() => {
@@ -152,4 +165,12 @@ export const setupConversationPanelTest = () => {
 };
 
 // Re-exported render helper for specs that build a custom router stub.
-export { render, QueryClient, QueryClientProvider, I18nextProvider, i18n, NavigationProvider, ActiveBackendProvider };
+export {
+  render,
+  QueryClient,
+  QueryClientProvider,
+  I18nextProvider,
+  i18n,
+  NavigationProvider,
+  ActiveBackendProvider,
+};

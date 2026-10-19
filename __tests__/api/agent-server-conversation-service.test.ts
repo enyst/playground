@@ -906,38 +906,132 @@ describe("AgentServerConversationService", () => {
       __resetActiveStoreForTests();
     });
 
-    it("keeps planning lookup and deletion on the original backend during a switch", async () => {
-      const original: Backend = { id: "delete-origin", kind: "local", name: "Original", host: "http://original.test", apiKey: "original-key" };
-      const next: Backend = { ...original, id: "delete-next", host: "http://next.test", apiKey: "next-key" };
-      setRegisteredBackends([original, next]);
-      setActiveSelection({ backendId: original.id });
-      let resolveParent!: (value: unknown) => void;
-      mockHttpGet.mockReturnValueOnce(new Promise(resolve => { resolveParent = resolve; }));
-      mockHttpGet.mockResolvedValueOnce({ data: [makeDirectConversation({ id: "planner", tags: { plannerparent: "parent" } })] });
+    it("uses the same local target for enumeration and deletion after selecting Cloud", async () => {
+      setRegisteredBackends([localBackend, cloudBackend]);
+      setActiveSelection({ backendId: localBackend.id });
+      const target =
+        AgentServerConversationService.createConversationDeletionTarget();
+      setActiveSelection({ backendId: cloudBackend.id, orgId: "other-org" });
+      mockSearchConversations.mockResolvedValue({
+        items: [makeDirectConversation({ id: "parent" })],
+        next_page_id: null,
+      });
+      mockHttpGet.mockResolvedValue({ data: [] });
       mockHttpDelete.mockResolvedValue({ data: undefined });
-      const deletion = AgentServerConversationService.deleteConversation("parent");
-      setActiveSelection({ backendId: next.id });
-      resolveParent({ data: [makeDirectConversation({ id: "parent", sub_conversation_ids: ["planner"] })] });
-      await deletion;
-      expect(mockHttpDelete.mock.calls.map(call => call[0])).toEqual(["/api/conversations/planner", "/api/conversations/parent"]);
-      expect(vi.mocked(ConversationClient).mock.calls.map(([options]) => options?.host)).toEqual(expect.arrayContaining([original.host]));
-      expect(vi.mocked(ConversationClient).mock.calls.every(([options]) => options?.host === original.host)).toBe(true);
+
+      const page = await target.searchConversations(20, "next-page");
+      await target.deleteConversation(page.items[0].id);
+
+      expect(page.items.map(({ id }) => id)).toEqual(["parent"]);
+      expect(mockSearchConversations).toHaveBeenCalledWith({
+        limit: 20,
+        page_id: "next-page",
+        sort_order: "UPDATED_AT_DESC",
+      });
+      expect(mockHttpDelete).toHaveBeenCalledWith("/api/conversations/parent");
+      expect(vi.mocked(ConversationClient)).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          host: localBackend.host,
+          apiKey: localBackend.apiKey,
+        }),
+      );
     });
+
+    it.each(["local", "cloud"] as const)(
+      "keeps planning lookup and deletion on the original backend during a switch to %s",
+      async (kind) => {
+        const original: Backend = {
+          id: "delete-origin",
+          kind: "local",
+          name: "Original",
+          host: "http://original.test",
+          apiKey: "original-key",
+        };
+        const next: Backend = {
+          ...original,
+          id: "delete-next",
+          kind,
+          host: "http://next.test",
+          apiKey: "next-key",
+        };
+        setRegisteredBackends([original, next]);
+        setActiveSelection({ backendId: original.id });
+        let resolveParent!: (value: unknown) => void;
+        mockHttpGet.mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveParent = resolve;
+          }),
+        );
+        mockHttpGet.mockResolvedValueOnce({
+          data: [
+            makeDirectConversation({
+              id: "planner",
+              tags: { plannerparent: "parent" },
+            }),
+          ],
+        });
+        mockHttpDelete.mockResolvedValue({ data: undefined });
+        const deletion =
+          AgentServerConversationService.deleteConversation("parent");
+        setActiveSelection({ backendId: next.id });
+        resolveParent({
+          data: [
+            makeDirectConversation({
+              id: "parent",
+              sub_conversation_ids: ["planner"],
+            }),
+          ],
+        });
+        await deletion;
+        expect(mockHttpDelete.mock.calls.map((call) => call[0])).toEqual([
+          "/api/conversations/planner",
+          "/api/conversations/parent",
+        ]);
+        expect(
+          vi
+            .mocked(ConversationClient)
+            .mock.calls.map(([options]) => options?.host),
+        ).toEqual(expect.arrayContaining([original.host]));
+        expect(
+          vi
+            .mocked(ConversationClient)
+            .mock.calls.every(([options]) => options?.host === original.host),
+        ).toBe(true);
+      },
+    );
 
     it("uses the captured Cloud organization and records suspension there after selection changes", async () => {
       setRegisteredBackends([cloudBackend, localBackend]);
       setActiveSelection({ backendId: cloudBackend.id, orgId: "delete-org" });
-      const scope = AgentServerConversationService.createConversationDeletionScope();
+      const { deleteConversation: deleteOperation } =
+        AgentServerConversationService.createConversationDeletionTarget();
       setActiveSelection({ backendId: cloudBackend.id, orgId: "other-org" });
-      const requests = captureRequests(["delete"], HttpResponse.json({ detail: "Organization is suspended" }, { status: 403 }));
-      await expect(AgentServerConversationService.deleteConversation("cloud-parent", scope)).rejects.toThrow();
-      expect(requests[0].url).toBe(`${cloudBackend.host}/api/v1/app-conversations/cloud-parent`);
+      const requests = captureRequests(
+        ["delete"],
+        HttpResponse.json(
+          { detail: "Organization is suspended" },
+          { status: 403 },
+        ),
+      );
+      await expect(deleteOperation("cloud-parent")).rejects.toThrow();
+      expect(requests[0].url).toBe(
+        `${cloudBackend.host}/api/v1/app-conversations/cloud-parent`,
+      );
       expect(requests[0].headers["x-org-id"]).toBe("delete-org");
-      expect(getOrganizationSuspension(cloudBackend.id, "delete-org")).toBe("organization");
-      expect(getOrganizationSuspension(cloudBackend.id, "other-org")).toBeNull();
+      expect(getOrganizationSuspension(cloudBackend.id, "delete-org")).toBe(
+        "organization",
+      );
+      expect(
+        getOrganizationSuspension(cloudBackend.id, "other-org"),
+      ).toBeNull();
       setActiveSelection({ backendId: localBackend.id });
-      server.use(http.delete(`${cloudBackend.host}/api/v1/app-conversations/cloud-parent`, () => new HttpResponse(null, { status: 204 })));
-      await AgentServerConversationService.deleteConversation("cloud-parent", scope);
+      server.use(
+        http.delete(
+          `${cloudBackend.host}/api/v1/app-conversations/cloud-parent`,
+          () => new HttpResponse(null, { status: 204 }),
+        ),
+      );
+      await deleteOperation("cloud-parent");
       expect(mockHttpDelete).not.toHaveBeenCalled();
     });
 

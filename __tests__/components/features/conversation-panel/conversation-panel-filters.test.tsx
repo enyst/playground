@@ -1,4 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -7,10 +9,18 @@ import {
   openAdvancedOptions,
   renderConversationPanel,
 } from "./conversation-panel-test-utils";
+import { ActiveBackendProvider } from "#/contexts/active-backend-context";
+import { NavigationProvider } from "#/context/navigation-context";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
 import { useConversationPanelPreferencesStore } from "#/stores/conversation-panel-preferences-store";
 import { useArchivedConversationsStore } from "#/stores/archived-conversations-store";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
+import {
+  setActiveSelection,
+  setRegisteredBackends,
+} from "#/api/backend-registry/active-store";
+import type { Backend } from "#/api/backend-registry/types";
+import type { AppConversationPage } from "#/api/conversation-service/agent-server-conversation-service.types";
 
 const mockStopConversationMutate = vi.fn();
 vi.mock("#/hooks/mutation/use-unified-stop-conversation", () => ({
@@ -31,6 +41,32 @@ vi.mock("react-i18next", async (importOriginal) => ({
     i18n: { language: "en", exists: () => false },
   }),
 }));
+
+const renderScopedConversationPanel = (
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  }),
+  navigate = vi.fn(),
+  conversationId: string | null = null,
+) =>
+  renderConversationPanel({
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>
+        <ActiveBackendProvider>
+          <NavigationProvider
+            value={{
+              currentPath: "/",
+              conversationId,
+              isNavigating: false,
+              navigate,
+            }}
+          >
+            {children}
+          </NavigationProvider>
+        </ActiveBackendProvider>
+      </QueryClientProvider>
+    ),
+  });
 
 describe("ConversationPanel filters and pagination", () => {
   setupConversationPanelTest();
@@ -603,7 +639,9 @@ describe("ConversationPanel filters and pagination", () => {
       await screen.findByText("CONVERSATION$CONFIRM_DELETE_ALL_DESC 3");
       await user.click(screen.getByTestId("confirm-button"));
       await waitFor(() => expect(deleteSpy).toHaveBeenCalledTimes(3));
-      expect(new Set(deleteSpy.mock.calls.map(([, scope]) => scope)).size).toBe(1);
+      expect(
+        AgentServerConversationService.createConversationDeletionTarget,
+      ).toHaveBeenCalledTimes(1);
       expect(deleteSpy.mock.calls.map(([id]) => id).sort()).toEqual([
         "archived",
         "unloaded",
@@ -638,6 +676,263 @@ describe("ConversationPanel filters and pagination", () => {
       expect(screen.getByTestId("confirm-button")).toBeDisabled();
       expect(screen.getByTestId("cancel-button")).toBeEnabled();
       expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it("keeps the prepared IDs and count through sidebar refreshes without expanding its polling cache", async () => {
+      // Arrange: the sidebar has one page; preparation must independently
+      // enumerate two full pages and keep that result stable until confirmation.
+      const user = userEvent.setup();
+      const originalRows = Array.from({ length: 40 }, (_, index) =>
+        createMockConversation({ id: `original-${index}` }),
+      );
+      let rows = originalRows;
+      const searchSpy = vi
+        .spyOn(AgentServerConversationService, "searchConversations")
+        .mockImplementation(async (limit = 20, pageId) => {
+          const start = pageId ? rows.findIndex((row) => row.id === pageId) : 0;
+          return {
+            items: rows.slice(start, start + limit),
+            next_page_id: rows[start + limit]?.id ?? null,
+          };
+        });
+      const deleteSpy = vi
+        .spyOn(AgentServerConversationService, "deleteConversation")
+        .mockResolvedValue();
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      renderScopedConversationPanel(queryClient);
+      expect(await screen.findAllByTestId("conversation-card")).toHaveLength(
+        20,
+      );
+      await user.click(screen.getByTestId("conversation-layouts-toggle"));
+      await user.click(screen.getByTestId("delete-all-conversations"));
+      await screen.findByText("CONVERSATION$CONFIRM_DELETE_ALL_DESC 40");
+      expect(screen.getAllByTestId("conversation-card")).toHaveLength(20);
+
+      // Act: another tab creates a conversation, then the sidebar's normal
+      // refetch shifts its page. The prepared deletion must stay unchanged.
+      rows = [
+        createMockConversation({ id: "new-conversation" }),
+        ...originalRows,
+      ];
+      searchSpy.mockClear();
+      await act(async () => {
+        await queryClient.refetchQueries({
+          queryKey: ["user", "conversations"],
+        });
+      });
+      expect(searchSpy).toHaveBeenCalledTimes(1);
+      expect(
+        screen.getByText("CONVERSATION$CONFIRM_DELETE_ALL_DESC 40"),
+      ).toBeInTheDocument();
+      await user.click(screen.getByTestId("confirm-button"));
+
+      // Assert: every prepared ID is deleted, and the subsequently created
+      // conversation is outside the confirmed plan.
+      await waitFor(() => expect(deleteSpy).toHaveBeenCalledTimes(40));
+      expect(deleteSpy.mock.calls.map(([id]) => id)).toEqual(
+        originalRows.map((row) => row.id),
+      );
+    });
+
+    it("ignores a cancelled preparation's late page when a new confirmation is already ready", async () => {
+      const user = userEvent.setup();
+      let resolveOldPage!: (page: AppConversationPage) => void;
+      const oldPage = new Promise<AppConversationPage>((resolve) => {
+        resolveOldPage = resolve;
+      });
+      const oldSearch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          items: [createMockConversation({ id: "old-first" })],
+          next_page_id: "second",
+        })
+        .mockReturnValueOnce(oldPage);
+      const oldDelete = vi.fn();
+      const newDelete = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(AgentServerConversationService.createConversationDeletionTarget)
+        .mockReturnValueOnce({
+          searchConversations: oldSearch,
+          deleteConversation: oldDelete,
+        })
+        .mockReturnValueOnce({
+          searchConversations: vi.fn().mockResolvedValue({
+            items: [createMockConversation({ id: "new-plan" })],
+            next_page_id: null,
+          }),
+          deleteConversation: newDelete,
+        });
+      renderConversationPanel();
+      await screen.findAllByTestId("conversation-card");
+      await user.click(screen.getByTestId("conversation-layouts-toggle"));
+      await user.click(screen.getByTestId("delete-all-conversations"));
+      await waitFor(() => expect(oldSearch).toHaveBeenCalledTimes(2));
+
+      await user.click(screen.getByTestId("cancel-button"));
+      await user.click(screen.getByTestId("conversation-layouts-toggle"));
+      await user.click(screen.getByTestId("delete-all-conversations"));
+      await screen.findByText("CONVERSATION$CONFIRM_DELETE_ALL_DESC 1");
+      await act(async () => {
+        resolveOldPage({
+          items: [createMockConversation({ id: "old-second" })],
+          next_page_id: "third",
+        });
+      });
+      await user.click(screen.getByTestId("confirm-button"));
+
+      await waitFor(() => expect(newDelete).toHaveBeenCalledWith("new-plan"));
+      expect(oldSearch).toHaveBeenCalledTimes(2);
+      expect(oldDelete).not.toHaveBeenCalled();
+    });
+
+    it.each(["backend", "connection", "organization", "unmount"] as const)(
+      "discards pending preparation after a %s change",
+      async (change) => {
+        const user = userEvent.setup();
+        const original: Backend = {
+          id: "original",
+          name: "Original",
+          kind: change === "organization" ? "cloud" : "local",
+          host: "http://localhost:3000",
+          apiKey: "original-key",
+        };
+        const next: Backend = { ...original, id: "next" };
+        setRegisteredBackends([original, next]);
+        setActiveSelection({
+          backendId: original.id,
+          orgId: change === "organization" ? "org-1" : null,
+        });
+        let resolvePage!: (page: AppConversationPage) => void;
+        const pendingPage = new Promise<AppConversationPage>((resolve) => {
+          resolvePage = resolve;
+        });
+        const search = vi.fn().mockReturnValue(pendingPage);
+        const deletion = vi.fn();
+        vi.mocked(
+          AgentServerConversationService.createConversationDeletionTarget,
+        ).mockReturnValueOnce({
+          searchConversations: search,
+          deleteConversation: deletion,
+        });
+        const view = renderScopedConversationPanel();
+        await screen.findAllByTestId("conversation-card");
+        await user.click(screen.getByTestId("conversation-layouts-toggle"));
+        await user.click(screen.getByTestId("delete-all-conversations"));
+        expect(screen.getByTestId("confirm-button")).toBeDisabled();
+
+        act(() => {
+          if (change === "unmount") view.unmount();
+          else if (change === "connection") {
+            setRegisteredBackends([
+              {
+                ...original,
+                host: "http://changed.test",
+                connectionRevision: 1,
+              },
+              next,
+            ]);
+          } else {
+            setActiveSelection({
+              backendId: change === "backend" ? next.id : original.id,
+              orgId: change === "organization" ? "org-2" : null,
+            });
+          }
+        });
+        await act(async () => {
+          resolvePage({
+            items: [createMockConversation({ id: "late" })],
+            next_page_id: "must-not-fetch",
+          });
+        });
+
+        expect(screen.queryByTestId("confirm-button")).not.toBeInTheDocument();
+        expect(search).toHaveBeenCalledTimes(1);
+        expect(deletion).not.toHaveBeenCalled();
+      },
+    );
+
+    it("keeps confirmation disabled when enumeration repeats a cursor", async () => {
+      const user = userEvent.setup();
+      const search = vi.fn().mockResolvedValue({
+        items: [createMockConversation({ id: "repeated" })],
+        next_page_id: "same-cursor",
+      });
+      const deletion = vi.fn();
+      vi.mocked(
+        AgentServerConversationService.createConversationDeletionTarget,
+      ).mockReturnValueOnce({
+        searchConversations: search,
+        deleteConversation: deletion,
+      });
+      renderConversationPanel();
+      await screen.findAllByTestId("conversation-card");
+      await user.click(screen.getByTestId("conversation-layouts-toggle"));
+      await user.click(screen.getByTestId("delete-all-conversations"));
+
+      await screen.findByText("ERROR$GENERIC");
+      expect(screen.getByTestId("confirm-button")).toBeDisabled();
+      expect(search).toHaveBeenCalledTimes(2);
+      expect(deletion).not.toHaveBeenCalled();
+    });
+
+    it("finishes on the captured target without navigating after the user switches backend", async () => {
+      const user = userEvent.setup();
+      const original: Backend = {
+        id: "original",
+        name: "Original",
+        kind: "local",
+        host: "http://localhost:3000",
+        apiKey: "original-key",
+      };
+      const next = { ...original, id: "next" };
+      setRegisteredBackends([original, next]);
+      setActiveSelection({ backendId: original.id });
+      useArchivedConversationsStore.setState({
+        archivesByBackendId: {
+          [original.id]: ["active", "remaining-original"],
+          [next.id]: ["active", "remaining-next"],
+        },
+      });
+      let finishDeletion!: () => void;
+      const deletion = vi.fn().mockReturnValue(
+        new Promise<void>((resolve) => {
+          finishDeletion = resolve;
+        }),
+      );
+      vi.mocked(
+        AgentServerConversationService.createConversationDeletionTarget,
+      ).mockReturnValueOnce({
+        searchConversations: vi.fn().mockResolvedValue({
+          items: [createMockConversation({ id: "active" })],
+          next_page_id: null,
+        }),
+        deleteConversation: deletion,
+      });
+      const navigate = vi.fn();
+      renderScopedConversationPanel(undefined, navigate, "active");
+      await screen.findAllByTestId("conversation-card");
+      await user.click(screen.getByTestId("conversation-layouts-toggle"));
+      await user.click(screen.getByTestId("delete-all-conversations"));
+      await screen.findByText("CONVERSATION$CONFIRM_DELETE_ALL_DESC 1");
+      await user.click(screen.getByTestId("confirm-button"));
+      await waitFor(() => expect(deletion).toHaveBeenCalledWith("active"));
+
+      act(() => {
+        setActiveSelection({ backendId: next.id });
+      });
+      await act(async () => {
+        finishDeletion();
+      });
+
+      expect(navigate).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("confirm-button")).not.toBeInTheDocument();
+      expect(
+        useArchivedConversationsStore.getState().archivesByBackendId,
+      ).toEqual({
+        [original.id]: ["remaining-original"],
+        [next.id]: ["active", "remaining-next"],
+      });
     });
 
     it("delete-all is enabled when no conversations are older than the cutoff and deletes every loaded conversation", async () => {
@@ -682,8 +977,8 @@ describe("ConversationPanel filters and pagination", () => {
       await waitFor(() => {
         expect(deleteSpy).toHaveBeenCalledTimes(2);
       });
-      expect(deleteSpy).toHaveBeenCalledWith("recent-1", expect.objectContaining({ kind: "local" }));
-      expect(deleteSpy).toHaveBeenCalledWith("recent-2", expect.objectContaining({ kind: "local" }));
+      expect(deleteSpy).toHaveBeenCalledWith("recent-1");
+      expect(deleteSpy).toHaveBeenCalledWith("recent-2");
     });
 
     it("delete-all still deletes hidden archived conversations", async () => {
@@ -750,9 +1045,9 @@ describe("ConversationPanel filters and pagination", () => {
       await waitFor(() => {
         expect(deleteSpy).toHaveBeenCalledTimes(3);
       });
-      expect(deleteSpy).toHaveBeenCalledWith("visible-1", expect.objectContaining({ kind: "local" }));
-      expect(deleteSpy).toHaveBeenCalledWith("archived-1", expect.objectContaining({ kind: "local" }));
-      expect(deleteSpy).toHaveBeenCalledWith("archived-2", expect.objectContaining({ kind: "local" }));
+      expect(deleteSpy).toHaveBeenCalledWith("visible-1");
+      expect(deleteSpy).toHaveBeenCalledWith("archived-1");
+      expect(deleteSpy).toHaveBeenCalledWith("archived-2");
     });
 
     it("navigates away after the active conversation is deleted successfully even when another deletion fails", async () => {

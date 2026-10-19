@@ -235,6 +235,22 @@ export interface AppConversationPage {
   next_page_id: string | null;
 }
 
+export type DeleteConversationOperation = (
+  conversationId: string,
+) => Promise<void>;
+
+/** Provider-bound operations captured before enumeration or mutation begins. */
+export interface ConversationDeletionTarget {
+  searchConversations: (
+    limit?: number,
+    pageId?: string,
+  ) => Promise<{
+    items: Pick<AppConversation, "id">[];
+    next_page_id: string | null;
+  }>;
+  deleteConversation: DeleteConversationOperation;
+}
+
 export interface Skill {
   name: string;
   type: "repo" | "knowledge" | "agentskills";

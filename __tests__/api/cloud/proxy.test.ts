@@ -5,6 +5,7 @@ import {
   setRegisteredBackends,
 } from "#/api/backend-registry/active-store";
 import { callCloudProxy } from "#/api/cloud/proxy";
+import { createCloudConversationDeletionTarget } from "#/api/cloud/conversation-service.api";
 import { getOrganizationSuspension } from "#/api/cloud/organization-suspension-store";
 import type { Backend } from "#/api/backend-registry/types";
 
@@ -59,6 +60,21 @@ afterEach(() => {
 });
 
 describe("callCloudProxy X-Org-Id injection", () => {
+  it("preserves an explicitly captured null organization after selection changes", async () => {
+    setRegisteredBackends([cloudPersonal]);
+    setActiveSelection({ backendId: cloudPersonal.id, orgId: null });
+    const target = createCloudConversationDeletionTarget();
+    setActiveSelection({ backendId: cloudPersonal.id, orgId: "new-org" });
+
+    await target.deleteConversation("original-conversation");
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      `${cloudPersonal.host}/api/v1/app-conversations/original-conversation`,
+    );
+    expect(new Headers(init.headers).get("X-Org-Id")).toBeNull();
+  });
+
   it("sends X-Org-Id when targeting the active cloud backend with a selected orgId", async () => {
     // Arrange — active selection points at the cloud backend with a
     // resolved orgId. This is the steady-state case after the user picks
@@ -112,6 +128,63 @@ describe("callCloudProxy X-Org-Id injection", () => {
     expect(
       (init as { headers: Record<string, string> }).headers,
     ).not.toHaveProperty("X-Org-Id");
+  });
+});
+
+describe("captured Cloud conversation deletion target", () => {
+  it("keeps enumeration and deletion on the captured backend and organization", async () => {
+    const otherBackend = { ...cloudAcme, host: "https://other-cloud.test" };
+    setRegisteredBackends([cloudPersonal, otherBackend]);
+    setActiveSelection({ backendId: cloudPersonal.id, orgId: "captured-org" });
+    const target = createCloudConversationDeletionTarget();
+    fetchMock.mockImplementation(async () =>
+      mockJsonResponse({ items: [], next_page_id: null }),
+    );
+
+    setActiveSelection({ backendId: cloudPersonal.id, orgId: "later-org" });
+    await target.searchConversations(20, "second-page");
+    setActiveSelection({
+      backendId: otherBackend.id,
+      orgId: "other-backend-org",
+    });
+    await target.deleteConversation("captured-conversation");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      `${cloudPersonal.host}/api/v1/app-conversations/search?limit=20&page_id=second-page&sort_order=UPDATED_AT_DESC`,
+      `${cloudPersonal.host}/api/v1/app-conversations/captured-conversation`,
+    ]);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.headers).toMatchObject({
+        Authorization: `Bearer ${cloudPersonal.apiKey}`,
+        "X-Org-Id": "captured-org",
+      });
+    }
+  });
+
+  it("attributes a suspended deletion to the captured organization", async () => {
+    setRegisteredBackends([cloudPersonal]);
+    setActiveSelection({
+      backendId: cloudPersonal.id,
+      orgId: "captured-suspended",
+    });
+    const target = createCloudConversationDeletionTarget();
+    setActiveSelection({ backendId: cloudPersonal.id, orgId: "later-healthy" });
+    fetchMock.mockResolvedValue(
+      mockJsonResponse({ detail: "Organization is suspended" }, 403),
+    );
+
+    await expect(
+      target.deleteConversation("conversation"),
+    ).rejects.toMatchObject({
+      status: 403,
+    });
+
+    expect(
+      getOrganizationSuspension(cloudPersonal.id, "captured-suspended"),
+    ).toBe("organization");
+    expect(
+      getOrganizationSuspension(cloudPersonal.id, "later-healthy"),
+    ).toBeNull();
   });
 });
 

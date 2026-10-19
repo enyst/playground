@@ -47,7 +47,7 @@ describe("callCloudProxy", () => {
     });
   });
 
-  it("forwards the active Cloud org as X-Org-Id", async () => {
+  it("binds the active Cloud organization to the request client", async () => {
     await callCloudProxy({
       backend: cloudBackend,
       method: "GET",
@@ -55,11 +55,14 @@ describe("callCloudProxy", () => {
       headers: { "X-Agent-Canvas-Client": "test" },
     });
 
+    expect(CloudClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-1" }),
+    );
+    expect(getActiveBackendMock).toHaveBeenCalledTimes(1);
     expect(requestMock).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: expect.objectContaining({
           "X-Agent-Canvas-Client": "test",
-          "X-Org-Id": "org-1",
         }),
       }),
     );

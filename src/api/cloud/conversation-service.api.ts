@@ -9,6 +9,7 @@ import type {
   AppConversationPage,
   AppConversationStartRequest,
   AppConversationStartTask,
+  ConversationDeletionTarget,
 } from "../conversation-service/agent-server-conversation-service.types";
 import { AGENT_CANVAS_CLIENT_HEADERS } from "../client-source";
 import { callCloudProxy } from "./proxy";
@@ -54,6 +55,30 @@ function getActiveCloudBackend(): Backend {
   return active;
 }
 
+interface CloudConversationScope {
+  backend: Backend;
+  orgId: string | null;
+}
+
+function captureCloudConversationScope(): CloudConversationScope {
+  const active = getActiveBackend();
+  if (active.backend.kind !== "cloud") {
+    throw new Error("Cloud conversations call requires a cloud backend.");
+  }
+  return { backend: active.backend, orgId: active.orgId };
+}
+
+/** Bind enumeration and deletion to one Cloud selection before either awaits. */
+export function createCloudConversationDeletionTarget(): ConversationDeletionTarget {
+  const scope = captureCloudConversationScope();
+  return {
+    searchConversations: (limit, pageId) =>
+      searchCloudConversationsForScope(scope, limit, pageId),
+    deleteConversation: (conversationId) =>
+      deleteCloudConversation(conversationId, scope),
+  };
+}
+
 /**
  * Resolve the cloud backend a Cloud conversation should be launched against
  * when the active backend may not be a cloud one. Cloud conversations cannot
@@ -88,7 +113,18 @@ export async function searchCloudConversations(
   limit: number = 20,
   pageId?: string,
 ): Promise<AppConversationPage> {
-  const backend = getActiveCloudBackend();
+  return searchCloudConversationsForScope(
+    captureCloudConversationScope(),
+    limit,
+    pageId,
+  );
+}
+
+async function searchCloudConversationsForScope(
+  scope: CloudConversationScope,
+  limit: number = 20,
+  pageId?: string,
+): Promise<AppConversationPage> {
   const params = new URLSearchParams();
   params.set("limit", String(limit));
   if (pageId) params.set("page_id", pageId);
@@ -98,7 +134,7 @@ export async function searchCloudConversations(
     items: AppConversation[];
     next_page_id: string | null;
   }>({
-    backend,
+    ...scope,
     method: "GET",
     path: `/api/v1/app-conversations/search?${params.toString()}`,
   });
@@ -191,7 +227,7 @@ export async function downloadCloudConversation(
  */
 export async function deleteCloudConversation(
   conversationId: string,
-  scope?: { backend: Backend; orgId: string | null },
+  scope?: CloudConversationScope,
 ): Promise<void> {
   await callCloudProxy<unknown>({
     backend: scope?.backend ?? getActiveCloudBackend(),

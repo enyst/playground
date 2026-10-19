@@ -257,3 +257,21 @@ export function useActiveBackend(): ResolvedActiveBackend {
   if (ctx) return ctx.active;
   return { backend: makeDefaultLocalBackend() ?? NO_BACKEND, orgId: null };
 }
+
+/**
+ * Opaque identity for work tied to the current selection and connection.
+ * Consumers compare it to invalidate prepared work without interpreting
+ * provider-specific scope. Credential edits are represented by their revision,
+ * so the identity never exposes an API key. Cosmetic edits keep it stable.
+ */
+export function useActiveBackendIdentity(): string {
+  const { backend, orgId } = useActiveBackend();
+  return JSON.stringify([
+    backend.id,
+    backend.kind,
+    orgId,
+    backend.connectionRevision ?? 0,
+    backend.host,
+    backend.authMode ?? "api-key",
+  ]);
+}

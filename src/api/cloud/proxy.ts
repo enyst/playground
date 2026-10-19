@@ -19,7 +19,7 @@ export interface CloudProxyRequest {
   sessionApiKey?: string | null;
   responseType?: "blob" | "arrayBuffer";
   /**
-   * The organization captured when the user confirmed the action. Omit it to
+   * The organization captured when the operation started. Omit it to
    * use the backend's active organization at call time.
    */
   orgId?: string | null;
@@ -28,21 +28,20 @@ export interface CloudProxyRequest {
 export async function callCloudProxy<TResponse = unknown>(
   req: CloudProxyRequest,
 ): Promise<TResponse> {
-  const client = req.hostOverride
-    ? createCloudClientForRuntime(req.backend)
-    : createCloudClient(req.backend);
-  // The org this request is scoped to, read when the client is built so a
-  // later org switch can't be blamed for this response.
+  // Resolve once for both transport and suspension attribution. An explicit
+  // null must not inherit a later selection from the client constructor.
   const orgId =
     req.orgId !== undefined ? req.orgId : activeOrgForBackend(req.backend);
-  const headers = orgId ? { ...req.headers, "X-Org-Id": orgId } : req.headers;
+  const client = req.hostOverride
+    ? createCloudClientForRuntime(req.backend, orgId)
+    : createCloudClient(req.backend, orgId);
 
   try {
     return await client.request<TResponse>({
       method: req.method,
       path: req.path,
       body: req.body,
-      headers,
+      headers: req.headers,
       timeoutSeconds: req.timeoutSeconds,
       hostOverride: req.hostOverride,
       authMode:
