@@ -258,8 +258,9 @@ How to write and prove new entries: [../mapping.md](../mapping.md).
 | F26 | [Launcher modes, Docker, desktop and library](F26-runtime-variants.md) | launcher flags, partial stacks, LAN bind, Docker, Electron, embeddable library | a terminal | Docker/Electron where available | 34 |
 | F27 | [Workspace tools](F27-workspace-tools.md) | terminal, browser, planner, task list, usage, `canvas_ui_control` | drawer tabs | LLM | 30 |
 | F28 | [Automation setup page](F28-automation-setup-page.md) | blank form, kind toggle, schedule presets, event fields, timeout, draft save and validation, draft Test, Create | **Add Automation → Create Automation**, `/automations/setup`, draft Resume, kebab Edit | automation service; no LLM | 13 |
+| F29 | [Insider Cat and Voice](F29-insider-cat.md) | saved Cat identity, profile capabilities, new/resume/condense, companion, voice lifecycle and saved-agent handoff | installed Projects App, Cat badges, normal conversation/panel | reviewed Insider App; compatible SDK; real LLM; Voice provider and microphone for audio branches; recipes pending live proof | 22 |
 
-28 families, 779 sub-features. `control-openhands map ids` lists every ID with its file.
+29 families, 801 sub-features. `control-openhands map ids` lists every ID with its file.
 
 ### Neighbouring families
 
@@ -270,6 +271,7 @@ Several pages are shared. Each behavior has one owner; the others reference its 
 - LLM settings: profiles are F10, provider connections F11 (same page), routers F12, agent profiles F13.
 - Automations: dashboard F21, creation F22, detail and runs F23, Git Sync F24; the setup page's form, drafts and Test are F28 (F22 keeps the agent-assisted recipes, F23 owns edit mode).
 - Customize: MCP F17, skills F18, plugins F19, apps F20; the hub and its navigation are in F17.
+- Insider Cat: F29 owns the installed App's integration, saved Cat identity and Voice companion. F20 owns installation/trust, F13/F18 own profile and skill configuration, and F05/F07 own the ordinary composer/conversation controls. Agent Server's verify skill owns provider contracts and relay internals; a Canvas UI pass requires actual saved-agent and media evidence, not only an SDK test.
 - Backends: adding and switching backends is F25; launcher flags that create them are F26.
 
 ## Not mapped
@@ -287,3 +289,4 @@ Everything else a user can reach is mapped. These are left out on purpose:
 - Locked-to-Cloud deployments: `scripts/static-server.mjs --lock-to-cloud` exists, but `bin/agent-canvas.mjs` does not forward it, so `control-openhands launch` cannot start that mode.
 - Page-local load errors (for example the LLM profiles or apps list failing while the rest of the backend works) need fault injection; stopping a service with `service stop` replaces the whole app with the backend-unavailable screen instead. The pages' empty and error copy is mapped where reachable.
 - Real microphone dictation, native file dialogs outside the browser, and Electron window chrome beyond what F26 drives.
+- Insider Cat (`F29`): the new recipes describe required behavior and remain draft until exercised on the recorded Canvas/App/SDK revisions. Voice setup, real audio, saved-agent handoff, race cleanup, legacy identity and backend isolation need separate evidence; map structure/source checks do not establish them. The existing maintenance baseline is unchanged by this feature-specific addition.
