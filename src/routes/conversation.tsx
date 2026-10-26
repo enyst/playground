@@ -209,6 +209,7 @@ function AppContent() {
         <div data-testid="app-route" className="flex h-full flex-col">
           {showsMobilePanelPage ? (
             <ConversationMobilePanelPage
+              conversation={conversation}
               onNavigateBack={() =>
                 navigate(`/conversations/${conversationId}`)
               }
