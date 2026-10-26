@@ -277,9 +277,27 @@ Preconditions:
   `browser network --filter 'voice'` and `browser media --voice`; save a screenshot.
   A successful SDP response alone is insufficient: require a connected peer,
   live enabled microphone track, and a usable call. In a separate denied-permission
-  drive, inspect `voice.microphonePermission` and `voice.captureRequests`: expect
-  `denied`/`NotAllowedError` when the browser denies it, explanatory text,
-  no persistent live track/call and successful retry after permission is granted.
+  drive, require a capture request with `status: error`,
+  `errorName: NotAllowedError` and no granted audio tracks, explanatory text,
+  no peer or realtime POST, and a working typed fallback in the same Cat.
+  The configured Chromium headless shell supports native automatic denial:
+  end any call, record the original browser flags, then run
+  `control-openhands browser stop --run "$OH_VERIFY_RUN"` followed by
+  `CONTROL_OPENHANDS_BROWSER_ARGS='--use-fake-device-for-media-stream --use-fake-ui-for-media-stream=deny' control-openhands browser start --run "$OH_VERIFY_RUN"`.
+  Reopen `<cat-a>` Projects, clear the network log, click Talk, then inspect
+  `control-openhands browser media --voice` and
+  `control-openhands browser network --filter 'voice/realtime'`.
+  Replace the normal fake-UI allow flag; do not combine it with `=deny` or
+  `--auto-accept-camera-and-microphone-capture`. This is Chromium's native
+  automatic media denial, without application or network interception; it is
+  not a physical microphone or human permission-prompt click. Its Permissions
+  API state may remain `prompt`, so require the actual `NotAllowedError` instead
+  of assuming `voice.microphonePermission` becomes `denied`. Merely removing
+  fake UI from this headless shell can produce `NotSupportedError`, which is a
+  different test. Send `Reply TEXT_STILL_WORKS only.` through the App's draft
+  and Send controls, and require the saved request and displayed reply.
+  Stop the owned browser, restore its original flags, start it again and require
+  a successful call retry. Record the denial and recovery separately.
 
 - **Travelling call (`F29.companion`).** While the call is live, open Full
   conversation by click. `control-openhands browser visible '.insider-voice'`
@@ -310,6 +328,31 @@ Preconditions:
   two `--voice` samples while output is active: matching `voice.peerConnections`
   IDs must show increasing inbound-audio counters where supported. Nonzero or
   increasing audio energy supports decoded audio, not physical speaker audibility.
+
+  **Correction during a pending task.** Use a fresh call on a settled controller
+  with Terminal enabled and no pending approval. Say: “Use Terminal to run only
+  `sleep 20; printf 'OLD SEVENTEEN\n'`. When it finishes, tell me the result.”
+  Five seconds after that utterance ends, say: “Please do not say the old result;
+  tell me NEW TWENTY NINE instead.” Save the spoken-input timing and verify in
+  the saved events that the first terminal action was still pending when the
+  correction arrived. If it was not pending, repeat the timing probe rather
+  than treating it as a pass. Recorded microphone input may supply these same
+  utterances and gap through Chromium's existing audio-fixture flags; label
+  synthetic input and the real provider response separately.
+
+  Inspect the controller's MessageEvent, ActionEvent and ObservationEvent rows
+  and the returned Voice transcript/audio through completion and for at least
+  60 seconds afterward. The accepted first request and its OLD SEVENTEEN tool
+  result remain durable; that superseded answer must not be spoken. A busy
+  correction must be described as **not sent**, with a clear instruction to
+  repeat it after the current task finishes. Voice must not claim it accepted,
+  forwarded or queued the correction; confirm that no second saved request
+  exists for that unaccepted correction. This is not cancelling the running
+  tool. After it settles, say: “Use Terminal to calculate 2 + 3 and tell me the
+  result.” Require one fresh saved request, the real tool observation and spoken
+  answer 5, proving that suppression did not disable the next uninterrupted
+  task. Record this branch separately from a normal handoff; transcript-only
+  proof does not establish physical speaker silence or all audio barge-in races.
 
 - **Mute input (`F29.voice-mute`).** During that call click
   `control-openhands browser click '.insider-app [data-action="mute"]'`;
