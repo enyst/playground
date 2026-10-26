@@ -2901,17 +2901,24 @@ async function cmdBrowser({ positional, flags }) {
       const reducedMotion = flags["reduced-motion"];
       if (
         rest.length ||
+        (flags.voice !== undefined && flags.voice !== true) ||
         (reducedMotion !== undefined &&
           !["reduce", "no-preference"].includes(reducedMotion))
       )
         usage(
-          "browser media --reduced-motion needs reduce | no-preference",
-          "control-openhands browser media --reduced-motion no-preference",
+          "browser media accepts --voice and --reduced-motion reduce | no-preference",
+          "control-openhands browser media --voice --reduced-motion no-preference",
         );
       result = await browserCall(run, "media", {
         clear: Boolean(flags.clear),
         reducedMotion,
+        ...(flags.voice ? { voice: true } : {}),
       });
+      if (flags.voice && !result.voice)
+        throw new CliError("This browser daemon predates Voice media observation", {
+          code: 3,
+          hint: "End the current call, then browser stop and browser start for this owned run before repeating --voice.",
+        });
       break;
     }
     case "toasts":
@@ -4987,8 +4994,16 @@ Verbs
   downloads [--last N] [--inspect] [--contains TEXT]   saved files; --inspect adds a text head or zip entry names
   storage [--session] [--values]         localStorage (or sessionStorage) keys; values only on request
                                          (keys, tokens and secrets inside values are redacted)
-  media [--clear] [--reduced-motion reduce|no-preference]
+  media [--clear] [--voice] [--reduced-motion reduce|no-preference]
                                          observe playback; optionally emulate active-page motion preference
+        (--voice adds microphone permission/capture/track state, peer states and inbound audio
+         bytesReceived/packetsReceived/totalAudioEnergy/totalSamplesReceived when supported,
+         plus detached audio element state; read-only, no permissions or media are supplied)
+        (only local observation IDs; no SDP, ICE addresses, device labels/IDs or transcripts)
+        (per document, last 128 observations per kind; dropped counts are explicit;
+         collected=true retains last observed state, not proof of cleanup; --clear clears plays only)
+        (restart an older owned browser daemon before use; this ends active calls;
+         RTP counters prove received media, never physical speaker audibility)
   network-state offline|online|status     interrupt or restore this browser context's real network; status is read-only
                                          (all its tabs; restore online before doctor/cleanup; no request interception)
   network [--external] [--filter REGEX] [--clear] [--last N] [--bodies]   requests with status and redacted query (rows under "recent")

@@ -140,6 +140,21 @@ control-openhands stop                         # stops only this run; evidence s
   emulation on the active page and returns its real `matchMedia` preference,
   alongside the existing playback observations. Use `no-preference` for normal
   streaming-motion checks; restore the prior preference afterwards.
+  `browser media --voice` adds read-only microphone permission and capture
+  outcomes, audio-track `enabled`/`readyState`, peer connection states and
+  available inbound audio RTP counters (`bytesReceived`, `packetsReceived`,
+  `totalAudioEnergy`, `totalSamplesReceived`), plus output element state even for
+  detached `Audio` objects. Instrumentation starts before page scripts; restart
+  an older owned browser daemon only after ending its active call. Normal native
+  media APIs still run: this grants no permission and supplies no audio or mock
+  responses. IDs identify observations within this document, never devices or
+  provider calls. No SDP, ICE addresses, labels, credentials or transcripts enter
+  the Voice projection. Each kind keeps at most 128 observations and reports
+  dropped counts; `collected: true` carries its last observed state, not proof
+  that a live resource was released. `--clear` still clears only play-call
+  history. Compare samples while audio is active, then require ended microphone
+  tracks, closed peers and cleared output streams after End call. Received RTP
+  counters establish media delivery; they do not establish physical audibility.
   `browser events --kinds websocket-created,websocket-open,websocket-close,websocket-error --last 100`
   observes real subscriptions: redacted socket/page URLs preserve numeric
   `after_seq`, with event timestamps and frame counts. No frame bodies or

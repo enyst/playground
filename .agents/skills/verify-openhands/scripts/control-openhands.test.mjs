@@ -2882,18 +2882,23 @@ test("network plugin projection bounds complete UTF-8 JSON and omits non-JSON or
   );
 });
 
-test("browser media validates motion before dispatch and preserves playback observation", async () => {
+test("browser media validates options, preserves playback and requests Voice observation explicitly", async () => {
   const runDir = mkdtempSync(join(tmpdir(), "cov-media-motion-"));
   mkdirSync(join(runDir, "private"));
   writeFileSync(join(runDir, "run.json"), "{}\n");
   const calls = [];
+  let legacy = false;
   const server = createHttpServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;
     const call = JSON.parse(body);
     calls.push(call);
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ ok: true, plays: [] }));
+    res.end(JSON.stringify({
+      ok: true,
+      plays: [],
+      ...(call.args.voice && !legacy ? { voice: { supported: true } } : {}),
+    }));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   writeFileSync(join(runDir, "private", "browser.json"), JSON.stringify({
@@ -2915,10 +2920,20 @@ test("browser media validates motion before dispatch and preserves playback obse
     assert.equal((await invoke(["--clear"])).code, 0);
     assert.deepEqual(calls.at(-1).args, { clear: true });
     assert.equal((await invoke([])).code, 0);
+    const voice = await invoke(["--voice"]);
+    assert.equal(voice.code, 0);
+    assert.equal(voice.voice.supported, true);
+    assert.equal(calls.at(-1).args.voice, true);
+    assert.equal((await invoke(["--voice", "--clear"])).code, 0);
+    assert.deepEqual(calls.at(-1).args, { clear: true, voice: true });
     const before = calls.length;
-    for (const args of [["--reduced-motion"], ["--reduced-motion", "sometimes"], ["reduce"], ["extra", "--reduced-motion", "reduce"]])
+    for (const args of [["--reduced-motion"], ["--reduced-motion", "sometimes"], ["reduce"], ["extra", "--reduced-motion", "reduce"], ["--voice", "false"]])
       assert.equal((await invoke(args)).code, 2);
     assert.equal(calls.length, before, "invalid media input must not mutate the browser");
+    legacy = true;
+    const unavailable = await invoke(["--voice"]);
+    assert.equal(unavailable.code, 3);
+    assert.match(unavailable.hint, /End the current call/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     rmSync(runDir, { recursive: true, force: true });

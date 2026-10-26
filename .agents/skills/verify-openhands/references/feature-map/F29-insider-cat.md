@@ -88,7 +88,7 @@ Preconditions:
 - Voice-positive branches require the backend's configured provider to be
   available and a granted, usable microphone plus audio output in a secure
   browser context. API-key and Codex-auth transports are separate runs, not
-  interchangeable coverage. `browser media` observes playback; it does not
+  interchangeable coverage. `browser media --voice` observes media; it does not
   generate speech, grant microphone permission or prove audibility. If a fixture
   supplies audio, label that evidence synthetic and retain a separate physical
   microphone/listening check. Never turn an intercepted response into a live
@@ -274,9 +274,11 @@ Preconditions:
   permission, select `<cat-a>`, clear `browser media`/`browser network`, and click
   `.insider-app [data-action="voice-start"]`. Observe waking/connecting, then
   listening text and peaked ears; End call and Mute become usable. Inspect
-  `browser network --filter 'voice'` and `browser media`; save a screenshot.
-  A successful SDP response alone is insufficient: require media connection and
-  a usable call. In a separate denied-permission drive, expect explanatory text,
+  `browser network --filter 'voice'` and `browser media --voice`; save a screenshot.
+  A successful SDP response alone is insufficient: require a connected peer,
+  live enabled microphone track, and a usable call. In a separate denied-permission
+  drive, inspect `voice.microphonePermission` and `voice.captureRequests`: expect
+  `denied`/`NotAllowedError` when the browser denies it, explanatory text,
   no persistent live track/call and successful retry after permission is granted.
 
 - **Travelling call (`F29.companion`).** While the call is live, open Full
@@ -294,7 +296,7 @@ Preconditions:
   and speak a unique bounded task: “QA_F29_VOICE: use Terminal to run
   `printf QA_F29_TOOL_RESULT` only, then tell me its result.” Read
   `control-openhands conversation events <cat-a> --kinds MessageEvent,ActionEvent,ObservationEvent --last 30`
-  and `control-openhands browser media`. Require exactly one saved user request,
+  and `control-openhands browser media --voice`. Require exactly one saved user request,
   the named terminal action and matching observation, a settled agent answer
   newer than the watermark, and corresponding returned speech. The real saved
   Cat, not a tool-free realtime/Codex reasoning session, performs the action.
@@ -304,21 +306,27 @@ Preconditions:
   error: the Voice result reports failure and does not reuse the prior answer.
   Check a continuation referring to the saved result after ending/restarting
   Voice; context must come from the same saved Cat. Record each provider/input
-  method separately; absent real speech input is a missing prerequisite.
+  method separately; absent real speech input is a missing prerequisite. Take
+  two `--voice` samples while output is active: matching `voice.peerConnections`
+  IDs must show increasing inbound-audio counters where supported. Nonzero or
+  increasing audio energy supports decoded audio, not physical speaker audibility.
 
 - **Mute input (`F29.voice-mute`).** During that call click
   `control-openhands browser click '.insider-app [data-action="mute"]'`;
   `control-openhands browser attr '.insider-app [data-action="mute"]' aria-pressed`
   is `true`, its label becomes Unmute, and status explains muted input. Verify
   spoken input during the muted interval creates no new request; existing output
-  can continue. Click again: `aria-pressed` is `false`, the same call listens and
+  can continue. `browser media --voice` shows the captured microphone track's
+  `enabled: false` while its `readyState` remains `live`. Click again:
+  `aria-pressed` is `false`, the track is enabled, the same call listens and
   accepts a new bounded request. Neither click sends a new call setup or end.
 
 - **Stop output (`F29.voice-output`).** During real output click
   `control-openhands browser click '.insider-app [data-action="interrupt"]'`.
   With Codex the label becomes Resume audio and
-  `control-openhands browser eval "Array.from(document.querySelectorAll('audio')).filter(a => a.srcObject).map(a => ({muted:a.muted,paused:a.paused}))"`
-  shows output muted/paused; input Mute remains unchanged. Navigate to regular
+  `control-openhands browser media --voice` shows that call's output element
+  muted/paused in `voice.audioElements` (including detached elements); its
+  microphone-track enabled state remains unchanged. Navigate to regular
   chat, allow status polling and late transcript updates, and require suppression
   to persist. Click `.insider-voice [data-action="interrupt"]` to resume the
   current stream without creating a new request/call. With OpenAI API, the
@@ -327,8 +335,11 @@ Preconditions:
 
 - **End the call (`F29.voice-end`).** Click the visible view's
   `[data-action="end"]`, then inspect `browser network --filter 'voice/realtime'`,
-  `browser media`, its status and Talk button. There is one scoped hangup; audio
-  loses its live stream, the mic is released and controls return to idle. The
+  `browser media --voice`, its status and Talk button. There is one scoped hangup;
+  that call's audio element has `hasSrcObject: false`, its captured microphone
+  tracks have `readyState: ended`, its peer is `closed`, and controls return to
+  idle. A garbage-collected object with only a stale live state does not prove
+  cleanup. The
   saved Cat ID/history remain. Reopen Projects, reload and verify saved events.
   Repeat while a previously accepted bounded tool task is running: ending Voice
   must not pause/delete that OpenHands task or duplicate it on reconnection.
