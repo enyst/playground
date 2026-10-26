@@ -7,7 +7,7 @@ capabilities, navigation, identity badges and context-change notification. Agent
 Server owns profile launch, tools, skills and the conversation-bound realtime
 handoff. A working microphone or a spoken answer alone does not prove delegation.
 
-Source: `src/components/features/canvas-extensions/`, `src/routes/canvas-extension-page.tsx`, `src/types/canvas-extension.ts`, `src/utils/insider-cat.ts`, `src/utils/insider-message.ts`, `src/components/features/conversation/`, `src/components/features/conversation-panel/`, `src/hooks/chat/use-slash-command.ts`, `src/hooks/mutation/use-new-conversation-command.ts`, `src/hooks/mutation/use-condense-conversation.ts`, `src/api/agent-server-adapter.ts`.
+Source: `src/components/features/canvas-extensions/`, `src/routes/canvas-extension-page.tsx`, `src/types/canvas-extension.ts`, `src/utils/insider-cat.ts`, `src/utils/insider-message.ts`, `src/components/features/conversation/`, `src/components/features/conversation-panel/`, `src/hooks/chat/use-slash-command.ts`, `src/hooks/mutation/use-new-conversation-command.ts`, `src/hooks/mutation/use-condense-conversation.ts`, `src/hooks/use-compact-context-action.ts`, `src/services/conversation-context-events.ts`, `src/api/agent-server-adapter.ts`.
 
 ## Sub-features
 
@@ -374,6 +374,10 @@ Preconditions:
 - The App's role skill is launch context, not a replacement for real profile
   tools or enabled skills. Existing Cats retain their saved configuration;
   reconnecting Voice or changing the LLM does not repair tool-free Cats.
+- An empty `skills` array in conversation metadata does not establish that no
+  skills are available: enabled skills can be discovered or invoked dynamically.
+  Inspect the actual system prompt, skill invocation and saved tool observations.
+  Conversely, listing a skill in prose does not prove it was loaded or used.
 - Count the owning backend with its real API. Project-card counts, latest-event
   limits and a filesystem event-line count cannot establish its conversation total.
 - Codex handoffs are dispatched on Agent Server; the browser handles media and
