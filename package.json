@@ -85,6 +85,7 @@
     "dev:frontend": "npm run make-i18n && cross-env VITE_MOCK_API=false react-router dev",
     "dev:mock": "npm run make-i18n && cross-env VITE_MOCK_API=true react-router dev",
     "build": "npm run build:app",
+    "build:portal": "cross-env CANVAS_PORTAL_PREVIEW=1 npm run build:app",
     "build:mock": "npm run make-i18n && cross-env VITE_MOCK_API=true react-router build",
     "start": "npx sirv-cli build/ --single",
     "test": "npm run make-i18n && vitest run",

@@ -44,6 +44,18 @@ For a static frontend build (better for slow networks, remote access, tunnels):
 npm run dev:static
 ```
 
+For a high-latency portal preview with fewer shared-module requests:
+
+```sh
+npm run build:portal
+node scripts/dev-with-automation.mjs --static --static-dir .tmp/portal-build
+```
+
+This preview consolidates shared code into larger chunks, trading download size
+for fewer round trips. Route-only modules remain lazy. It writes to
+`.tmp/portal-build`; normal app/library builds and the production `build/`
+directory are unchanged. Rebuild the preview after editing source files.
+
 The published `agent-canvas` binary also supports partial-stack modes when you want to run the frontend and backend processes separately:
 
 ```sh

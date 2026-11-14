@@ -26,6 +26,7 @@ const LIB_EXTERNALS = [
   "framer-motion",
 ];
 const APP_CHUNK_MAX_BYTES = 450 * 1024;
+const portalPreview = process.env.CANVAS_PORTAL_PREVIEW === "1";
 
 // Suites verified to be DOM-free: they import pure functions only, touch no
 // DOM, Web Storage, timers or network, and therefore need neither the jsdom
@@ -97,10 +98,25 @@ const appBuildConfig = {
           {
             name: "vendor",
             test: /node_modules[\\/]/,
-            maxSize: APP_CHUNK_MAX_BYTES,
-            minSize: 20 * 1024,
-            entriesAware: true,
+            ...(portalPreview
+              ? { minShareCount: 2 }
+              : {
+                  maxSize: APP_CHUNK_MAX_BYTES,
+                  minSize: 20 * 1024,
+                  entriesAware: true,
+                }),
           },
+          // A remote preview trades larger shared chunks for fewer round trips.
+          // Leave route-only modules lazy and production chunking unchanged.
+          ...(portalPreview
+            ? [
+                {
+                  name: "shared-preview",
+                  test: /[\\/]src[\\/]/,
+                  minShareCount: 2,
+                },
+              ]
+            : []),
         ],
       },
     },

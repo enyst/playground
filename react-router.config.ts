@@ -14,6 +14,8 @@ const normalizeBasePath = (value?: string) => {
 };
 
 const basename = normalizeBasePath(process.env.VITE_BASE_PATH);
+const buildDirectory =
+  process.env.CANVAS_PORTAL_PREVIEW === "1" ? ".tmp/portal-build" : "build";
 
 /**
  * This script is used to unpack the client directory from the frontend build directory.
@@ -60,7 +62,7 @@ const unpackClientDirectoryOnce = async () => {
   // React Router v8 loads this config as ESM, where `__dirname` is not defined.
   const buildDir = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    "build",
+    buildDirectory,
   );
   const clientDir = path.resolve(buildDir, "client");
 
@@ -95,6 +97,7 @@ const unpackClientDirectory = async () => {
 
 export default {
   appDirectory: "src",
+  buildDirectory,
   ...(basename ? { basename } : {}),
   buildEnd: unpackClientDirectory,
   presets: [vercelPreset()],
